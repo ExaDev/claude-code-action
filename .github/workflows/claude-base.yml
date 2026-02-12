@@ -74,12 +74,39 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Checkout shared prompts
-        uses: actions/checkout@v4
-        with:
-          repository: adpeak/claude-code-action
-          path: .claude-shared
-          fetch-depth: 1
+      - name: Fetch shared prompts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHARED_REPO="adpeak/claude-code-action"
+          mkdir -p .claude-shared/.github/prompts/shared
+          mkdir -p .claude-shared/.github/prompts/interactive
+          mkdir -p .claude-shared/.github/prompts/review
+          mkdir -p .claude-shared/.github/scripts
+
+          # Download prompt files using GitHub API
+          download_dir() {
+            local dir="$1"
+            local target="$2"
+            gh api "repos/$SHARED_REPO/contents/$dir" --paginate 2>/dev/null | \
+              jq -r '.[] | select(.type == "file") | "\(.path)\t\(.sha)"' | \
+              while IFS=$'\t' read -r path sha; do
+                filename=$(basename "$path")
+                echo "Downloading $path..."
+                gh api "repos/$SHARED_REPO/contents/$path" --jq '.content' | \
+                  base64 -d > "$target/$filename"
+              done
+          }
+
+          # Download shared prompts
+          download_dir ".github/prompts/shared" ".claude-shared/.github/prompts/shared"
+          download_dir ".github/prompts/interactive" ".claude-shared/.github/prompts/interactive"
+          download_dir ".github/prompts/review" ".claude-shared/.github/prompts/review"
+
+          # Download compose-prompt.sh
+          gh api "repos/$SHARED_REPO/contents/.github/scripts/compose-prompt.sh" --jq '.content' | \
+            base64 -d > .claude-shared/.github/scripts/compose-prompt.sh
+          chmod +x .claude-shared/.github/scripts/compose-prompt.sh
 
       - name: Set mode-specific defaults
         id: defaults
