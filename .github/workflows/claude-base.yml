@@ -74,7 +74,16 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Get App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Fetch shared prompts
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           SHARED_REPO="adpeak/claude-code-action"
           mkdir -p .claude-shared/.github/prompts/shared
@@ -82,18 +91,31 @@ jobs:
           mkdir -p .claude-shared/.github/prompts/review
           mkdir -p .claude-shared/.github/scripts
 
-          # Debug: show available tokens (first 10 chars only)
-          echo "GITHUB_TOKEN starts with: ${GITHUB_TOKEN:0:10}..."
-          echo "ACTIONS_RUNTIME_TOKEN starts with: ${ACTIONS_RUNTIME_TOKEN:0:10}..."
-          echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN starts with: ${ACTIONS_ID_TOKEN_REQUEST_TOKEN:0:10}..."
+          # Download prompt files using GitHub API with App token
+          download_dir() {
+            local dir="$1"
+            local target="$2"
+            echo "Downloading from $dir..."
+            gh api "repos/$SHARED_REPO/contents/$dir" --paginate 2>/dev/null | \
+              jq -r '.[] | select(.type == "file") | .path' | \
+              while read -r path; do
+                filename=$(basename "$path")
+                echo "  - $filename"
+                gh api "repos/$SHARED_REPO/contents/$path" --jq '.content' | \
+                  base64 -d > "$target/$filename"
+              done
+          }
 
-          # Try ACTIONS_RUNTIME_TOKEN with curl directly
-          API_URL="https://api.github.com/repos/$SHARED_REPO/contents/.github/prompts/shared"
-          echo "Trying ACTIONS_RUNTIME_TOKEN..."
-          curl -s -H "Authorization: token $ACTIONS_RUNTIME_TOKEN" "$API_URL" | head -c 200
-          echo ""
-          echo "Trying GITHUB_TOKEN..."
-          curl -s -H "Authorization: token $GITHUB_TOKEN" "$API_URL" | head -c 200
+          # Download prompts
+          download_dir ".github/prompts/shared" ".claude-shared/.github/prompts/shared"
+          download_dir ".github/prompts/interactive" ".claude-shared/.github/prompts/interactive"
+          download_dir ".github/prompts/review" ".claude-shared/.github/prompts/review"
+
+          # Download compose-prompt.sh
+          echo "Downloading compose-prompt.sh..."
+          gh api "repos/$SHARED_REPO/contents/.github/scripts/compose-prompt.sh" --jq '.content' | \
+            base64 -d > .claude-shared/.github/scripts/compose-prompt.sh
+          chmod +x .claude-shared/.github/scripts/compose-prompt.sh
 
       - name: Set mode-specific defaults
         id: defaults
