@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Claude Code Shared Workflows
 
 Central repository for Claude Code GitHub Actions integration across `adpeak/*` repos.
@@ -159,3 +163,31 @@ The review workflow for this repository includes self-improvement capability. Wh
 - Suggest improvements beyond the scope of the current PR
 
 This creates a feedback loop where the agent can iterate on its own configuration without direct file modification (it creates issues, not PRs directly). Human review is still required before any changes are merged.
+
+## Development Notes
+
+### Symlink Architecture
+
+`CLAUDE.md` and `AGENTS.md` are symlinks to `README.md`. The same content serves:
+- Humans browsing the repo on GitHub
+- Claude Code sessions (via CLAUDE.md)
+- Other AI agents (via AGENTS.md)
+
+When modifying this repo, edit `README.md` directly.
+
+### Testing Workflow Changes
+
+To test workflow changes without merging to main:
+1. Create a branch with your changes
+2. Temporarily modify the `uses:` reference in a test repo's trigger workflow to point to your branch:
+   ```yaml
+   uses: adpeak/claude-code-action/your-branch-name/.github/workflows/claude-base.yml@refs/heads/your-branch-name
+   ```
+3. Trigger the workflow and verify behavior
+
+### Prompt File Conventions
+
+- Number files: `01-09` for org-wide, `10+` for repo-specific
+- Files are concatenated in alphabetical order within each directory
+- Use `envsubst` variables (`$REPO`, `$REPO_OWNER`, `$REPO_NAME`, `$PR_NUMBER`) for dynamic content
+- Keep prompts focused and composable - each file should address one concern
