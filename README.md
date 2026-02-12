@@ -110,9 +110,40 @@ Available environment variables in prompts:
 
 ## Prerequisites
 
-- **Repo visibility**: This repo must be accessible to consuming repos
-  - For same-org usage: Set to internal or configure Actions access in org settings
-  - For cross-org usage: Make public or use PAT-based checkout
+### GitHub App (Required for Cross-Repo Access)
 
-- **Secrets**: Each consuming repo needs `CLAUDE_CODE_OAUTH_TOKEN`
-  - Can be configured at org level (recommended) or repo level
+The workflow uses a GitHub App to fetch shared prompts from this repository. Set up once at the org level:
+
+1. **Create a GitHub App** (Settings → Developer settings → GitHub Apps → New GitHub App):
+   - Name: `adpeak-ops-bot` (or your preferred name)
+   - Homepage URL: Any valid URL
+   - Webhook: Uncheck "Active"
+   - Repository permissions:
+     - **Contents**: Read-only
+     - **Pull requests**: Read and write
+     - **Issues**: Read and write
+   - Where can this GitHub App be installed?: Any account
+
+2. **Generate a Private Key** after creating the app (scroll down to "Private keys" section)
+
+3. **Install the App** on your organization:
+   - Go to your app settings → "Install App"
+   - Install on the organization
+   - Grant access to all repositories (or at minimum: this repo + any consuming repos)
+
+4. **Configure Org-Level Secrets**:
+   - Go to Organization → Settings → Secrets and variables → Actions
+   - Add `APP_ID`: The numeric App ID (found on your app's settings page)
+   - Add `APP_PRIVATE_KEY`: The entire contents of the private key .pem file
+
+### Secrets Required
+
+| Secret | Scope | Description |
+|--------|-------|-------------|
+| `APP_ID` | Org-level | GitHub App ID for cross-repo access |
+| `APP_PRIVATE_KEY` | Org-level | GitHub App private key (.pem content) |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Org or repo-level | Claude Code OAuth token |
+
+### Repo Visibility
+
+This repo can remain **private** - the GitHub App token provides the necessary access. No additional Actions access settings are required.
