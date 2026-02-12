@@ -20,5 +20,8 @@ What to ignore:
 - Pre-existing issues untouched by this PR
 - Matters of personal preference
 
+For large diffs, give every file equal attention. Do not skim or skip files
+toward the end of the diff.
+
 Only flag issues you are confident about. A false positive wastes more of the
 author's time than a missed minor issue. If you are unsure, leave it out.
