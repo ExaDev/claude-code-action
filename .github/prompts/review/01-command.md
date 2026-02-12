@@ -10,6 +10,9 @@ What to look for:
 - Security vulnerabilities
 - Breaking changes or regressions
 - Violations of conventions in CLAUDE.md
+- Credentials, API keys, private keys, or PII in the diff
+- OWASP Top 10 patterns: injection, XSS, SSRF, broken access control
+- Changes to project behavior or structure without corresponding CLAUDE.md updates
 
 What to ignore:
 
