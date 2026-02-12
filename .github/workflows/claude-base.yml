@@ -96,14 +96,28 @@ jobs:
             local dir="$1"
             local target="$2"
             echo "Downloading from $dir..."
-            gh api "repos/$SHARED_REPO/contents/$dir" --paginate 2>/dev/null | \
-              jq -r '.[] | select(.type == "file") | .path' | \
+            local response
+            response=$(gh api "repos/$SHARED_REPO/contents/$dir" --paginate 2>/dev/null) || true
+
+            # Check if response is a valid array
+            if ! echo "$response" | jq -e 'type == "array"' >/dev/null 2>&1; then
+              echo "  (no files found or error)"
+              return 0
+            fi
+
+            # Filter for .md files only
+            echo "$response" | jq -r '.[] | select(.type == "file" and (.name | endswith(".md"))) | .path' | \
               while read -r path; do
+                [ -z "$path" ] && continue
                 filename=$(basename "$path")
                 echo "  - $filename"
                 gh api "repos/$SHARED_REPO/contents/$path" --jq '.content' | \
                   base64 -d > "$target/$filename"
               done
+
+            if [ -z "$(echo "$response" | jq -r '.[] | select(.type == "file" and (.name | endswith(".md"))) | .path' 2>/dev/null)" ]; then
+              echo "  (no .md files)"
+            fi
           }
 
           # Download prompts
