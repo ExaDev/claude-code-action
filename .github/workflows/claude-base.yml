@@ -76,13 +76,17 @@ jobs:
 
       - name: Fetch shared prompts
         env:
-          GH_TOKEN: ${{ github.token }}
+          # Try ACTIONS_RUNTIME_TOKEN which may have access to the reusable workflow's repo
+          GH_TOKEN: ${{ env.ACTIONS_RUNTIME_TOKEN }}
         run: |
           SHARED_REPO="adpeak/claude-code-action"
           mkdir -p .claude-shared/.github/prompts/shared
           mkdir -p .claude-shared/.github/prompts/interactive
           mkdir -p .claude-shared/.github/prompts/review
           mkdir -p .claude-shared/.github/scripts
+
+          # Debug: show which token we're using (masked)
+          echo "Using ACTIONS_RUNTIME_TOKEN for authentication"
 
           # Download prompt files using GitHub API
           download_dir() {
