@@ -10,6 +10,13 @@ on:
   pull_request_review:
     types: [submitted]
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+  actions: read
+
 jobs:
   claude:
     # Trigger when @claude is mentioned in comments, reviews, or issues
