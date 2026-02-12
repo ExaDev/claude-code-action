@@ -20,6 +20,8 @@ jobs:
     uses: adpeak/claude-code-action/.github/workflows/claude-base.yml@main
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      APP_ID: ${{ secrets.APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
     with:
       mode: review
       pr_number: ${{ github.event.pull_request.number }}

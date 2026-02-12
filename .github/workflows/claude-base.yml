@@ -26,6 +26,10 @@ on:
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
         required: true
+      APP_ID:
+        required: true
+      APP_PRIVATE_KEY:
+        required: true
 
 env:
   # Common tools for both modes
