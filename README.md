@@ -86,9 +86,10 @@ Mode determines prompt directory and allowed tools automatically. Use `claude_ar
       02-guidelines.md           # PR review flow, suggestion blocks, labels
       03-comment-hygiene.md      # Stale comment cleanup, context awareness
     interactive/
-      .gitkeep                   # Interactive mode uses shared prompts only
+      01-conduct.md              # Behavioral standards for @claude interactions
     review/
       01-command.md              # Auto-review instructions
+      02-red-flags.md            # Common patterns to watch for in diffs
 ```
 
 ## Prompt Layering
