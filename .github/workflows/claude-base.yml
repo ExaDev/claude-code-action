@@ -164,7 +164,7 @@ jobs:
           if [ -n "${{ inputs.claude_args }}" ]; then
             echo "claude_args=${{ inputs.claude_args }}" >> "$GITHUB_OUTPUT"
           else
-            if [ "$MODE" = "code-review" ]; then
+            if [ "$MODE" = "review" ]; then
               TOOLS="${{ env.COMMON_TOOLS }} ${{ env.REVIEW_TOOLS }}"
             else
               TOOLS="${{ env.COMMON_TOOLS }} ${{ env.INTERACTIVE_TOOLS }}"
