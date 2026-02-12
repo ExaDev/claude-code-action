@@ -90,6 +90,7 @@ Mode determines prompt directory and allowed tools automatically. Use `claude_ar
     review/
       01-command.md              # Auto-review instructions
       02-red-flags.md            # Common patterns to watch for in diffs
+      03-self-improvement.md     # Meta-improvement capability (issue creation)
 ```
 
 ## Prompt Layering
@@ -148,3 +149,13 @@ The workflow uses a GitHub App to fetch shared prompts from this repository. Set
 ### Repo Visibility
 
 This repo can remain **private** - the GitHub App token provides the necessary access. No additional Actions access settings are required.
+
+## Self-Improvement Capability
+
+The review workflow for this repository includes self-improvement capability. When reviewing changes to `adpeak/claude-code-action`, the agent can:
+
+- Create issues to propose prompt improvements
+- Identify gaps, inconsistencies, or enhancement opportunities
+- Suggest improvements beyond the scope of the current PR
+
+This creates a feedback loop where the agent can iterate on its own configuration without direct file modification (it creates issues, not PRs directly). Human review is still required before any changes are merged.
