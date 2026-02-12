@@ -35,6 +35,16 @@ This is the Foo service repository. It handles authentication and user managemen
 Key files: src/auth/, src/users/
 ```
 
+## Architecture
+
+Two-checkout pattern: the reusable workflow checks out both the caller's repo and this shared prompts repo, then composes prompts by layering org-wide and repo-specific files.
+
+### Workflow Types
+
+- **claude-base.yml**: Reusable workflow (`workflow_call`) - never triggers directly, always called by trigger workflows
+- **claude-interactive.yml**: Trigger workflow for @claude mentions in issues/comments/reviews
+- **claude-review.yml**: Trigger workflow for automatic PR reviews
+
 ## Configuration
 
 ### Inputs
@@ -42,14 +52,14 @@ Key files: src/auth/, src/users/
 | Input | Description | Default |
 |-------|-------------|---------|
 | `mode` | `interactive` or `review` | `interactive` |
-| `pr_number` | PR number (required for code-review) | `''` |
+| `pr_number` | PR number (required for review mode) | `''` |
 | `prompt_dir` | Override prompt directory | `interactive` / `review` |
 | `claude_args` | Override claude args | Auto-generated based on mode |
 
 ### Modes
 
 **`interactive`** (default):
-- Prompt dir: `claude`
+- Prompt dir: `interactive`
 - Tools: GitHub API, `gh` commands, issue management
 - No `PR_NUMBER` in prompt context
 
@@ -57,6 +67,8 @@ Key files: src/auth/, src/users/
 - Prompt dir: `review`
 - Tools: GitHub API, `gh` commands, `Read`, `Grep`, `Glob`, `git` commands
 - `PR_NUMBER` available for cleanup of stale reviews
+
+Mode determines prompt directory and allowed tools automatically. Use `claude_args` to override defaults.
 
 ## Structure
 
@@ -81,12 +93,14 @@ Key files: src/auth/, src/users/
 
 ## Prompt Layering
 
-The `compose-prompt.sh` script concatenates prompts in order:
+`compose-prompt.sh` concatenates prompts in order (later extends earlier):
 
-1. `.claude-shared/.github/prompts/shared/*.md` (org-wide)
-2. `.claude-shared/.github/prompts/interactive/*.md` or `review/*.md` (org-wide mode-specific)
-3. `.github/prompts/shared/*.md` (repo-specific)
-4. `.github/prompts/interactive/*.md` or `review/*.md` (repo-specific mode-specific)
+1. `.claude-shared/.github/prompts/shared/*.md` (org-wide shared)
+2. `.claude-shared/.github/prompts/{interactive|review}/*.md` (org-wide mode-specific)
+3. `.github/prompts/shared/*.md` (repo-specific shared)
+4. `.github/prompts/{interactive|review}/*.md` (repo-specific mode-specific)
+
+Prompt files should be numbered: org-wide `01-09`, repo-specific `10+`.
 
 Available environment variables in prompts:
 - `$REPO` — Full repo name (e.g., `adpeak/adpeak-infrastructure`)
