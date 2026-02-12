@@ -170,7 +170,7 @@ jobs:
               TOOLS="${{ env.COMMON_TOOLS }} ${{ env.INTERACTIVE_TOOLS }}"
             fi
             # Convert to comma-separated single line
-            TOOLS=$(echo "$TOOLS" | tr '\n' ' ' | tr -s ' ' | sed 's/ *,/,/g' | sed 's/^ *//;s/ *$//')
+            TOOLS=$(echo "$TOOLS" | tr '\n' ' ' | tr -s ' ' | sed 's/^ *//;s/ *$//' | tr ' ' ',')
             echo "claude_args=--max-turns 50 --allowedTools \"$TOOLS\"" >> "$GITHUB_OUTPUT"
           fi
 
