@@ -86,14 +86,14 @@ jobs:
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          owner: adpeak
+          owner: ExaDev
           repositories: claude-code-action
 
       - name: Fetch shared prompts
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          SHARED_REPO="adpeak/claude-code-action"
+          SHARED_REPO="ExaDev/claude-code-action"
           mkdir -p .claude-shared/.github/prompts/shared
           mkdir -p .claude-shared/.github/prompts/interactive
           mkdir -p .claude-shared/.github/prompts/review

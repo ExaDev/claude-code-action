@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # Claude Code Shared Workflows
 
-Central repository for Claude Code GitHub Actions integration across `adpeak/*` repos.
+Central repository for Claude Code GitHub Actions integration across `ExaDev/*` repos.
 
 ## Quick Start
 
@@ -15,11 +15,11 @@ Run these commands in your repo:
 ```bash
 # Interactive @claude commands (issues, comments, reviews)
 curl -L -o .github/workflows/claude-interactive.yml \
-  https://raw.githubusercontent.com/adpeak/claude-code-action/main/.github/workflows/claude-interactive.yml
+  https://raw.githubusercontent.com/ExaDev/claude-code-action/main/.github/workflows/claude-interactive.yml
 
 # Automatic PR reviews
 curl -L -o .github/workflows/claude-review.yml \
-  https://raw.githubusercontent.com/adpeak/claude-code-action/main/.github/workflows/claude-review.yml
+  https://raw.githubusercontent.com/ExaDev/claude-code-action/main/.github/workflows/claude-review.yml
 ```
 
 ### 2. Configure Secrets
@@ -109,9 +109,9 @@ Mode determines prompt directory and allowed tools automatically. Use `claude_ar
 Prompt files should be numbered: org-wide `01-09`, repo-specific `10+`.
 
 Available environment variables in prompts:
-- `$REPO` — Full repo name (e.g., `adpeak/adpeak-infrastructure`)
-- `$REPO_OWNER` — Org name (e.g., `adpeak`)
-- `$REPO_NAME` — Repo name (e.g., `adpeak-infrastructure`)
+- `$REPO` — Full repo name (e.g., `ExaDev/my-project`)
+- `$REPO_OWNER` — Org name (e.g., `ExaDev`)
+- `$REPO_NAME` — Repo name (e.g., `my-project`)
 - `$PR_NUMBER` — Pull request number (review mode only)
 
 ## Prerequisites
@@ -121,7 +121,7 @@ Available environment variables in prompts:
 The workflow uses a GitHub App to fetch shared prompts from this repository. Set up once at the org level:
 
 1. **Create a GitHub App** (Settings → Developer settings → GitHub Apps → New GitHub App):
-   - Name: `adpeak-ops-bot` (or your preferred name)
+   - Name: `exadev-claude-bot` (or your preferred name)
    - Homepage URL: Any valid URL
    - Webhook: Uncheck "Active"
    - Repository permissions:
@@ -156,7 +156,7 @@ This repo can remain **private** - the GitHub App token provides the necessary a
 
 ## Self-Improvement Capability
 
-The review workflow for this repository includes self-improvement capability. When reviewing changes to `adpeak/claude-code-action`, the agent can:
+The review workflow for this repository includes self-improvement capability. When reviewing changes to `ExaDev/claude-code-action`, the agent can:
 
 - Create issues to propose prompt improvements
 - Identify gaps, inconsistencies, or enhancement opportunities
@@ -181,7 +181,7 @@ To test workflow changes without merging to main:
 1. Create a branch with your changes
 2. Temporarily modify the `uses:` reference in a test repo's trigger workflow to point to your branch:
    ```yaml
-   uses: adpeak/claude-code-action/your-branch-name/.github/workflows/claude-base.yml@refs/heads/your-branch-name
+   uses: ExaDev/claude-code-action/.github/workflows/claude-base.yml@refs/heads/your-branch-name
    ```
 3. Trigger the workflow and verify behavior
 

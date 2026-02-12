@@ -25,5 +25,5 @@ jobs:
       || (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
       || (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude'))
       || (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
-    uses: adpeak/claude-code-action/.github/workflows/claude-base.yml@main
+    uses: ExaDev/claude-code-action/.github/workflows/claude-base.yml@main
     secrets: inherit

@@ -17,7 +17,7 @@ jobs:
     if: >
       github.event.pull_request.user.type != 'Bot' &&
       github.event.pull_request.draft == false
-    uses: adpeak/claude-code-action/.github/workflows/claude-base.yml@main
+    uses: ExaDev/claude-code-action/.github/workflows/claude-base.yml@main
     secrets: inherit
     with:
       mode: review
