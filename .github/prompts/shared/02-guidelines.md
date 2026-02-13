@@ -29,16 +29,18 @@ click "Apply" on all of them. Keep subsequent comments brief.
 
 After submitting a review, do both of the following:
 
-1. **Update the PR description** (the body of the PR itself, NOT a comment)
-   with a concise summary of what the PR changes and why. Describe the actual
-   modifications (new files, refactored logic, bug fixes), not the review
-   status.
+1. **Update the PR description** ONLY if it's missing or incomplete. First check
+   the existing description with `gh pr view $PR_NUMBER`. If it already has a
+   clear summary of changes, skip this step entirely.
+
+   When updating, add only what's missing. Use headings only when organizing
+   multiple distinct sections — a single paragraph needs no `## Summary` heading
+   since the marker block already provides context.
 
    ```bash
    gh pr edit $PR_NUMBER --body "$(cat <<'EOF'
    <!-- claude:start -->
-   ## Summary
-   <brief description of changes>
+   <only add information not already present in the description>
    <!-- claude:end -->
    EOF
    )"
@@ -46,7 +48,7 @@ After submitting a review, do both of the following:
 
    The markers `<!-- claude:start -->` / `<!-- claude:end -->` identify your
    section. Preserve everything outside the markers. If no marker block exists,
-   append yours at the end.
+   append yours at the end. Do NOT repeat information already in the PR body.
 
 2. **Update PR labels** to reflect the outcome:
    - `gh pr edit {pr} --add-label "needs-changes"` after REQUEST_CHANGES
