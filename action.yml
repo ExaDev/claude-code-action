@@ -1,0 +1,115 @@
+name: "Claude Code with Shared Prompts"
+description: "Claude Code action with org-wide prompts bundled. Optionally layers repo-specific prompts."
+author: "ExaDev"
+branding:
+  icon: "at-sign"
+  color: "orange"
+
+inputs:
+  mode:
+    description: "Mode: interactive or review"
+    required: false
+    default: "interactive"
+  pr_number:
+    description: "Pull request number (required for review mode)"
+    required: false
+    default: ""
+  prompt_dir:
+    description: "Override prompt directory (default: interactive or review based on mode)"
+    required: false
+    default: ""
+  claude_code_oauth_token:
+    description: "Claude Code OAuth token"
+    required: true
+  github_token:
+    description: "GitHub token (uses default GITHUB_TOKEN if not provided)"
+    required: false
+  claude_args:
+    description: "Override claude args"
+    required: false
+    default: ""
+
+outputs:
+  execution_file:
+    description: "Path to the Claude Code execution output file"
+    value: ${{ steps.claude.outputs.execution_file }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Compose prompts
+      id: compose
+      shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+        PROMPT_DIR: ${{ inputs.prompt_dir }}
+        REPO: ${{ github.repository }}
+        REPO_OWNER: ${{ github.repository_owner }}
+        REPO_NAME: ${{ github.event.repository.name }}
+      run: |
+        # Determine prompt directory
+        if [ -n "$PROMPT_DIR" ]; then
+          DIR="$PROMPT_DIR"
+        elif [ "$MODE" = "review" ]; then
+          DIR="review"
+        else
+          DIR="interactive"
+        fi
+
+        # Compose prompts: org-wide (bundled) then repo-specific (if exists)
+        PROMPT=""
+
+        # Org-wide shared prompts (bundled in action)
+        for f in "${{ github.action_path }}/.github/prompts/shared"/*.md; do
+          [ -f "$f" ] || continue
+          PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER' < "$f")"$'\n'
+        done
+
+        # Org-wide mode-specific prompts (bundled)
+        for f in "${{ github.action_path }}/.github/prompts/$DIR"/*.md; do
+          [ -f "$f" ] || continue
+          PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER' < "$f")"$'\n'
+        done
+
+        # Repo-specific shared prompts (if they exist)
+        if [ -d ".github/prompts/shared" ]; then
+          for f in .github/prompts/shared/*.md; do
+            [ -f "$f" ] || continue
+            PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER' < "$f")"$'\n'
+          done
+        fi
+
+        # Repo-specific mode-specific prompts (if they exist)
+        if [ -d ".github/prompts/$DIR" ]; then
+          for f in ".github/prompts/$DIR"/*.md; do
+            [ -f "$f" ] || continue
+            PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER' < "$f")"$'\n'
+          done
+        fi
+
+        # Output composed prompt
+        EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+        echo "prompt<<$EOF" >> "$GITHUB_OUTPUT"
+        echo "$PROMPT" >> "$GITHUB_OUTPUT"
+        echo "$EOF" >> "$GITHUB_OUTPUT"
+
+        # Determine allowed tools based on mode
+        COMMON_TOOLS="mcp__github__get_pull_request,mcp__github__get_pull_request_files,mcp__github__get_pull_request_diff,mcp__github__get_pull_request_reviews,mcp__github__list_pull_request_comments,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__create_and_submit_pull_request_review,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh label *),Bash(gh api:*)"
+
+        if [ "$MODE" = "review" ]; then
+          TOOLS="$COMMON_TOOLS,Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(git blame:*),Bash(gh issue create:*),Bash(gh pr create:*)"
+        else
+          TOOLS="$COMMON_TOOLS,Bash(gh issue comment:*),Bash(gh issue view:*)"
+        fi
+
+        echo "tools=$TOOLS" >> "$GITHUB_OUTPUT"
+
+    - name: Run Claude Code
+      id: claude
+      uses: anthropics/claude-code-action@v1
+      with:
+        prompt: ${{ steps.compose.outputs.prompt }}
+        claude_code_oauth_token: ${{ inputs.claude_code_oauth_token }}
+        github_token: ${{ inputs.github_token || github.token }}
+        claude_args: ${{ inputs.claude_args || format('--max-turns 50 --allowedTools "{0}"', steps.compose.outputs.tools) }}
