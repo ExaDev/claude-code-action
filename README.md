@@ -1,8 +1,6 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 # Claude Code Action
+
+> **Note**: `CLAUDE.md` and `AGENTS.md` are symlinks to this file. Edits here propagate to all three.
 
 Composite action for Claude Code GitHub integration across `ExaDev/*` repos with bundled org-wide prompts.
 
@@ -73,11 +71,13 @@ Composite action that bundles org-wide prompts and layers repo-specific prompts 
 
 **`interactive`** (default):
 - Prompt dir: `interactive`
-- Tools: GitHub API, `gh` commands, issue management
+- Tools: GitHub API (PR read ops), `gh pr comment/view/edit`, `gh label`, `gh issue comment/view`
+- Max turns: 50
 
 **`review`**:
 - Prompt dir: `review`
-- Tools: GitHub API, `gh` commands, `Read`, `Grep`, `Glob`, `git` commands
+- Tools: GitHub API (PR read ops), `gh pr comment/view/edit`, `gh label`, `Read`, `Grep`, `Glob`, `git diff/log/blame`, `gh issue/pr create`
+- Max turns: 50
 - `PR_NUMBER` available for cleanup of stale reviews
 
 ## Structure
