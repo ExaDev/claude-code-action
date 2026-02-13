@@ -25,7 +25,7 @@ inputs:
     description: "Anthropic API key (alternative to OAuth token)"
     required: false
   github_token:
-    description: "GitHub token (uses default GITHUB_TOKEN if not provided)"
+    description: "GitHub token (uses Claude App token if not provided, posts as claude[bot])"
     required: false
   claude_args:
     description: "Override claude args"
@@ -198,7 +198,7 @@ runs:
         prompt: ${{ steps.compose.outputs.prompt }}
         claude_code_oauth_token: ${{ inputs.claude_code_oauth_token }}
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
-        github_token: ${{ inputs.github_token || github.token }}
+        github_token: ${{ inputs.github_token }}
         claude_args: ${{ inputs.claude_args || format('--max-turns 50 --allowedTools "{0}"', steps.compose.outputs.tools) }}
         track_progress: ${{ inputs.track_progress }}
         include_fix_links: ${{ inputs.include_fix_links }}
