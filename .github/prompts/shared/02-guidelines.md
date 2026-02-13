@@ -32,10 +32,21 @@ After submitting a review, do both of the following:
 1. **Update the PR description** (the body of the PR itself, NOT a comment)
    with a concise summary of what the PR changes and why. Describe the actual
    modifications (new files, refactored logic, bug fixes), not the review
-   status. You MUST use `gh pr edit` for this — do NOT use `gh pr comment`.
-   Wrap your content in `<!-- claude:start -->` / `<!-- claude:end -->` markers.
-   Preserve everything outside the markers. If no marker block exists, append
-   yours at the end.
+   status.
+
+   ```bash
+   gh pr edit $PR_NUMBER --body "$(cat <<'EOF'
+   <!-- claude:start -->
+   ## Summary
+   <brief description of changes>
+   <!-- claude:end -->
+   EOF
+   )"
+   ```
+
+   The markers `<!-- claude:start -->` / `<!-- claude:end -->` identify your
+   section. Preserve everything outside the markers. If no marker block exists,
+   append yours at the end.
 
 2. **Update PR labels** to reflect the outcome:
    - `gh pr edit {pr} --add-label "needs-changes"` after REQUEST_CHANGES
