@@ -6,12 +6,18 @@ outdated text visible on the PR timeline.
 
 ### 0a. List everything you previously posted
 
-Run all three:
+First, get your own bot identity:
 
 ```sh
-gh api repos/${REPO}/pulls/${PR_NUMBER}/reviews --jq '.[] | select(.user.login == "claude[bot]") | {id, state, body}'
-gh api repos/${REPO}/pulls/${PR_NUMBER}/comments --jq '.[] | select(.user.login == "claude[bot]") | {id, path, body}'
-gh api repos/${REPO}/issues/${PR_NUMBER}/comments --jq '.[] | select(.user.login == "claude[bot]") | {id, body}'
+BOT_LOGIN=$(gh api user --jq '.login')
+```
+
+Then list your previous activity:
+
+```sh
+gh api repos/${REPO}/pulls/${PR_NUMBER}/reviews --jq ".[] | select(.user.login == \"$BOT_LOGIN\") | {id, state, body}"
+gh api repos/${REPO}/pulls/${PR_NUMBER}/comments --jq ".[] | select(.user.login == \"$BOT_LOGIN\") | {id, path, body}"
+gh api repos/${REPO}/issues/${PR_NUMBER}/comments --jq ".[] | select(.user.login == \"$BOT_LOGIN\") | {id, body}"
 ```
 
 Also list reviews and comments from other authors so you understand context —
