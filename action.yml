@@ -1,6 +1,6 @@
 name: "Claude Code with Shared Prompts"
 description: "Claude Code action with org-wide prompts bundled. Optionally layers repo-specific prompts."
-author: "AdPeak"
+author: "ExaDev"
 branding:
   icon: "at-sign"
   color: "orange"
