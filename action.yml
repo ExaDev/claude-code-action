@@ -20,7 +20,10 @@ inputs:
     default: ""
   claude_code_oauth_token:
     description: "Claude Code OAuth token"
-    required: true
+    required: false
+  anthropic_api_key:
+    description: "Anthropic API key (alternative to OAuth token)"
+    required: false
   github_token:
     description: "GitHub token (uses default GITHUB_TOKEN if not provided)"
     required: false
@@ -28,11 +31,94 @@ inputs:
     description: "Override claude args"
     required: false
     default: ""
+  # Progress tracking
+  track_progress:
+    description: "Enable progress tracking with checkbox updates"
+    required: false
+    default: "false"
+  include_fix_links:
+    description: "Include 'Fix this' links in PR review feedback"
+    required: false
+    default: "true"
+  use_sticky_comment:
+    description: "Use single sticky comment for PR feedback"
+    required: false
+    default: "false"
+  # Triggers
+  trigger_phrase:
+    description: "Custom trigger phrase (default: @claude)"
+    required: false
+    default: "@claude"
+  assignee_trigger:
+    description: "Assignee username that triggers action on issue assignment"
+    required: false
+    default: ""
+  label_trigger:
+    description: "Label name that triggers action when applied to issue"
+    required: false
+    default: ""
+  # Branch settings
+  branch_prefix:
+    description: "Prefix for Claude branches (default: claude/)"
+    required: false
+    default: "claude/"
+  # Permissions
+  additional_permissions:
+    description: "Additional permissions (e.g., 'actions: read' for CI access)"
+    required: false
+    default: ""
+  allowed_bots:
+    description: "Comma-separated list of allowed bot usernames"
+    required: false
+    default: ""
+  # Commit signing
+  use_commit_signing:
+    description: "Enable commit signing via GitHub API"
+    required: false
+    default: "false"
+  ssh_signing_key:
+    description: "SSH private key for signing commits"
+    required: false
+    default: ""
+  bot_id:
+    description: "GitHub user ID for git operations"
+    required: false
+    default: "41898282"
+  bot_name:
+    description: "GitHub username for git operations"
+    required: false
+    default: "claude[bot]"
+  # Settings
+  settings:
+    description: "Claude Code settings as JSON string or path to settings file"
+    required: false
+    default: ""
+  # Plugins
+  plugins:
+    description: "Newline-separated list of plugins to install"
+    required: false
+    default: ""
+  plugin_marketplaces:
+    description: "Newline-separated list of plugin marketplace Git URLs"
+    required: false
+    default: ""
+  # Cloud providers
+  use_bedrock:
+    description: "Use Amazon Bedrock with OIDC"
+    required: false
+    default: "false"
+  use_vertex:
+    description: "Use Google Vertex AI with OIDC"
+    required: false
+    default: "false"
 
 outputs:
   execution_file:
     description: "Path to the Claude Code execution output file"
     value: ${{ steps.claude.outputs.execution_file }}
+  structured_output:
+    description: "JSON output when using --json-schema"
+    value: ${{ steps.claude.outputs.structured_output }}
 
 runs:
   using: "composite"
@@ -95,7 +181,7 @@ runs:
         echo "$EOF" >> "$GITHUB_OUTPUT"
 
         # Determine allowed tools based on mode
-        COMMON_TOOLS="mcp__github__get_pull_request,mcp__github__get_pull_request_files,mcp__github__get_pull_request_diff,mcp__github__get_pull_request_reviews,mcp__github__list_pull_request_comments,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__create_and_submit_pull_request_review,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh label *),Bash(gh api:*)"
+        COMMON_TOOLS="mcp__github__get_pull_request,mcp__github__get_pull_request_files,mcp__github__get_pull_request_diff,mcp__github__get_pull_request_reviews,mcp__github__list_pull_request_comments,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__create_and_submit_pull_request_review,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh label *),Bash(gh api:*)"
 
         if [ "$MODE" = "review" ]; then
           TOOLS="$COMMON_TOOLS,Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(git blame:*),Bash(gh issue create:*),Bash(gh pr create:*)"
@@ -111,5 +197,24 @@ runs:
       with:
         prompt: ${{ steps.compose.outputs.prompt }}
         claude_code_oauth_token: ${{ inputs.claude_code_oauth_token }}
+        anthropic_api_key: ${{ inputs.anthropic_api_key }}
         github_token: ${{ inputs.github_token || github.token }}
         claude_args: ${{ inputs.claude_args || format('--max-turns 50 --allowedTools "{0}"', steps.compose.outputs.tools) }}
+        track_progress: ${{ inputs.track_progress }}
+        include_fix_links: ${{ inputs.include_fix_links }}
+        use_sticky_comment: ${{ inputs.use_sticky_comment }}
+        trigger_phrase: ${{ inputs.trigger_phrase }}
+        assignee_trigger: ${{ inputs.assignee_trigger }}
+        label_trigger: ${{ inputs.label_trigger }}
+        branch_prefix: ${{ inputs.branch_prefix }}
+        additional_permissions: ${{ inputs.additional_permissions }}
+        allowed_bots: ${{ inputs.allowed_bots }}
+        use_commit_signing: ${{ inputs.use_commit_signing }}
+        ssh_signing_key: ${{ inputs.ssh_signing_key }}
+        bot_id: ${{ inputs.bot_id }}
+        bot_name: ${{ inputs.bot_name }}
+        settings: ${{ inputs.settings }}
+        plugins: ${{ inputs.plugins }}
+        plugin_marketplaces: ${{ inputs.plugin_marketplaces }}
+        use_bedrock: ${{ inputs.use_bedrock }}
+        use_vertex: ${{ inputs.use_vertex }}
