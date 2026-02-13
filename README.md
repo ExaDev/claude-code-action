@@ -24,7 +24,13 @@ curl -L -o .github/workflows/claude-review.yml \
 
 ### 2. Configure Secret
 
-Add `CLAUDE_CODE_OAUTH_TOKEN` to your repo (Settings → Secrets and variables → Actions).
+Generate a Claude Code OAuth token:
+
+```bash
+claude setup-token
+```
+
+Add the resulting `CLAUDE_CODE_OAUTH_TOKEN` to your repo (Settings → Secrets and variables → Actions).
 
 That's it. No GitHub App needed.
 
