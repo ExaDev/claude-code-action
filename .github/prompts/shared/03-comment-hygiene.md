@@ -9,7 +9,7 @@ outdated text visible on the PR timeline.
 First, get your own bot identity:
 
 ```sh
-BOT_LOGIN=$(gh api user --jq '.login')
+BOT_LOGIN=$(gh api graphql -f query='{ viewer { login } }' --jq '.data.viewer.login')
 ```
 
 Then list your previous activity:
