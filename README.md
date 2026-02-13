@@ -59,29 +59,87 @@ Composite action that bundles org-wide prompts and layers repo-specific prompts 
 
 ### Action Inputs
 
-| Input                     | Description                          | Default                      |
-| ------------------------- | ------------------------------------ | ---------------------------- |
-| `mode`                    | `interactive` or `review`            | `interactive`                |
-| `pr_number`               | PR number (required for review mode) | `''`                         |
-| `prompt_dir`              | Override prompt directory            | `interactive` / `review`     |
-| `claude_args`             | Override claude args                 | Auto-generated based on mode |
-| `claude_code_oauth_token` | Claude Code OAuth token              | Required                     |
-| `github_token`            | GitHub token                         | Uses `github.token`          |
+| Input                       | Description                                      | Default                      |
+| --------------------------- | ------------------------------------------------ | ---------------------------- |
+| `mode`                      | `interactive` or `review`                        | `interactive`                |
+| `pr_number`                 | PR number (required for review mode)             | `''`                         |
+| `prompt_dir`                | Override prompt directory                        | `interactive` / `review`     |
+| `claude_args`               | Override claude args                             | Auto-generated based on mode |
+| `claude_code_oauth_token`   | Claude Code OAuth token                          | Required*                    |
+| `anthropic_api_key`         | Anthropic API key (alternative to OAuth)         | -                            |
+| `github_token`              | GitHub token                                     | Uses `github.token`          |
+
+#### Progress & Comments
+
+| Input                | Description                                    | Default  |
+| -------------------- | ---------------------------------------------- | -------- |
+| `track_progress`     | Enable progress tracking with checkboxes       | `false`  |
+| `include_fix_links`  | Include 'Fix this' links in PR feedback        | `true`   |
+| `use_sticky_comment` | Use single sticky comment for PR feedback      | `false`  |
+
+#### Triggers
+
+| Input             | Description                                    | Default   |
+| ----------------- | ---------------------------------------------- | --------- |
+| `trigger_phrase`  | Custom trigger phrase                          | `@claude` |
+| `assignee_trigger`| Assignee that triggers on issue assignment     | -         |
+| `label_trigger`   | Label that triggers when applied to issue      | -         |
+
+#### Branch & Permissions
+
+| Input                  | Description                                    | Default    |
+| ---------------------- | ---------------------------------------------- | ---------- |
+| `branch_prefix`        | Prefix for Claude branches                     | `claude/`  |
+| `additional_permissions`| Extra permissions (e.g., `actions: read`)     | -          |
+| `allowed_bots`         | Comma-separated allowed bot usernames          | -          |
+
+#### Commit Signing
+
+| Input               | Description                                    | Default     |
+| ------------------- | ---------------------------------------------- | ----------- |
+| `use_commit_signing`| Enable commit signing via GitHub API           | `false`     |
+| `ssh_signing_key`   | SSH private key for signing commits            | -           |
+| `bot_id`            | GitHub user ID for git operations              | `41898282`  |
+| `bot_name`          | GitHub username for git operations             | `claude[bot]` |
+
+#### Settings & Plugins
+
+| Input                | Description                                    | Default |
+| -------------------- | ---------------------------------------------- | ------- |
+| `settings`           | Claude Code settings (JSON or file path)       | -       |
+| `plugins`            | Newline-separated plugins to install           | -       |
+| `plugin_marketplaces`| Newline-separated marketplace Git URLs         | -       |
+
+#### Cloud Providers
+
+| Input         | Description                                    | Default |
+| ------------- | ---------------------------------------------- | ------- |
+| `use_bedrock` | Use Amazon Bedrock with OIDC                   | `false` |
+| `use_vertex`  | Use Google Vertex AI with OIDC                 | `false` |
+
+*Either `claude_code_oauth_token` or `anthropic_api_key` is required.
 
 ### Modes
 
 **`interactive`** (default):
 
 - Prompt dir: `interactive`
-- Tools: GitHub API (PR read ops), `gh pr comment/view/edit`, `gh label`, `gh issue comment/view`
+- Tools: GitHub API (PR read ops), `gh pr comment/view/edit`, `gh label`, `gh issue comment/view`, inline comments
 - Max turns: 50
 
 **`review`**:
 
 - Prompt dir: `review`
-- Tools: GitHub API (PR read ops), `gh pr comment/view/edit`, `gh label`, `Read`, `Grep`, `Glob`, `git diff/log/blame`, `gh issue/pr create`
+- Tools: GitHub API (PR read ops), `gh pr comment/view/edit`, `gh label`, `Read`, `Grep`, `Glob`, `git diff/log/blame`, `gh issue/pr create`, inline comments
 - Max turns: 50
 - `PR_NUMBER` available for cleanup of stale reviews
+
+### Action Outputs
+
+| Output            | Description                           |
+| ----------------- | ------------------------------------- |
+| `execution_file`  | Path to Claude Code execution output  |
+| `structured_output`| JSON output when using `--json-schema`|
 
 ## Structure
 
@@ -102,6 +160,78 @@ action.yml                        # Composite action definition
       01-command.md               # Auto-review instructions
       02-red-flags.md             # Common patterns to watch for in diffs
       03-self-improvement.md      # Meta-improvement capability (issue creation)
+```
+
+## Solutions & Examples
+
+### Automatic PR Review with Progress Tracking
+
+```yaml
+name: Claude Code Review
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    uses: adpeak/claude-code-action/.github/workflows/claude-review.yml@main
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+```
+
+For visual progress tracking, add `track_progress: true` in your workflow.
+
+### Security-Focused Reviews
+
+Create `.github/prompts/review/10-security.md` in your repo:
+
+```markdown
+Perform a security-focused review focusing on:
+- OWASP Top 10 vulnerabilities
+- Hardcoded secrets or credentials
+- Input validation and sanitization
+- Authentication/authorization issues
+
+Rate severity as: CRITICAL, HIGH, MEDIUM, LOW, or NONE.
+```
+
+### Path-Specific Reviews
+
+Only review when critical files change by adding `paths` filter:
+
+```yaml
+on:
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - "src/auth/**"
+      - "src/api/**"
+```
+
+### External Contributor Reviews
+
+```yaml
+jobs:
+  external-review:
+    if: github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    uses: adpeak/claude-code-action/.github/workflows/claude-review.yml@main
+```
+
+### Structured Outputs
+
+Get validated JSON results for automation:
+
+```yaml
+- uses: adpeak/claude-code-action@main
+  with:
+    mode: review
+    claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    claude_args: |
+      --json-schema '{"type":"object","properties":{"approved":{"type":"boolean"},"summary":{"type":"string"}}}'
+
+- name: Check result
+  if: fromJSON(steps.claude.outputs.structured_output).approved == true
+  run: echo "PR approved!"
 ```
 
 ## Prompt Layering
