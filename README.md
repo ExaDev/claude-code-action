@@ -13,11 +13,11 @@ Run these commands in your repo:
 ```bash
 # Interactive @claude commands (issues, comments, reviews)
 curl -L -o .github/workflows/claude-interactive.yml \
-  https://raw.githubusercontent.com/ExaDev/claude-code-action/main/.github/workflows/claude-interactive.yml
+  https://raw.githubusercontent.com/AdPeak/claude-code-action/main/.github/workflows/claude-interactive.yml
 
 # Automatic PR reviews
 curl -L -o .github/workflows/claude-review.yml \
-  https://raw.githubusercontent.com/ExaDev/claude-code-action/main/.github/workflows/claude-review.yml
+  https://raw.githubusercontent.com/AdPeak/claude-code-action/main/.github/workflows/claude-review.yml
 ```
 
 ### 2. Configure Secret
@@ -40,6 +40,7 @@ Create `.github/prompts/shared/` or `.github/prompts/<dir>/` in your repo. Promp
 2. Your repo's prompts (numbered `10-`, `11-`, etc.)
 
 Example `.github/prompts/shared/10-context.md`:
+
 ```markdown
 This is the Foo service repository. It handles authentication and user management.
 Key files: src/auth/, src/users/
@@ -51,30 +52,32 @@ Composite action that bundles org-wide prompts and layers repo-specific prompts 
 
 ### How It Works
 
-1. Consumer repo uses `uses: ExaDev/claude-code-action@main`
+1. Consumer repo uses `uses: AdPeak/claude-code-action@main`
 2. Action composes prompts: org-wide (bundled) + repo-specific (if present)
 3. Calls `anthropics/claude-code-action@v1` with composed prompt
 4. No cross-repo access, no GitHub App, no runtime file fetching
 
 ### Action Inputs
 
-| Input | Description | Default |
-|-------|-------------|---------|
-| `mode` | `interactive` or `review` | `interactive` |
-| `pr_number` | PR number (required for review mode) | `''` |
-| `prompt_dir` | Override prompt directory | `interactive` / `review` |
-| `claude_args` | Override claude args | Auto-generated based on mode |
-| `claude_code_oauth_token` | Claude Code OAuth token | Required |
-| `github_token` | GitHub token | Uses `github.token` |
+| Input                     | Description                          | Default                      |
+| ------------------------- | ------------------------------------ | ---------------------------- |
+| `mode`                    | `interactive` or `review`            | `interactive`                |
+| `pr_number`               | PR number (required for review mode) | `''`                         |
+| `prompt_dir`              | Override prompt directory            | `interactive` / `review`     |
+| `claude_args`             | Override claude args                 | Auto-generated based on mode |
+| `claude_code_oauth_token` | Claude Code OAuth token              | Required                     |
+| `github_token`            | GitHub token                         | Uses `github.token`          |
 
 ### Modes
 
 **`interactive`** (default):
+
 - Prompt dir: `interactive`
 - Tools: GitHub API (PR read ops), `gh pr comment/view/edit`, `gh label`, `gh issue comment/view`
 - Max turns: 50
 
 **`review`**:
+
 - Prompt dir: `review`
 - Tools: GitHub API (PR read ops), `gh pr comment/view/edit`, `gh label`, `Read`, `Grep`, `Glob`, `git diff/log/blame`, `gh issue/pr create`
 - Max turns: 50
@@ -113,20 +116,21 @@ Prompts are concatenated in order (later extends earlier):
 Prompt files should be numbered: org-wide `01-09`, repo-specific `10+`.
 
 Available environment variables in prompts:
-- `$REPO` — Full repo name (e.g., `ExaDev/my-project`)
-- `$REPO_OWNER` — Org name (e.g., `ExaDev`)
+
+- `$REPO` — Full repo name (e.g., `adpeak/my-project`)
+- `$REPO_OWNER` — Org name (e.g., `adpeak`)
 - `$REPO_NAME` — Repo name (e.g., `my-project`)
 - `$PR_NUMBER` — Pull request number (review mode only)
 
 ## Secrets Required
 
-| Secret | Scope | Description |
-|--------|-------|-------------|
+| Secret                    | Scope             | Description             |
+| ------------------------- | ----------------- | ----------------------- |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Org or repo-level | Claude Code OAuth token |
 
 ## Self-Improvement Capability
 
-The review workflow for this repository includes self-improvement capability. When reviewing changes to `ExaDev/claude-code-action`, the agent can:
+The review workflow for this repository includes self-improvement capability. When reviewing changes to `AdPeak/claude-code-action`, the agent can:
 
 - Create issues to propose prompt improvements
 - Identify gaps, inconsistencies, or enhancement opportunities
@@ -139,6 +143,7 @@ This creates a feedback loop where the agent can iterate on its own configuratio
 ### Symlink Architecture
 
 `CLAUDE.md` and `AGENTS.md` are symlinks to `README.md`. The same content serves:
+
 - Humans browsing the repo on GitHub
 - Claude Code sessions (via CLAUDE.md)
 - Other AI agents (via AGENTS.md)
@@ -148,11 +153,12 @@ When modifying this repo, edit `README.md` directly.
 ### Testing Changes
 
 To test action changes without merging to main:
+
 1. Create a branch with your changes
-2. Push to ExaDev/claude-code-action
+2. Push to adpeak/claude-code-action
 3. In your test repo, reference the branch:
    ```yaml
-   uses: ExaDev/claude-code-action@your-branch-name
+   uses: adpeak/claude-code-action@your-branch-name
    ```
 4. Trigger the workflow and verify behavior
 

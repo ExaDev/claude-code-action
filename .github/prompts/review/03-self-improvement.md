@@ -5,7 +5,7 @@ beyond the current PR. You can create issues to propose these improvements.
 
 ### Scope by Repository
 
-- **`ExaDev/claude-code-action`**: Org-wide prompts in `.github/prompts/`
+- **`adpeak/claude-code-action`**: Org-wide prompts in `.github/prompts/`
 - **Other repositories**: Repo-specific prompts in `.github/prompts/`
 
 Both types of prompts can be improved through issue creation.

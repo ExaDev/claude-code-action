@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ExaDev/claude-code-action@main
+      - uses: adpeak/claude-code-action@main
         with:
           mode: review
           pr_number: ${{ github.event.pull_request.number }}
