@@ -4,7 +4,7 @@
 feedback.** Skipping cleanup leaves stale comments and dismissed reviews with
 outdated text visible on the PR timeline.
 
-### 0a. List everything you previously posted
+### 0a. List all existing feedback
 
 First, get your own bot identity:
 
@@ -12,7 +12,16 @@ First, get your own bot identity:
 BOT_LOGIN=$(gh api graphql -f query='{ viewer { login } }' --jq '.data.viewer.login')
 ```
 
-Then list your previous activity:
+List **all** reviews and comments to understand context and avoid duplicating
+feedback from others:
+
+```sh
+gh api repos/${REPO}/pulls/${PR_NUMBER}/reviews --jq '.[] | {user: .user.login, state, body}'
+gh api repos/${REPO}/pulls/${PR_NUMBER}/comments --jq '.[] | {user: .user.login, path, body}'
+gh api repos/${REPO}/issues/${PR_NUMBER}/comments --jq '.[] | {user: .user.login, body}'
+```
+
+Identify your own previous activity (these are the only items you can modify):
 
 ```sh
 gh api repos/${REPO}/pulls/${PR_NUMBER}/reviews --jq ".[] | select(.user.login == \"$BOT_LOGIN\") | {id, state, body}"
@@ -20,8 +29,7 @@ gh api repos/${REPO}/pulls/${PR_NUMBER}/comments --jq ".[] | select(.user.login 
 gh api repos/${REPO}/issues/${PR_NUMBER}/comments --jq ".[] | select(.user.login == \"$BOT_LOGIN\") | {id, body}"
 ```
 
-Also list reviews and comments from other authors so you understand context —
-but never modify items you did not author.
+Do not modify items you did not author.
 
 ### 0b. Clean up stale reviews
 
