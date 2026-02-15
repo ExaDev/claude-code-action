@@ -37,6 +37,7 @@ jobs:
         if: steps.guard.outputs.skip != 'true'
 
       - name: Fetch upstream context
+        id: fetch
         if: steps.guard.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -58,6 +59,9 @@ jobs:
           # Fetch recent commits (last 30)
           gh api 'repos/anthropics/claude-code-action/commits?per_page=30' \
             > /tmp/upstream/commits.json
+
+          # Pre-compute date for consistent branch naming
+          echo "sync_date=$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
 
           echo "::notice::Upstream context fetched successfully."
 
@@ -117,12 +121,14 @@ jobs:
 
             If you made any meaningful changes:
 
-            1. Create a new branch: `claude/upstream-sync-$(date +%Y%m%d)`
-            2. Stage and commit changes with message:
+            1. Ensure the `upstream-sync` label exists (idempotent):
+               `gh label create upstream-sync --description "Automated upstream sync" --color "0E8A16" --force`
+            2. Create a new branch: `claude/upstream-sync-${{ steps.fetch.outputs.sync_date }}`
+            3. Stage and commit changes with message:
                `chore: sync with upstream anthropics/claude-code-action`
-            3. Push the branch:
-               `git push origin claude/upstream-sync-$(date +%Y%m%d)`
-            4. Create a PR with:
+            4. Push the branch:
+               `git push origin claude/upstream-sync-${{ steps.fetch.outputs.sync_date }}`
+            5. Create a PR with:
                ```
                gh pr create \
                  --title "chore: sync with upstream anthropics/claude-code-action" \
@@ -140,8 +146,6 @@ jobs:
                *Created automatically by the upstream-sync workflow.*" \
                  --label "upstream-sync"
                ```
-            5. If the `upstream-sync` label doesn't exist, create it first:
-               `gh label create upstream-sync --description "Automated upstream sync" --color "0E8A16"`
 
             If there are NO meaningful changes (our action already reflects upstream),
             do nothing — no branch, no commit, no PR. Just state that everything is
