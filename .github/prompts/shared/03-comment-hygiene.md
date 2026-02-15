@@ -6,11 +6,7 @@ outdated text visible on the PR timeline.
 
 ### 0a. List all existing feedback
 
-First, get your own bot identity:
-
-```sh
-BOT_LOGIN=$(gh api graphql -f query='{ viewer { login } }' --jq '.data.viewer.login')
-```
+Your bot identity is `$BOT_NAME`.
 
 List **all** reviews and comments to understand context and avoid duplicating
 feedback from others:
@@ -24,9 +20,9 @@ gh api repos/${REPO}/issues/${PR_NUMBER}/comments --jq '.[] | {user: .user.login
 Identify your own previous activity (these are the only items you can modify):
 
 ```sh
-gh api repos/${REPO}/pulls/${PR_NUMBER}/reviews --jq ".[] | select(.user.login == \"$BOT_LOGIN\") | {id, state, body}"
-gh api repos/${REPO}/pulls/${PR_NUMBER}/comments --jq ".[] | select(.user.login == \"$BOT_LOGIN\") | {id, path, body}"
-gh api repos/${REPO}/issues/${PR_NUMBER}/comments --jq ".[] | select(.user.login == \"$BOT_LOGIN\") | {id, body}"
+gh api repos/${REPO}/pulls/${PR_NUMBER}/reviews --jq '.[] | select(.user.login == "$BOT_NAME") | {id, state, body}'
+gh api repos/${REPO}/pulls/${PR_NUMBER}/comments --jq '.[] | select(.user.login == "$BOT_NAME") | {id, path, body}'
+gh api repos/${REPO}/issues/${PR_NUMBER}/comments --jq '.[] | select(.user.login == "$BOT_NAME") | {id, body}'
 ```
 
 Do not modify items you did not author.

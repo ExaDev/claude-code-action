@@ -275,6 +275,7 @@ Available environment variables in prompts:
 - `$REPO_OWNER` — Org name (e.g., `YOUR_ORG`)
 - `$REPO_NAME` — Repo name (e.g., `my-project`)
 - `$PR_NUMBER` — Pull request number (review mode only)
+- `$BOT_NAME` — Bot username for git operations (e.g., `claude[bot]`)
 
 ## Secrets Required
 
