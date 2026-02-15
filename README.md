@@ -72,123 +72,89 @@ Key files: src/auth/, src/users/
 
 ## Architecture
 
-Composite action that bundles org-wide prompts and layers repo-specific prompts on top.
-
-### How It Works
-
-1. Consumer repo uses `uses: YOUR_ORG/claude-code-action@main`
-2. Action composes prompts: org-wide (bundled) + repo-specific (if present)
-3. Calls `anthropics/claude-code-action@v1` with composed prompt
-4. No cross-repo access, no GitHub App, no runtime file fetching
-
-### Action Inputs
-
-| Input                       | Description                                      | Default                      |
-| --------------------------- | ------------------------------------------------ | ---------------------------- |
-| `mode`                      | `interactive` or `review`                        | `interactive`                |
-| `pr_number`                 | PR number (required for review mode)             | `''`                         |
-| `prompt_dir`                | Override prompt directory                        | `interactive` / `review`     |
-| `claude_args`               | Override claude args                             | Auto-generated based on mode |
-| `claude_code_oauth_token`   | Claude Code OAuth token                          | Required*                    |
-| `anthropic_api_key`         | Anthropic API key (alternative to OAuth)         | -                            |
-| `github_token`              | GitHub token                                     | Uses `github.token`          |
-
-#### Progress & Comments
-
-| Input                | Description                                    | Default  |
-| -------------------- | ---------------------------------------------- | -------- |
-| `track_progress`     | Enable progress tracking with checkboxes       | `false`  |
-| `include_fix_links`  | Include 'Fix this' links in PR feedback        | `true`   |
-| `use_sticky_comment` | Use single sticky comment for PR feedback      | `false`  |
-
-#### Triggers
-
-| Input             | Description                                    | Default   |
-| ----------------- | ---------------------------------------------- | --------- |
-| `trigger_phrase`  | Custom trigger phrase                          | `@claude` |
-| `assignee_trigger`| Assignee that triggers on issue assignment     | -         |
-| `label_trigger`   | Label that triggers when applied to issue      | -         |
-
-#### Branch & Permissions
-
-| Input                  | Description                                    | Default    |
-| ---------------------- | ---------------------------------------------- | ---------- |
-| `branch_prefix`        | Prefix for Claude branches                     | `claude/`  |
-| `additional_permissions`| Extra permissions (e.g., `actions: read`)     | -          |
-| `allowed_bots`         | Comma-separated allowed bot usernames          | -          |
-
-#### Commit Signing
-
-| Input               | Description                                    | Default     |
-| ------------------- | ---------------------------------------------- | ----------- |
-| `use_commit_signing`| Enable commit signing via GitHub API           | `false`     |
-| `ssh_signing_key`   | SSH private key for signing commits            | -           |
-| `bot_id`            | GitHub user ID for git operations              | `41898282`  |
-| `bot_name`          | GitHub username for git operations             | `claude[bot]` |
-
-#### Settings & Plugins
-
-| Input                | Description                                    | Default |
-| -------------------- | ---------------------------------------------- | ------- |
-| `settings`           | Claude Code settings (JSON or file path)       | -       |
-| `plugins`            | Newline-separated plugins to install           | -       |
-| `plugin_marketplaces`| Newline-separated marketplace Git URLs         | -       |
-
-#### Cloud Providers
-
-| Input         | Description                                    | Default |
-| ------------- | ---------------------------------------------- | ------- |
-| `use_bedrock` | Use Amazon Bedrock with OIDC                   | `false` |
-| `use_vertex`  | Use Google Vertex AI with OIDC                 | `false` |
-
-*Either `claude_code_oauth_token` or `anthropic_api_key` is required.
+Composite action that wraps `anthropics/claude-code-action@v1` with org-wide prompts bundled in. No cross-repo access, no GitHub App, no runtime file fetching.
 
 ### Modes
 
-**`interactive`** (default):
+**`interactive`** (default) — responds to `@claude` mentions in issues, PR comments, and reviews:
 
-- Prompt dir: `interactive`
-- Tools: GitHub API (PR read ops), `gh pr comment/view/edit`, `gh label`, `gh issue comment/view`, inline comments
-- Max turns: 50
+- Tools: GitHub API (PR read ops), `gh pr comment/view/edit`, `gh label`, `gh issue comment/view`
 
-**`review`**:
+**`review`** — automatic PR review on open/synchronize:
 
-- Prompt dir: `review`
-- Tools: GitHub API (PR read ops), `gh pr comment/view/edit`, `gh label`, `Read`, `Grep`, `Glob`, `git diff/log/blame`, `gh issue/pr create`, inline comments
-- Max turns: 50
-- `PR_NUMBER` available for cleanup of stale reviews
+- Tools: all interactive tools + `Read`, `Grep`, `Glob`, `git diff/log/blame`, `gh issue/pr create`
+- `PR_NUMBER` env var available for stale review cleanup
+
+Both modes: max 50 turns.
+
+### Prompt Composition
+
+`action.yml` step 1 concatenates prompts in this order:
+
+1. Org-wide shared (`prompts/shared/*.md`) — base behavior, PR guidelines, comment hygiene
+2. Org-wide mode-specific (`prompts/{review|interactive}/*.md`)
+3. Consumer repo shared (`.github/prompts/shared/*.md`, if present)
+4. Consumer repo mode-specific (`.github/prompts/{review|interactive}/*.md`, if present)
+
+Files are concatenated alphabetically. Org-wide files use numbers `01-09`, repo-specific use `10+`.
+
+Variables substituted via `envsubst` at runtime:
+
+| Variable      | Example                 |
+| ------------- | ----------------------- |
+| `$REPO`       | `YOUR_ORG/my-project`   |
+| `$REPO_OWNER` | `YOUR_ORG`              |
+| `$REPO_NAME`  | `my-project`            |
+| `$PR_NUMBER`  | `42` (review mode only) |
+| `$BOT_NAME`   | `claude[bot]`           |
+
+### Action Inputs
+
+<details>
+<summary>Full input reference</summary>
+
+| Input                     | Description                                | Default                      |
+| ------------------------- | ------------------------------------------ | ---------------------------- |
+| `mode`                    | `interactive` or `review`                  | `interactive`                |
+| `pr_number`               | PR number (required for review mode)       | `''`                         |
+| `prompt_dir`              | Override prompt directory                  | `interactive` / `review`     |
+| `claude_args`             | Override claude args                       | Auto-generated based on mode |
+| `claude_code_oauth_token` | Claude Code OAuth token                    | Required\*                   |
+| `anthropic_api_key`       | Anthropic API key (alternative to OAuth)   | -                            |
+| `github_token`            | GitHub token                               | Uses `github.token`          |
+| `track_progress`          | Enable progress tracking with checkboxes   | `false`                      |
+| `include_fix_links`       | Include 'Fix this' links in PR feedback    | `true`                       |
+| `use_sticky_comment`      | Use single sticky comment for PR feedback  | `false`                      |
+| `trigger_phrase`          | Custom trigger phrase                      | `@claude`                    |
+| `assignee_trigger`        | Assignee that triggers on issue assignment | -                            |
+| `label_trigger`           | Label that triggers when applied to issue  | -                            |
+| `branch_prefix`           | Prefix for Claude branches                 | `claude/`                    |
+| `additional_permissions`  | Extra permissions (e.g., `actions: read`)  | -                            |
+| `allowed_bots`            | Comma-separated allowed bot usernames      | -                            |
+| `use_commit_signing`      | Enable commit signing via GitHub API       | `false`                      |
+| `ssh_signing_key`         | SSH private key for signing commits        | -                            |
+| `bot_id`                  | GitHub user ID for git operations          | `41898282`                   |
+| `bot_name`                | GitHub username for git operations         | `claude[bot]`                |
+| `settings`                | Claude Code settings (JSON or file path)   | -                            |
+| `plugins`                 | Newline-separated plugins to install       | -                            |
+| `plugin_marketplaces`     | Newline-separated marketplace Git URLs     | -                            |
+| `use_bedrock`             | Use Amazon Bedrock with OIDC               | `false`                      |
+| `use_vertex`              | Use Google Vertex AI with OIDC             | `false`                      |
+
+\*Either `claude_code_oauth_token` or `anthropic_api_key` is required.
+
+</details>
 
 ### Action Outputs
 
-| Output            | Description                           |
-| ----------------- | ------------------------------------- |
-| `execution_file`  | Path to Claude Code execution output  |
-| `structured_output`| JSON output when using `--json-schema`|
+| Output              | Description                            |
+| ------------------- | -------------------------------------- |
+| `execution_file`    | Path to Claude Code execution output   |
+| `structured_output` | JSON output when using `--json-schema` |
 
-## Structure
+## Examples
 
-```
-action.yml                        # Composite action definition
-.github/
-  workflows/
-    claude-interactive.yml        # Trigger workflow (curl this)
-    claude-review.yml             # PR review trigger (curl this)
-  prompts/
-    shared/
-      01-base.md                  # Generic context prompt
-      02-guidelines.md            # PR review flow, suggestion blocks, labels
-      03-comment-hygiene.md       # Stale comment cleanup, context awareness
-    interactive/
-      01-conduct.md               # Behavioral standards for @claude interactions
-    review/
-      01-command.md               # Auto-review instructions
-      02-red-flags.md             # Common patterns to watch for in diffs
-      03-self-improvement.md      # Meta-improvement capability (issue creation)
-```
-
-## Solutions & Examples
-
-### Automatic PR Review with Progress Tracking
+### Automatic PR Review
 
 ```yaml
 name: Claude Code Review
@@ -203,14 +169,13 @@ jobs:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
 
-For visual progress tracking, add `track_progress: true` in your workflow.
-
 ### Security-Focused Reviews
 
-Create `.github/prompts/review/10-security.md` in your repo:
+Add `.github/prompts/review/10-security.md` in your repo:
 
 ```markdown
 Perform a security-focused review focusing on:
+
 - OWASP Top 10 vulnerabilities
 - Hardcoded secrets or credentials
 - Input validation and sanitization
@@ -219,9 +184,7 @@ Perform a security-focused review focusing on:
 Rate severity as: CRITICAL, HIGH, MEDIUM, LOW, or NONE.
 ```
 
-### Path-Specific Reviews
-
-Only review when critical files change by adding `paths` filter:
+### Path-Filtered Reviews
 
 ```yaml
 on:
@@ -232,18 +195,7 @@ on:
       - "src/api/**"
 ```
 
-### External Contributor Reviews
-
-```yaml
-jobs:
-  external-review:
-    if: github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-    uses: YOUR_ORG/claude-code-action/.github/workflows/claude-review.yml@main
-```
-
 ### Structured Outputs
-
-Get validated JSON results for automation:
 
 ```yaml
 - uses: YOUR_ORG/claude-code-action@main
@@ -258,68 +210,47 @@ Get validated JSON results for automation:
   run: echo "PR approved!"
 ```
 
-## Prompt Layering
+## Self-Improvement
 
-Prompts are concatenated in order (later extends earlier):
+The review workflow includes a self-improvement capability. When reviewing changes to this repo, the agent can create issues to propose prompt improvements. It creates issues (not PRs), so human review is required before changes are merged.
 
-1. Org-wide shared prompts (bundled in action)
-2. Org-wide mode-specific prompts (bundled in action)
-3. Repo-specific shared prompts (`.github/prompts/shared/*.md`)
-4. Repo-specific mode-specific prompts (`.github/prompts/{interactive|review}/*.md`)
+## Development
 
-Prompt files should be numbered: org-wide `01-09`, repo-specific `10+`.
+### Org-Agnostic Design
 
-Available environment variables in prompts:
+This repo is pushed to both `ExaDev/claude-code-action` and `adpeak/claude-code-action` with identical commits. To maintain this:
 
-- `$REPO` — Full repo name (e.g., `YOUR_ORG/my-project`)
-- `$REPO_OWNER` — Org name (e.g., `YOUR_ORG`)
-- `$REPO_NAME` — Repo name (e.g., `my-project`)
-- `$PR_NUMBER` — Pull request number (review mode only)
-- `$BOT_NAME` — Bot username for git operations (e.g., `claude[bot]`)
+- Workflow files use `uses: ./` (self-reference). Consumer repos substitute the correct org via `sed` when curling.
+- Prompt files use `$REPO_OWNER` instead of hardcoding an org name.
+- README examples use `YOUR_ORG` as a placeholder.
 
-## Secrets Required
+Push to both remotes:
 
-| Secret                    | Scope             | Description             |
-| ------------------------- | ----------------- | ----------------------- |
-| `CLAUDE_CODE_OAUTH_TOKEN` | Org or repo-level | Claude Code OAuth token |
+```bash
+git push origin main && git push adpeak main
+```
 
-## Self-Improvement Capability
+### File Layout
 
-The review workflow for this repository includes self-improvement capability. When reviewing changes to this repo, the agent can:
+`CLAUDE.md` and `AGENTS.md` are symlinks to `README.md`. Always edit `README.md` directly.
 
-- Create issues to propose prompt improvements
-- Identify gaps, inconsistencies, or enhancement opportunities
-- Suggest improvements beyond the scope of the current PR
+The critical parts of `action.yml` are:
 
-This creates a feedback loop where the agent can iterate on its own configuration without direct file modification (it creates issues, not PRs directly). Human review is still required before any changes are merged.
+- **Step 1** — Prompt composition shell script (concatenation + `envsubst`)
+- **Step 2** — Tool access control (determines what each mode can do)
+- **Step 3** — Upstream action call to `anthropics/claude-code-action@v1`
 
-## Development Notes
-
-### Symlink Architecture
-
-`CLAUDE.md` and `AGENTS.md` are symlinks to `README.md`. The same content serves:
-
-- Humans browsing the repo on GitHub
-- Claude Code sessions (via CLAUDE.md)
-- Other AI agents (via AGENTS.md)
-
-When modifying this repo, edit `README.md` directly.
+Changes to `action.yml` affect all consumer repos.
 
 ### Testing Changes
 
-To test action changes without merging to main:
+1. Create a branch and push
+2. In a test repo, reference the branch: `uses: YOUR_ORG/claude-code-action@your-branch`
+3. Trigger the workflow and verify
 
-1. Create a branch with your changes
-2. Push to the action repo
-3. In your test repo, reference the branch:
-   ```yaml
-   uses: YOUR_ORG/claude-code-action@your-branch-name
-   ```
-4. Trigger the workflow and verify behavior
+### Prompt Conventions
 
-### Prompt File Conventions
-
-- Number files: `01-09` for org-wide, `10+` for repo-specific
-- Files are concatenated in alphabetical order within each directory
-- Use `envsubst` variables (`$REPO`, `$REPO_OWNER`, `$REPO_NAME`, `$PR_NUMBER`) for dynamic content
-- Keep prompts focused and composable - each file should address one concern
+- Number files `01-09` for org-wide, `10+` for repo-specific
+- Alphabetical concatenation within each directory
+- Use `envsubst` variables for dynamic content — never hardcode org names
+- One concern per file
