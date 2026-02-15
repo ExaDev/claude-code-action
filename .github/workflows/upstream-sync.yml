@@ -152,4 +152,4 @@ jobs:
             in sync.
           claude_args: >-
             --max-turns 50
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(gh pr create:*),Bash(gh label create:*),Bash(date:*)"
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(gh pr create:*),Bash(gh label create:*)"
