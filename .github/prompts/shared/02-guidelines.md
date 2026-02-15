@@ -27,32 +27,28 @@ When the same issue repeats across files, explain the pattern once in the first
 comment. Still provide a suggestion block on each occurrence so the author can
 click "Apply" on all of them. Keep subsequent comments brief.
 
-After submitting a review, do both of the following:
+After submitting a review, check the PR title and description with
+`gh pr view $PR_NUMBER`. Fix what needs fixing:
 
-1. **Update the PR description** ONLY if it's missing or incomplete. First check
-   the existing description with `gh pr view $PR_NUMBER`. If it already has a
-   clear summary of changes, skip this step entirely.
+- **Title**: If it's vague, generic, or doesn't reflect the actual changes,
+  update it with `gh pr edit $PR_NUMBER --title "concise title"`. Keep it under
+  70 characters. Don't change titles that are already clear and accurate.
+- **Description**: Update ONLY if it's missing or incomplete. Skip if it already
+  has a clear summary of changes.
 
-   When updating, add only what's missing. Use headings only when organizing
-   multiple distinct sections — a single paragraph needs no `## Summary` heading
-   since the marker block already provides context.
+When updating, add only what's missing. Use headings only when organizing
+multiple distinct sections — a single paragraph needs no `## Summary` heading
+since the marker block already provides context.
 
-   ```bash
-   gh pr edit $PR_NUMBER --body "$(cat <<'EOF'
-   <!-- claude:start -->
-   <only add information not already present in the description>
-   <!-- claude:end -->
-   EOF
-   )"
-   ```
+```bash
+gh pr edit $PR_NUMBER --body "$(cat <<'EOF'
+<!-- claude:start -->
+<only add information not already present in the description>
+<!-- claude:end -->
+EOF
+)"
+```
 
-   The markers `<!-- claude:start -->` / `<!-- claude:end -->` identify your
-   section. Preserve everything outside the markers. If no marker block exists,
-   append yours at the end. Do NOT repeat information already in the PR body.
-
-2. **Update PR labels** to reflect the outcome:
-   - `gh pr edit {pr} --add-label "needs-changes"` after REQUEST_CHANGES
-   - `gh pr edit {pr} --remove-label "needs-changes" --add-label "approved"` after APPROVE
-   - Remove stale labels that no longer apply
-   - Only manage labels that you have set — do not remove labels added by humans.
-   - If a label does not exist, skip it — do not attempt to create labels.
+The markers `<!-- claude:start -->` / `<!-- claude:end -->` identify your
+section. Preserve everything outside the markers. If no marker block exists,
+append yours at the end. Do NOT repeat information already in the PR body.
