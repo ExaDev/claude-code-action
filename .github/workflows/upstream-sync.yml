@@ -33,7 +33,7 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: steps.guard.outputs.skip != 'true'
 
       - name: Fetch upstream context
