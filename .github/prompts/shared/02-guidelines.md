@@ -33,8 +33,9 @@ After submitting a review, check the PR title and description with
 - **Title**: If it's vague, generic, or doesn't reflect the actual changes,
   update it with `gh pr edit $PR_NUMBER --title "concise title"`. Keep it under
   70 characters. Don't change titles that are already clear and accurate.
-- **Description**: Update ONLY if it's missing or incomplete. Skip if it already
-  has a clear summary of changes.
+- **Description**: If the body is empty, always add a summary generated from the
+  diff. If incomplete, add only what's missing. Skip only if it already has a
+  complete summary.
 
 When updating, add only what's missing. Use headings only when organizing
 multiple distinct sections — a single paragraph needs no `## Summary` heading
