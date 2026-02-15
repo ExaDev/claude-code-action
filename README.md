@@ -160,7 +160,7 @@ Variables substituted via `envsubst` at runtime:
 | ------------------- | ---------------------------------------------------------------- |
 | `execution_file`    | Path to Claude Code execution output                             |
 | `branch_name`       | The branch created by Claude Code for this execution             |
-| `github_token`      | The GitHub token used by the action (Claude App token if available) |
+| `github_token`      | The GitHub token used by the action (Claude App token if available). **Sensitive** — do not log or upload as an artifact. |
 | `structured_output` | JSON output when using `--json-schema`                           |
 | `session_id`        | Claude Code session ID that can be used with --resume            |
 
