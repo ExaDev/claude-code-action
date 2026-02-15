@@ -52,3 +52,9 @@ EOF
 The markers `<!-- claude:start -->` / `<!-- claude:end -->` identify your
 section. Preserve everything outside the markers. If no marker block exists,
 append yours at the end. Do NOT repeat information already in the PR body.
+
+## Error reporting
+
+If a tool call is denied or fails in a way that prevents you from completing
+your task, post a brief PR comment explaining what you could not do and why.
+This gives the PR author visibility into issues that would otherwise be silent.
