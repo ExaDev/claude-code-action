@@ -34,6 +34,13 @@ containing feedback that no longer applies. Do not dismiss a review that is stil
 accurate just to re-submit the same verdict. Dismissing a valid approval only to
 re-approve is noise.
 
+Before deciding a previous review is still valid, re-verify any technical
+assertions it makes (API existence, correct usage patterns, version compatibility)
+using `Read` and `WebFetch`. Your prior review may have been wrong — stale
+training data can produce confident but incorrect claims. If a previous review
+flagged an API as non-existent or incorrect, confirm that claim against the
+actual package or official docs before keeping the review.
+
 For each stale review, run in order. **Do not skip step 1** — a dismissed review
 with a non-empty body still displays on the timeline.
 
