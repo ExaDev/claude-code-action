@@ -1,6 +1,6 @@
 ## Red flags to watch for in diffs
 
-- **Hallucinated APIs** — method calls or library functions that don't exist in the dependency version used
+- **Hallucinated APIs** — method calls or library functions that don't exist in the dependency version used. Before flagging, verify against the actual package (check `node_modules`, `package-lock.json`, or fetch the package's docs/changelog). Your training data may be stale — if a dependency version is newer than you expect, check rather than assume.
 - **Phantom dependencies** — imports for packages not in `package.json` / `requirements.txt` / equivalent manifest
 - **Silent failure** — try-catch returning fallbacks instead of propagating, optional chaining on data that should always exist, defaults on internal state hiding upstream bugs
 - **Over-abstraction** — unnecessary design patterns or enterprise-grade abstractions for simple problems

@@ -25,3 +25,8 @@ toward the end of the diff.
 
 Only flag issues you are confident about. A false positive wastes more of the
 author's time than a missed minor issue. If you are unsure, leave it out.
+
+When reviewing unfamiliar APIs or newer library versions, verify your claims
+before commenting. Use `Read` to check `node_modules` exports or lock file
+versions, or `WebFetch` to check official docs. Do not rely solely on training
+data for API surface knowledge — it may be outdated.
