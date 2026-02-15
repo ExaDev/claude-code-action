@@ -2,23 +2,47 @@
 
 > **Note**: `CLAUDE.md` and `AGENTS.md` are symlinks to this file. Edits here propagate to all three.
 
-Composite action for Claude Code GitHub integration across `ExaDev/*` repos with bundled org-wide prompts.
+Composite action for Claude Code GitHub integration with bundled org-wide prompts.
 
 ## Quick Start
 
 ### 1. Add Trigger Workflows
 
-Run these commands in your repo:
+Pick the block for your org and run it in your repo:
+
+<details>
+<summary><strong>ExaDev</strong></summary>
 
 ```bash
-# Interactive @claude commands (issues, comments, reviews)
-curl -L -o .github/workflows/claude-interactive.yml \
-  https://raw.githubusercontent.com/ExaDev/claude-code-action/main/.github/workflows/claude-interactive.yml
+mkdir -p .github/workflows
 
-# Automatic PR reviews
-curl -L -o .github/workflows/claude-review.yml \
-  https://raw.githubusercontent.com/ExaDev/claude-code-action/main/.github/workflows/claude-review.yml
+curl -sL "https://raw.githubusercontent.com/ExaDev/claude-code-action/main/.github/workflows/claude-interactive.yml" \
+  | sed "s|uses: \./|uses: ExaDev/claude-code-action@main|" \
+  > .github/workflows/claude-interactive.yml
+
+curl -sL "https://raw.githubusercontent.com/ExaDev/claude-code-action/main/.github/workflows/claude-review.yml" \
+  | sed "s|uses: \./|uses: ExaDev/claude-code-action@main|" \
+  > .github/workflows/claude-review.yml
 ```
+
+</details>
+
+<details>
+<summary><strong>adpeak</strong></summary>
+
+```bash
+mkdir -p .github/workflows
+
+curl -sL "https://raw.githubusercontent.com/adpeak/claude-code-action/main/.github/workflows/claude-interactive.yml" \
+  | sed "s|uses: \./|uses: adpeak/claude-code-action@main|" \
+  > .github/workflows/claude-interactive.yml
+
+curl -sL "https://raw.githubusercontent.com/adpeak/claude-code-action/main/.github/workflows/claude-review.yml" \
+  | sed "s|uses: \./|uses: adpeak/claude-code-action@main|" \
+  > .github/workflows/claude-review.yml
+```
+
+</details>
 
 ### 2. Configure Secret
 
@@ -52,7 +76,7 @@ Composite action that bundles org-wide prompts and layers repo-specific prompts 
 
 ### How It Works
 
-1. Consumer repo uses `uses: ExaDev/claude-code-action@main`
+1. Consumer repo uses `uses: YOUR_ORG/claude-code-action@main`
 2. Action composes prompts: org-wide (bundled) + repo-specific (if present)
 3. Calls `anthropics/claude-code-action@v1` with composed prompt
 4. No cross-repo access, no GitHub App, no runtime file fetching
@@ -174,7 +198,7 @@ on:
 
 jobs:
   review:
-    uses: ExaDev/claude-code-action/.github/workflows/claude-review.yml@main
+    uses: YOUR_ORG/claude-code-action/.github/workflows/claude-review.yml@main
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
@@ -214,7 +238,7 @@ on:
 jobs:
   external-review:
     if: github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-    uses: ExaDev/claude-code-action/.github/workflows/claude-review.yml@main
+    uses: YOUR_ORG/claude-code-action/.github/workflows/claude-review.yml@main
 ```
 
 ### Structured Outputs
@@ -222,7 +246,7 @@ jobs:
 Get validated JSON results for automation:
 
 ```yaml
-- uses: ExaDev/claude-code-action@main
+- uses: YOUR_ORG/claude-code-action@main
   with:
     mode: review
     claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -247,8 +271,8 @@ Prompt files should be numbered: org-wide `01-09`, repo-specific `10+`.
 
 Available environment variables in prompts:
 
-- `$REPO` — Full repo name (e.g., `ExaDev/my-project`)
-- `$REPO_OWNER` — Org name (e.g., `ExaDev`)
+- `$REPO` — Full repo name (e.g., `YOUR_ORG/my-project`)
+- `$REPO_OWNER` — Org name (e.g., `YOUR_ORG`)
 - `$REPO_NAME` — Repo name (e.g., `my-project`)
 - `$PR_NUMBER` — Pull request number (review mode only)
 
@@ -260,7 +284,7 @@ Available environment variables in prompts:
 
 ## Self-Improvement Capability
 
-The review workflow for this repository includes self-improvement capability. When reviewing changes to `ExaDev/claude-code-action`, the agent can:
+The review workflow for this repository includes self-improvement capability. When reviewing changes to this repo, the agent can:
 
 - Create issues to propose prompt improvements
 - Identify gaps, inconsistencies, or enhancement opportunities
@@ -285,10 +309,10 @@ When modifying this repo, edit `README.md` directly.
 To test action changes without merging to main:
 
 1. Create a branch with your changes
-2. Push to ExaDev/claude-code-action
+2. Push to the action repo
 3. In your test repo, reference the branch:
    ```yaml
-   uses: ExaDev/claude-code-action@your-branch-name
+   uses: YOUR_ORG/claude-code-action@your-branch-name
    ```
 4. Trigger the workflow and verify behavior
 
