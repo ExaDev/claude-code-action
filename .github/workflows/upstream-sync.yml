@@ -1,0 +1,151 @@
+name: Upstream Sync
+
+on:
+  schedule:
+    # Every Monday at 9 AM UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  upstream-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for existing sync PR
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          OPEN_PRS=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --search "head:claude/upstream-sync" \
+            --state open \
+            --json number \
+            --jq 'length')
+          if [ "$OPEN_PRS" -gt 0 ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping — open upstream-sync PR already exists."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.skip != 'true'
+
+      - name: Fetch upstream context
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/upstream
+
+          # Fetch upstream action.yml
+          gh api repos/anthropics/claude-code-action/contents/action.yml \
+            --jq '.content' | base64 -d > /tmp/upstream/action.yml
+
+          # Fetch upstream README.md
+          gh api repos/anthropics/claude-code-action/contents/README.md \
+            --jq '.content' | base64 -d > /tmp/upstream/README.md
+
+          # Fetch latest release info
+          gh api repos/anthropics/claude-code-action/releases/latest \
+            > /tmp/upstream/release.json
+
+          # Fetch recent commits (last 30)
+          gh api 'repos/anthropics/claude-code-action/commits?per_page=30' \
+            > /tmp/upstream/commits.json
+
+          echo "::notice::Upstream context fetched successfully."
+
+      - name: Run Claude Code for sync analysis
+        if: steps.guard.outputs.skip != 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are performing an automated upstream sync for a composite GitHub Action
+            that wraps `anthropics/claude-code-action@v1`.
+
+            ## Your task
+
+            Compare our wrapper action against the upstream action and update our files
+            to reflect any new, changed, or removed inputs/outputs.
+
+            ## Files to read
+
+            1. `./action.yml` — our composite wrapper action
+            2. `./README.md` — our documentation
+            3. `/tmp/upstream/action.yml` — upstream action definition
+            4. `/tmp/upstream/README.md` — upstream documentation
+            5. `/tmp/upstream/release.json` — latest upstream release info
+            6. `/tmp/upstream/commits.json` — recent upstream commits
+
+            ## What to compare
+
+            - **Inputs**: Every input in upstream's `action.yml` that we pass through
+              (i.e., appears in our `with:` block under "Run Claude Code"). Check for:
+              - New upstream inputs not yet in our `action.yml` → add them
+              - Removed upstream inputs still in our `action.yml` → remove them
+              - Changed descriptions or defaults → update ours to match
+            - **Outputs**: Every output in upstream's `action.yml`. Check for:
+              - New outputs → add pass-through in our `outputs:` section
+              - Removed outputs → remove from ours
+            - **README.md tables**: The "Action Inputs" and "Action Outputs" tables
+              must match what's in our `action.yml` after updates.
+
+            ## Rules
+
+            - Preserve our existing code style, comments, and section organization.
+            - Preserve dual-org compatibility: never hardcode org names — use
+              `YOUR_ORG` in README examples and `$REPO_OWNER` in prompt files.
+            - Do NOT touch any files in `prompts/` — those are org-specific.
+            - Do NOT touch `.github/workflows/claude-interactive.yml` or
+              `.github/workflows/claude-review.yml` — those are consumer-facing.
+            - Do NOT modify `.github/workflows/upstream-sync.yml` (this workflow).
+            - Maintain the grouping comments in `action.yml` (e.g., `# Progress tracking`,
+              `# Triggers`, `# Branch settings`, etc.).
+            - For new inputs: place them in a logical group, matching upstream's order
+              where possible. Add them to the `with:` block in the "Run Claude Code" step.
+            - Keep our custom inputs (`mode`, `prompt_dir`, `pr_number`) that don't exist
+              upstream — these are part of our wrapper's API.
+
+            ## After making changes
+
+            If you made any meaningful changes:
+
+            1. Create a new branch: `claude/upstream-sync-$(date +%Y%m%d)`
+            2. Stage and commit changes with message:
+               `chore: sync with upstream anthropics/claude-code-action`
+            3. Push the branch:
+               `git push origin claude/upstream-sync-$(date +%Y%m%d)`
+            4. Create a PR with:
+               ```
+               gh pr create \
+                 --title "chore: sync with upstream anthropics/claude-code-action" \
+                 --body "Automated sync of inputs, outputs, and documentation with upstream anthropics/claude-code-action.
+
+               ## Changes
+
+               <summarize what changed>
+
+               ## Upstream reference
+
+               <include latest release tag and date from release.json>
+
+               ---
+               *Created automatically by the upstream-sync workflow.*" \
+                 --label "upstream-sync"
+               ```
+            5. If the `upstream-sync` label doesn't exist, create it first:
+               `gh label create upstream-sync --description "Automated upstream sync" --color "0E8A16"`
+
+            If there are NO meaningful changes (our action already reflects upstream),
+            do nothing — no branch, no commit, no PR. Just state that everything is
+            in sync.
+          claude_args: >-
+            --max-turns 50
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(gh pr create:*),Bash(gh label create:*),Bash(date:*)"
