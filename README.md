@@ -113,33 +113,42 @@ Variables substituted via `envsubst` at runtime:
 <details>
 <summary>Full input reference</summary>
 
-| Input                     | Description                                | Default                      |
-| ------------------------- | ------------------------------------------ | ---------------------------- |
-| `mode`                    | `interactive` or `review`                  | `interactive`                |
-| `pr_number`               | PR number (required for review mode)       | `''`                         |
-| `prompt_dir`              | Override prompt directory                  | `interactive` / `review`     |
-| `claude_args`             | Override claude args                       | Auto-generated based on mode |
-| `claude_code_oauth_token` | Claude Code OAuth token                    | Required\*                   |
-| `anthropic_api_key`       | Anthropic API key (alternative to OAuth)   | -                            |
-| `github_token`            | GitHub token                               | Uses `github.token`          |
-| `track_progress`          | Enable progress tracking with checkboxes   | `false`                      |
-| `include_fix_links`       | Include 'Fix this' links in PR feedback    | `true`                       |
-| `use_sticky_comment`      | Use single sticky comment for PR feedback  | `false`                      |
-| `trigger_phrase`          | Custom trigger phrase                      | `@claude`                    |
-| `assignee_trigger`        | Assignee that triggers on issue assignment | -                            |
-| `label_trigger`           | Label that triggers when applied to issue  | -                            |
-| `branch_prefix`           | Prefix for Claude branches                 | `claude/`                    |
-| `additional_permissions`  | Extra permissions (e.g., `actions: read`)  | -                            |
-| `allowed_bots`            | Comma-separated allowed bot usernames      | -                            |
-| `use_commit_signing`      | Enable commit signing via GitHub API       | `false`                      |
-| `ssh_signing_key`         | SSH private key for signing commits        | -                            |
-| `bot_id`                  | GitHub user ID for git operations          | `41898282`                   |
-| `bot_name`                | GitHub username for git operations         | `claude[bot]`                |
-| `settings`                | Claude Code settings (JSON or file path)   | -                            |
-| `plugins`                 | Newline-separated plugins to install       | -                            |
-| `plugin_marketplaces`     | Newline-separated marketplace Git URLs     | -                            |
-| `use_bedrock`             | Use Amazon Bedrock with OIDC               | `false`                      |
-| `use_vertex`              | Use Google Vertex AI with OIDC             | `false`                      |
+| Input                          | Description                                                                                                                                                                                                                                                     | Default                      |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `mode`                         | `interactive` or `review`                                                                                                                                                                                                                                       | `interactive`                |
+| `pr_number`                    | PR number (required for review mode)                                                                                                                                                                                                                            | `''`                         |
+| `prompt_dir`                   | Override prompt directory                                                                                                                                                                                                                                       | `interactive` / `review`     |
+| `claude_args`                  | Override claude args                                                                                                                                                                                                                                            | Auto-generated based on mode |
+| `claude_code_oauth_token`      | Claude Code OAuth token                                                                                                                                                                                                                                         | Required\*                   |
+| `anthropic_api_key`            | Anthropic API key (alternative to OAuth)                                                                                                                                                                                                                        | -                            |
+| `github_token`                 | GitHub token                                                                                                                                                                                                                                                    | Uses `github.token`          |
+| `track_progress`               | Enable progress tracking with checkboxes                                                                                                                                                                                                                        | `false`                      |
+| `include_fix_links`            | Include 'Fix this' links in PR feedback                                                                                                                                                                                                                         | `true`                       |
+| `use_sticky_comment`           | Use single sticky comment for PR feedback                                                                                                                                                                                                                       | `false`                      |
+| `trigger_phrase`               | Custom trigger phrase                                                                                                                                                                                                                                           | `@claude`                    |
+| `assignee_trigger`             | Assignee that triggers on issue assignment                                                                                                                                                                                                                      | -                            |
+| `label_trigger`                | Label that triggers when applied to issue                                                                                                                                                                                                                       | `claude`                     |
+| `base_branch`                  | Branch to use as base when creating new branches                                                                                                                                                                                                                | Repository default           |
+| `branch_prefix`                | Prefix for Claude branches                                                                                                                                                                                                                                      | `claude/`                    |
+| `branch_name_template`         | Template for branch naming (supports {{prefix}}, {{entityType}}, {{entityNumber}}, {{timestamp}}, {{sha}}, {{label}}, {{description}})                                                                                                                         | Default format               |
+| `additional_permissions`       | Extra permissions (e.g., `actions: read`)                                                                                                                                                                                                                       | -                            |
+| `allowed_bots`                 | Comma-separated allowed bot usernames, or '\*' to allow all                                                                                                                                                                                                     | No bots allowed              |
+| `allowed_non_write_users`      | Comma-separated usernames to allow without write permissions. WARNING: Use with extreme caution                                                                                                                                                                 | -                            |
+| `include_comments_by_actor`    | Comma-separated list to INCLUDE in comments. Supports wildcards like '\*[bot]'                                                                                                                                                                                  | All actors included          |
+| `exclude_comments_by_actor`    | Comma-separated list to EXCLUDE from comments. Supports wildcards like '\*[bot]'. Exclusion takes priority                                                                                                                                                      | None excluded                |
+| `use_commit_signing`           | Enable commit signing via GitHub API                                                                                                                                                                                                                            | `false`                      |
+| `ssh_signing_key`              | SSH private key for signing commits                                                                                                                                                                                                                             | -                            |
+| `bot_id`                       | GitHub user ID for git operations                                                                                                                                                                                                                               | `41898282`                   |
+| `bot_name`                     | GitHub username for git operations                                                                                                                                                                                                                              | `claude[bot]`                |
+| `settings`                     | Claude Code settings (JSON or file path)                                                                                                                                                                                                                        | -                            |
+| `plugins`                      | Newline-separated plugins to install                                                                                                                                                                                                                            | -                            |
+| `plugin_marketplaces`          | Newline-separated marketplace Git URLs                                                                                                                                                                                                                          | -                            |
+| `use_bedrock`                  | Use Amazon Bedrock with OIDC                                                                                                                                                                                                                                    | `false`                      |
+| `use_vertex`                   | Use Google Vertex AI with OIDC                                                                                                                                                                                                                                  | `false`                      |
+| `use_foundry`                  | Use Microsoft Foundry with OIDC                                                                                                                                                                                                                                 | `false`                      |
+| `path_to_claude_code_executable` | Optional path to custom Claude Code executable. WARNING: May cause issues if outdated                                                                                                                                                                         | -                            |
+| `path_to_bun_executable`       | Optional path to custom Bun executable. WARNING: May cause issues if incompatible                                                                                                                                                                               | -                            |
+| `show_full_output`             | Show full JSON output. WARNING: May expose secrets in public logs                                                                                                                                                                                               | `false`                      |
 
 \*Either `claude_code_oauth_token` or `anthropic_api_key` is required.
 
@@ -147,10 +156,13 @@ Variables substituted via `envsubst` at runtime:
 
 ### Action Outputs
 
-| Output              | Description                            |
-| ------------------- | -------------------------------------- |
-| `execution_file`    | Path to Claude Code execution output   |
-| `structured_output` | JSON output when using `--json-schema` |
+| Output              | Description                                                      |
+| ------------------- | ---------------------------------------------------------------- |
+| `execution_file`    | Path to Claude Code execution output                             |
+| `branch_name`       | The branch created by Claude Code for this execution             |
+| `github_token`      | The GitHub token used by the action (Claude App token if available) |
+| `structured_output` | JSON output when using `--json-schema`                           |
+| `session_id`        | Claude Code session ID that can be used with --resume            |
 
 ## Examples
 

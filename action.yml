@@ -56,19 +56,39 @@ inputs:
   label_trigger:
     description: "Label name that triggers action when applied to issue"
     required: false
-    default: ""
+    default: "claude"
   # Branch settings
+  base_branch:
+    description: "The branch to use as the base/source when creating new branches (defaults to repository default branch)"
+    required: false
+    default: ""
   branch_prefix:
     description: "Prefix for Claude branches (default: claude/)"
     required: false
     default: "claude/"
+  branch_name_template:
+    description: "Template for branch naming. Available variables: {{prefix}}, {{entityType}}, {{entityNumber}}, {{timestamp}}, {{sha}}, {{label}}, {{description}}. {{label}} will be first label from the issue/PR, or {{entityType}} as a fallback. {{description}} will be the first 5 words of the issue/PR title in kebab-case. Default: '{{prefix}}{{entityType}}-{{entityNumber}}-{{timestamp}}'"
+    required: false
+    default: ""
   # Permissions
   additional_permissions:
     description: "Additional permissions (e.g., 'actions: read' for CI access)"
     required: false
     default: ""
   allowed_bots:
-    description: "Comma-separated list of allowed bot usernames"
+    description: "Comma-separated list of allowed bot usernames, or '*' to allow all bots. Empty string (default) allows no bots."
+    required: false
+    default: ""
+  allowed_non_write_users:
+    description: "Comma-separated list of usernames to allow without write permissions, or '*' to allow all users. Only works when github_token input is provided. WARNING: Use with extreme caution - this bypasses security checks and should only be used for workflows with very limited permissions (e.g., issue labeling)."
+    required: false
+    default: ""
+  include_comments_by_actor:
+    description: "Comma-separated list of actor usernames to INCLUDE in comments. Supports wildcards: '*[bot]' matches all bots, 'dependabot[bot]' matches specific bot. Empty (default) includes all actors."
+    required: false
+    default: ""
+  exclude_comments_by_actor:
+    description: "Comma-separated list of actor usernames to EXCLUDE from comments. Supports wildcards: '*[bot]' matches all bots, 'renovate[bot]' matches specific bot. Empty (default) excludes none. If actor is in both lists, exclusion takes priority."
     required: false
     default: ""
   # Commit signing
@@ -111,14 +131,40 @@ inputs:
     description: "Use Google Vertex AI with OIDC"
     required: false
     default: "false"
+  use_foundry:
+    description: "Use Microsoft Foundry with OIDC"
+    required: false
+    default: "false"
+  # Advanced options
+  path_to_claude_code_executable:
+    description: "Optional path to a custom Claude Code executable. If provided, skips automatic installation and uses this executable instead. WARNING: Using an older version may cause problems if the action begins taking advantage of new Claude Code features. This input is typically not needed unless you're debugging something specific or have unique needs in your environment."
+    required: false
+    default: ""
+  path_to_bun_executable:
+    description: "Optional path to a custom Bun executable. If provided, skips automatic Bun installation and uses this executable instead. WARNING: Using an incompatible version may cause problems if the action requires specific Bun features. This input is typically not needed unless you're debugging something specific or have unique needs in your environment."
+    required: false
+    default: ""
+  show_full_output:
+    description: "Show full JSON output from Claude Code. WARNING: This outputs ALL Claude messages including tool execution results which may contain secrets, API keys, or other sensitive information. These logs are publicly visible in GitHub Actions. Only enable for debugging in non-sensitive environments."
+    required: false
+    default: "false"
 
 outputs:
   execution_file:
     description: "Path to the Claude Code execution output file"
     value: ${{ steps.claude.outputs.execution_file }}
+  branch_name:
+    description: "The branch created by Claude Code for this execution"
+    value: ${{ steps.claude.outputs.branch_name }}
+  github_token:
+    description: "The GitHub token used by the action (Claude App token if available)"
+    value: ${{ steps.claude.outputs.github_token }}
   structured_output:
     description: "JSON output when using --json-schema"
     value: ${{ steps.claude.outputs.structured_output }}
+  session_id:
+    description: "The Claude Code session ID that can be used with --resume to continue this conversation"
+    value: ${{ steps.claude.outputs.session_id }}
 
 runs:
   using: "composite"
@@ -207,9 +253,14 @@ runs:
         trigger_phrase: ${{ inputs.trigger_phrase }}
         assignee_trigger: ${{ inputs.assignee_trigger }}
         label_trigger: ${{ inputs.label_trigger }}
+        base_branch: ${{ inputs.base_branch }}
         branch_prefix: ${{ inputs.branch_prefix }}
+        branch_name_template: ${{ inputs.branch_name_template }}
         additional_permissions: ${{ inputs.additional_permissions }}
         allowed_bots: ${{ inputs.allowed_bots }}
+        allowed_non_write_users: ${{ inputs.allowed_non_write_users }}
+        include_comments_by_actor: ${{ inputs.include_comments_by_actor }}
+        exclude_comments_by_actor: ${{ inputs.exclude_comments_by_actor }}
         use_commit_signing: ${{ inputs.use_commit_signing }}
         ssh_signing_key: ${{ inputs.ssh_signing_key }}
         bot_id: ${{ inputs.bot_id }}
@@ -219,3 +270,7 @@ runs:
         plugin_marketplaces: ${{ inputs.plugin_marketplaces }}
         use_bedrock: ${{ inputs.use_bedrock }}
         use_vertex: ${{ inputs.use_vertex }}
+        use_foundry: ${{ inputs.use_foundry }}
+        path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
+        path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
+        show_full_output: ${{ inputs.show_full_output }}
