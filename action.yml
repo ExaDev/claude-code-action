@@ -181,7 +181,7 @@ runs:
         echo "$EOF" >> "$GITHUB_OUTPUT"
 
         # Determine allowed tools based on mode
-        COMMON_TOOLS="mcp__github__get_pull_request,mcp__github__get_pull_request_files,mcp__github__get_pull_request_diff,mcp__github__get_pull_request_reviews,mcp__github__list_pull_request_comments,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__create_and_submit_pull_request_review,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh label *),Bash(gh api:*)"
+        COMMON_TOOLS="mcp__github__get_pull_request,mcp__github__get_pull_request_files,mcp__github__get_pull_request_diff,mcp__github__get_pull_request_reviews,mcp__github__list_pull_request_comments,mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__create_and_submit_pull_request_review,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh label *),Bash(gh api:*),Bash(gh api graphql:*)"
 
         if [ "$MODE" = "review" ]; then
           TOOLS="$COMMON_TOOLS,Read,Grep,Glob,WebFetch,Bash(git diff:*),Bash(git log:*),Bash(git blame:*),Bash(gh issue create:*),Bash(gh pr create:*)"
