@@ -149,6 +149,7 @@ Variables substituted via `envsubst` at runtime:
 | `path_to_claude_code_executable` | Optional path to custom Claude Code executable. WARNING: May cause issues if outdated                                                                                                                                                                         | -                            |
 | `path_to_bun_executable`       | Optional path to custom Bun executable. WARNING: May cause issues if incompatible                                                                                                                                                                               | -                            |
 | `show_full_output`             | Show full JSON output. WARNING: May expose secrets in public logs                                                                                                                                                                                               | `false`                      |
+| `display_report`               | Display Claude Code Report in GitHub Step Summary (set to 'false' to disable when using custom formatting)                                                                                                                                                      | `true`                       |
 
 \*Either `claude_code_oauth_token` or `anthropic_api_key` is required.
 
@@ -161,7 +162,7 @@ Variables substituted via `envsubst` at runtime:
 | `execution_file`    | Path to Claude Code execution output                             |
 | `branch_name`       | The branch created by Claude Code for this execution             |
 | `github_token`      | The GitHub token used by the action (Claude App token if available). **Sensitive** — do not log or upload as an artifact. |
-| `structured_output` | JSON output when using `--json-schema`                           |
+| `structured_output` | JSON string containing all structured output fields when `--json-schema` is provided in `claude_args`. Use `fromJSON()` to parse |
 | `session_id`        | Claude Code session ID that can be used with --resume            |
 
 ## Examples
