@@ -72,9 +72,9 @@ If you made any meaningful changes:
 
    ## Upstream reference
 
-   From release.json, extract the latest patch version tag (e.g. v1.0.52)
-   and its published date. Note: the v1 tag is a rolling tag that tracks
-   the latest patch release. Present both clearly, e.g.:
+   From release.json, extract `.tag_name` (e.g. v1.0.52) and
+   `.published_at` for the date. Note: the v1 tag is a rolling tag that
+   tracks the latest patch release. Present both clearly, e.g.:
 
    - **Patch version**: [v1.0.52](https://github.com/anthropics/claude-code-action/releases/tag/v1.0.52) (2026-02-15)
    - **Rolling tag**: [v1](https://github.com/anthropics/claude-code-action/releases/tag/v1)
