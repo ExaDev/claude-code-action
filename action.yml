@@ -152,6 +152,10 @@ inputs:
     description: "Show full JSON output from Claude Code. WARNING: This outputs ALL Claude messages including tool execution results which may contain secrets, API keys, or other sensitive information. These logs are publicly visible in GitHub Actions. Only enable for debugging in non-sensitive environments."
     required: false
     default: "false"
+  display_report:
+    description: "Display Claude Code Report in GitHub Step Summary (set to 'false' to disable when using custom formatting)"
+    required: false
+    default: "true"
 
 outputs:
   execution_file:
@@ -164,7 +168,7 @@ outputs:
     description: "The GitHub token used by the action (Claude App token if available)"
     value: ${{ steps.claude.outputs.github_token }}
   structured_output:
-    description: "JSON output when using --json-schema"
+    description: "JSON string containing all structured output fields when --json-schema is provided in claude_args. Use fromJSON() to parse: fromJSON(steps.id.outputs.structured_output).field_name"
     value: ${{ steps.claude.outputs.structured_output }}
   session_id:
     description: "The Claude Code session ID that can be used with --resume to continue this conversation"
@@ -279,3 +283,4 @@ runs:
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
         display_report: ${{ inputs.display_report }}
         show_full_output: ${{ inputs.show_full_output }}
+        display_report: ${{ inputs.display_report }}
