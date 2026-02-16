@@ -144,6 +144,10 @@ inputs:
     description: "Optional path to a custom Bun executable. If provided, skips automatic Bun installation and uses this executable instead. WARNING: Using an incompatible version may cause problems if the action requires specific Bun features. This input is typically not needed unless you're debugging something specific or have unique needs in your environment."
     required: false
     default: ""
+  display_report:
+    description: "Whether to display the Claude Code Report in GitHub Step Summary. Set to 'false' to disable when using custom formatting solutions."
+    required: false
+    default: "true"
   show_full_output:
     description: "Show full JSON output from Claude Code. WARNING: This outputs ALL Claude messages including tool execution results which may contain secrets, API keys, or other sensitive information. These logs are publicly visible in GitHub Actions. Only enable for debugging in non-sensitive environments."
     required: false
@@ -273,4 +277,5 @@ runs:
         use_foundry: ${{ inputs.use_foundry }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
+        display_report: ${{ inputs.display_report }}
         show_full_output: ${{ inputs.show_full_output }}
