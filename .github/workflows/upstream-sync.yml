@@ -5,6 +5,7 @@ on:
     # Every Monday at 9 AM UTC
     - cron: "0 9 * * 1"
   workflow_dispatch:
+    inputs: {}
 
 permissions:
   contents: write
