@@ -123,23 +123,31 @@ jobs:
           COMMITS=$(gh api repos/${TARGET_REPO}/compare/main...${BRANCH} --jq '.ahead_by')
           COMMIT_MESSAGES=$(gh api repos/${TARGET_REPO}/compare/main...${BRANCH} --jq '.commits[].message' | head -10 | sed 's/^/- /')
 
-          # Create PR and capture PR number
-          PR_NUMBER=$(gh pr create \
-            --repo "${TARGET_REPO}" \
-            --base main \
-            --head "${BRANCH}" \
-            --title "sync: merge changes from ${SOURCE}" \
-            --body "Automatic sync from **${SOURCE}** with ${COMMITS} commit(s).
+          # Create PR using gh api to get PR number
+          PR_RESPONSE=$(gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            repos/${TARGET_REPO}/pulls \
+            -f title="sync: merge changes from ${SOURCE}" \
+            -f body="Automatic sync from **${SOURCE}** with ${COMMITS} commit(s).
 
           ## Changes
           ${COMMIT_MESSAGES}
 
           ---
           *Created automatically by bidirectional-sync workflow*" \
-            --json number --jq '.number')
+            -f head="${BRANCH}" \
+            -f base=main)
+
+          PR_NUMBER=$(echo "$PR_RESPONSE" | jq -r '.number')
 
           # Enable auto-merge (will merge when checks pass)
-          gh pr merge --auto --merge "${PR_NUMBER}" --repo "${TARGET_REPO}"
+          gh api \
+            --method PUT \
+            -H "Accept: application/vnd.github+json" \
+            repos/${TARGET_REPO}/pulls/${PR_NUMBER}/merge \
+            -f merge_method=merge \
+            -f auto_merge=true
 
           echo "::notice::Created PR #${PR_NUMBER} for ${COMMITS} commit(s) from ${SOURCE} with auto-merge enabled"
 
