@@ -19,24 +19,28 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get other repo URL
+      - name: Get other repo URL and credentials
         id: repo
         run: |
           if [[ "${{ github.repository }}" == "ExaDev/claude-code-action" ]]; then
+            # Syncing from ExaDev to adpeak - use adpeak's credentials
             echo "target=adpeak/claude-code-action" >> "$GITHUB_OUTPUT"
-            echo "app_id=${{ vars.EXADEV_APP_ID }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "target=ExaDev/claude-code-action" >> "$GITHUB_OUTPUT"
             echo "app_id=${{ vars.ADPEAK_APP_ID }}" >> "$GITHUB_OUTPUT"
+            echo "private_key=${{ secrets.ADPEAK_SYNC_PRIVATE_KEY }}" >> "$GITHUB_OUTPUT"
+          else
+            # Syncing from adpeak to ExaDev - use ExaDev's credentials
+            echo "target=ExaDev/claude-code-action" >> "$GITHUB_OUTPUT"
+            echo "app_id=${{ vars.EXADEV_APP_ID }}" >> "$GITHUB_OUTPUT"
+            echo "private_key=${{ secrets.EXADEV_SYNC_PRIVATE_KEY }}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Verify required configuration
         env:
-          SYNC_PRIVATE_KEY: ${{ secrets.SYNC_PRIVATE_KEY }}
           APP_ID: ${{ steps.repo.outputs.app_id }}
+          PRIVATE_KEY: ${{ steps.repo.outputs.private_key }}
         run: |
-          if [[ -z "$SYNC_PRIVATE_KEY" ]]; then
-            echo "::error::SYNC_PRIVATE_KEY secret is not set. Please configure it in repo settings."
+          if [[ -z "$PRIVATE_KEY" ]]; then
+            echo "::error::SYNC_PRIVATE_KEY secret is not set. Please configure EXADEV_SYNC_PRIVATE_KEY or ADPEAK_SYNC_PRIVATE_KEY in repo settings."
             exit 1
           fi
           if [[ -z "$APP_ID" ]]; then
@@ -49,7 +53,7 @@ jobs:
         id: token
         with:
           app_id: ${{ steps.repo.outputs.app_id }}
-          private_key: ${{ secrets.SYNC_PRIVATE_KEY }}
+          private_key: ${{ steps.repo.outputs.private_key }}
 
       - name: Sync to other repo
         id: sync
