@@ -27,17 +27,19 @@ jobs:
           echo "Token: ${GH_TOKEN:0:20}..."
 
           echo ""
-          echo "=== Check what user this token represents ==="
-          gh api /user
-
-          echo ""
-          echo "=== List repositories accessible to this token ==="
-          gh api /user/repos --jq '.[] | {name, owner: .owner.login, private}'
+          echo "=== Check what installations this token represents ==="
+          # GitHub Apps use /installation/user endpoint
+          gh api /installation || echo "FAILED: Cannot get installation info"
 
           echo ""
           echo "=== Try to access adpeak/claude-code-action ==="
-          gh api /repos/adpeak/claude-code-action || echo "FAILED: Cannot access adpeak/claude-code-action"
+          gh api /repos/adpeak/claude-code-action && echo "SUCCESS: Can access adpeak/claude-code-action" || echo "FAILED: Cannot access adpeak/claude-code-action"
 
           echo ""
-          echo "=== List all repos in adpeak org ==="
+          echo "=== List repositories accessible to this installation ==="
+          # Use the installation repositories endpoint
+          gh api /installation/repositories --jq '.repositories[] | {name, full_name, private}' || echo "FAILED: Cannot list repositories"
+
+          echo ""
+          echo "=== Try to list adpeak org repos ==="
           gh api /orgs/adpeak/repos --jq '.[] | {name, private}' || echo "FAILED: Cannot list adpeak repos"
