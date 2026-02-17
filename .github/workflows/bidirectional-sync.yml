@@ -59,9 +59,12 @@ jobs:
           TARGET_TOKEN: ${{ steps.token_adpeak.outputs.token }}
           SOURCE_REPO: ${{ github.repository }}
         run: |
+          # Get timestamp for unique directory name
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
           # Clone the target repo to work with it directly
           TARGET_URL="https://x-access-token:${TARGET_TOKEN}@github.com/${TARGET_REPO}.git"
-          TARGET_DIR="/tmp/target-repo-$(date +%s)"
+          TARGET_DIR="/tmp/target-repo-${TIMESTAMP}"
           git clone "$TARGET_URL" "$TARGET_DIR"
 
           # Copy the current HEAD (from ExaDev repo) to the target clone
@@ -84,9 +87,8 @@ jobs:
             exit 0
           fi
 
-          # Get short SHA and timestamp for branch naming
+          # Get short SHA for branch naming
           SHA=$(git rev-parse --short HEAD)
-          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
           BRANCH_NAME="sync/${SOURCE_REPO}/${TIMESTAMP}-${SHA}"
 
           # Configure git user
@@ -113,7 +115,7 @@ jobs:
           export GH_TOKEN="${TARGET_TOKEN}"
 
           # Get commit count for PR description
-          COMMITS=$(git log --oneline target/main..HEAD | wc -l | tr -d ' ')
+          COMMITS=$(git log --oneline origin/main..HEAD | wc -l | tr -d ' ')
 
           # Create PR
           gh pr create \
@@ -124,7 +126,7 @@ jobs:
             --body "Automatic sync from **${SOURCE}** with ${COMMITS} commit(s).
 
           ## Changes
-          $(git log --oneline target/main..HEAD | head -10 | sed 's/^/- /')
+          $(git log --oneline origin/main..HEAD | head -10 | sed 's/^/- /')
 
           ---
           *Created automatically by bidirectional-sync workflow*"
