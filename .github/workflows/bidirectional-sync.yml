@@ -59,21 +59,22 @@ jobs:
           TARGET_TOKEN: ${{ steps.token_adpeak.outputs.token }}
           SOURCE_REPO: ${{ github.repository }}
         run: |
-          # Set up remote for target repo
+          # Clone the target repo to work with it directly
           TARGET_URL="https://x-access-token:${TARGET_TOKEN}@github.com/${TARGET_REPO}.git"
-          git remote add target "$TARGET_URL"
+          TARGET_DIR="/tmp/target-repo"
+          git clone "$TARGET_URL" "$TARGET_DIR"
 
-          # Debug: show the remote URL
-          echo "=== Debug: Target URL (redacted token) ==="
-          echo "${TARGET_URL/x-access-token:$TARGET_TOKEN@/x-access-token:***@}"
-          echo "=== Debug: Git remote URLs ==="
-          git remote -v
+          # Copy the current HEAD (from ExaDev repo) to the target clone
+          git --git-dir=.git worktree add "$TARGET_DIR" HEAD
+
+          # Change to target repo directory
+          cd "$TARGET_DIR"
 
           # Fetch target's main to check if we're ahead
-          git fetch target main
+          git fetch origin main
 
           # Count commits we have that target doesn't
-          COMMITS_BEHIND=$(git log --oneline HEAD ^target/main | wc -l | tr -d ' ')
+          COMMITS_BEHIND=$(git log --oneline HEAD ^origin/main | wc -l | tr -d ' ')
 
           echo "Commits we have that target doesn't: $COMMITS_BEHIND"
 
@@ -88,29 +89,18 @@ jobs:
           TIMESTAMP=$(date +%Y%m%d-%H%M%S)
           BRANCH_NAME="sync/${SOURCE_REPO}/${TIMESTAMP}-${SHA}"
 
-          # Try to rebase our commits on top of target/main
+          # Configure git user
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          if git rebase target/main 2>/dev/null; then
-            # Rebase successful - but target repo requires PR, so create PR
-            echo "skip_pr=false" >> "$GITHUB_OUTPUT"
-            echo "branch_name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
+          # Always create a PR instead of pushing directly to main
+          # (target repo requires changes via PR)
+          echo "skip_pr=false" >> "$GITHUB_OUTPUT"
+          echo "branch_name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
 
-            # Push the rebased branch
-            git push "$TARGET_URL" HEAD:refs/heads/${BRANCH_NAME}
-            echo "::notice::Successfully rebased ${COMMITS_BEHIND} commit(s). Created branch ${BRANCH_NAME} for PR."
-          else
-            # Rebase failed - abort and create PR
-            git rebase --abort
-            echo "skip_pr=false" >> "$GITHUB_OUTPUT"
-            echo "branch_name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
-
-            # Push the conflicting branch
-            git push "$TARGET_URL" HEAD:refs/heads/${BRANCH_NAME}
-
-            echo "::warning::Rebase conflict - created branch ${BRANCH_NAME} for manual resolution"
-          fi
+          # Push the branch
+          git push origin HEAD:refs/heads/${BRANCH_NAME}
+          echo "::notice::Created branch ${BRANCH_NAME} with ${COMMITS_BEHIND} commit(s) from ${SOURCE_REPO}"
 
       - name: Create PR
         if: steps.sync.outputs.skip_pr == 'false'
