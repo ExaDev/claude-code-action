@@ -119,11 +119,9 @@ jobs:
         run: |
           export GH_TOKEN="${TARGET_TOKEN}"
 
-          # Fetch the target repo's new branch to get commit info
-          git fetch https://x-access-token:${TARGET_TOKEN}@github.com/${TARGET_REPO}.git ${BRANCH}
-
-          # Get commit count for PR description
-          COMMITS=$(git log --oneline main..origin/${BRANCH} | wc -l | tr -d ' ')
+          # Get commit count and info using gh api
+          COMMITS=$(gh api repos/${TARGET_REPO}/compare/main...${BRANCH} --jq '.ahead_by')
+          COMMIT_MESSAGES=$(gh api repos/${TARGET_REPO}/compare/main...${BRANCH} --jq '.commits[].message' | head -10 | sed 's/^/- /')
 
           # Create PR
           gh pr create \
@@ -134,7 +132,7 @@ jobs:
             --body "Automatic sync from **${SOURCE}** with ${COMMITS} commit(s).
 
           ## Changes
-          $(git log --oneline main..origin/${BRANCH} | head -10 | sed 's/^/- /')
+          ${COMMIT_MESSAGES}
 
           ---
           *Created automatically by bidirectional-sync workflow*"
