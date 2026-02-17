@@ -1,0 +1,43 @@
+name: Debug App Token
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate adpeak GitHub App token
+        uses: tibdex/github-app-token@v2
+        id: token_adpeak
+        with:
+          app_id: ${{ vars.ADPEAK_APP_ID }}
+          private_key: ${{ secrets.ADPEAK_SYNC_PRIVATE_KEY }}
+          installation_retrieval_mode: organization
+          installation_retrieval_payload: adpeak
+
+      - name: Test token access
+        env:
+          GH_TOKEN: ${{ steps.token_adpeak.outputs.token }}
+        run: |
+          echo "Token generated successfully"
+          echo "Token: ${GH_TOKEN:0:20}..."
+
+          echo ""
+          echo "=== Check what user this token represents ==="
+          gh api /user
+
+          echo ""
+          echo "=== List repositories accessible to this token ==="
+          gh api /user/repos --jq '.[] | {name, owner: .owner.login, private}'
+
+          echo ""
+          echo "=== Try to access adpeak/claude-code-action ==="
+          gh api /repos/adpeak/claude-code-action || echo "FAILED: Cannot access adpeak/claude-code-action"
+
+          echo ""
+          echo "=== List all repos in adpeak org ==="
+          gh api /orgs/adpeak/repos --jq '.[] | {name, private}' || echo "FAILED: Cannot list adpeak repos"
