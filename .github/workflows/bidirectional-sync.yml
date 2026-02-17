@@ -42,7 +42,6 @@ jobs:
           fi
 
       - name: Generate GitHub App token for other repo
-        if: steps.check.outputs.skip != 'true'
         uses: tibdex/github-app-token@v2
         id: token
         with:
@@ -51,7 +50,6 @@ jobs:
 
       - name: Sync to other repo
         id: sync
-        if: steps.check.outputs.skip != 'true'
         env:
           TARGET_REPO: ${{ steps.repo.outputs.target }}
           TARGET_TOKEN: ${{ steps.token.outputs.token }}
@@ -84,8 +82,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           if git rebase target/main 2>/dev/null; then
-            # Rebase successful - push directly to main
-            git push target HEAD:main
+            # Rebase successful - push with ci.skip to prevent triggering workflow loop
+            git push target HEAD:main -o ci.skip
             echo "skip_pr=true" >> "$GITHUB_OUTPUT"
             echo "::notice::Successfully rebased and synced ${COMMITS_BEHIND} commit(s) to ${TARGET_REPO}"
           else
