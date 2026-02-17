@@ -60,9 +60,12 @@ jobs:
           SOURCE_REPO: ${{ github.repository }}
         run: |
           # Set up remote for target repo
-          git remote add target "https://x-access-token:${TARGET_TOKEN}@github.com/${TARGET_REPO}.git"
+          TARGET_URL="https://x-access-token:${TARGET_TOKEN}@github.com/${TARGET_REPO}.git"
+          git remote add target "$TARGET_URL"
 
           # Debug: show the remote URL
+          echo "=== Debug: Target URL (redacted token) ==="
+          echo "${TARGET_URL/x-access-token:$TARGET_TOKEN@/x-access-token:***@}"
           echo "=== Debug: Git remote URLs ==="
           git remote -v
 
@@ -90,8 +93,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           if git rebase target/main 2>/dev/null; then
-            # Rebase successful - push with ci.skip to prevent triggering workflow loop
-            git push target HEAD:main -o ci.skip
+            # Rebase successful - push directly to URL instead of using remote
+            echo "=== Pushing to: ${TARGET_URL/x-access-token:$TARGET_TOKEN@/x-access-token:***@} ==="
+            git push "$TARGET_URL" HEAD:main -o ci.skip
             echo "skip_pr=true" >> "$GITHUB_OUTPUT"
             echo "::notice::Successfully rebased and synced ${COMMITS_BEHIND} commit(s) to ${TARGET_REPO}"
           else
@@ -100,8 +104,8 @@ jobs:
             echo "skip_pr=false" >> "$GITHUB_OUTPUT"
             echo "branch_name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
 
-            # Push the conflicting branch
-            git push target HEAD:refs/heads/${BRANCH_NAME}
+            # Push the conflicting branch directly to URL
+            git push "$TARGET_URL" HEAD:refs/heads/${BRANCH_NAME}
 
             echo "::warning::Rebase conflict - created branch ${BRANCH_NAME} for manual resolution"
           fi
