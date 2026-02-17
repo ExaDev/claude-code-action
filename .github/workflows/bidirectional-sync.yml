@@ -71,7 +71,8 @@ jobs:
           cd "$TARGET_DIR"
 
           # Add the source repo as a remote to fetch its current state
-          SOURCE_URL="https://x-access-token:${TARGET_TOKEN}@github.com/${SOURCE_REPO}.git"
+          # Use GITHUB_TOKEN for source access since it has access to the repo where workflow runs
+          SOURCE_URL="https://x-access-token:${{ github.token }}@github.com/${SOURCE_REPO}.git"
           git remote add source "$SOURCE_URL"
           git fetch source main
 
