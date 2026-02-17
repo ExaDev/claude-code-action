@@ -100,87 +100,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Always create a PR instead of pushing directly to main
-          # (target repo requires changes via PR)
-          echo "skip_pr=false" >> "$GITHUB_OUTPUT"
-          echo "branch_name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
+          # Fast-forward merge source/main into origin/main
+          git checkout origin/main
+          git merge --ff-only source/main
 
-          # Push the branch from source/main
-          git push origin source/main:refs/heads/${BRANCH_NAME}
-          echo "::notice::Created branch ${BRANCH_NAME} with ${COMMITS_BEHIND} commit(s) from ${SOURCE_REPO}"
+          # Push directly to main
+          git push origin main
 
-      - name: Create PR
-        if: steps.sync.outputs.skip_pr == 'false'
-        env:
-          TARGET_TOKEN: ${{ steps[steps.repo.outputs.token_step].outputs.token }}
-          TARGET_REPO: ${{ steps.repo.outputs.target }}
-          BRANCH: ${{ steps.sync.outputs.branch_name }}
-          SOURCE: ${{ github.repository }}
-        run: |
-          export GH_TOKEN="${TARGET_TOKEN}"
-
-          # Get commit count and info using gh api
-          COMMITS=$(gh api repos/${TARGET_REPO}/compare/main...${BRANCH} --jq '.ahead_by')
-          COMMIT_MESSAGES=$(gh api repos/${TARGET_REPO}/compare/main...${BRANCH} --jq '.commits[].message' | head -10 | sed 's/^/- /')
-
-          # Create PR using gh api to get PR number
-          PR_RESPONSE=$(gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            repos/${TARGET_REPO}/pulls \
-            -f title="sync: merge changes from ${SOURCE}" \
-            -f body="Automatic sync from **${SOURCE}** with ${COMMITS} commit(s).
-
-          ## Changes
-          ${COMMIT_MESSAGES}
-
-          ---
-          *Created automatically by bidirectional-sync workflow*" \
-            -f head="${BRANCH}" \
-            -f base=main)
-
-          PR_NUMBER=$(echo "$PR_RESPONSE" | jq -r '.number')
-
-          # Enable auto-merge (will merge when checks pass)
-          gh api \
-            --method PUT \
-            -H "Accept: application/vnd.github+json" \
-            repos/${TARGET_REPO}/pulls/${PR_NUMBER}/merge \
-            -f merge_method=rebase \
-            -f auto_merge=true
-
-          echo "::notice::Created PR #${PR_NUMBER} for ${COMMITS} commit(s) from ${SOURCE} with auto-merge enabled"
-
-      - name: Cleanup old sync branches
-        if: steps.sync.outputs.skip != 'true'
-        env:
-          TARGET_TOKEN: ${{ steps[steps.repo.outputs.token_step].outputs.token }}
-          TARGET_REPO: ${{ steps.repo.outputs.target }}
-        run: |
-          export GH_TOKEN="${TARGET_TOKEN}"
-          SEVEN_DAYS_AGO=$(python3 -c 'from datetime import datetime, timedelta, timezone; print((datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ"))')
-
-          # Delete sync branches older than 7 days
-          gh api repos/${TARGET_REPO}/git/refs/heads --paginate --jq '.[].ref' |
-            grep -E 'refs/heads/sync/' | while read -r ref; do
-              branch=${ref#refs/heads/}
-              # Get commit date safely
-              commit_date=$(gh api repos/${TARGET_REPO}/git/refs/heads/${branch} --jq '.object.sha' | xargs -I {} gh api repos/${TARGET_REPO}/git/commits/{} --jq '.author.date' 2>/dev/null || echo "")
-
-              if [[ -n "$commit_date" ]]; then
-                # Compare dates using Python for portability
-                is_old=$(python3 -c "from datetime import datetime; d = datetime.fromisoformat('$commit_date'.replace('Z', '+00:00')); print(d < datetime.fromisoformat('$SEVEN_DAYS_AGO').replace(tzinfo=d.tzinfo))")
-                if [[ "$is_old" == "True" ]]; then
-                  # Check for open PRs before deleting
-                  if gh pr list --repo ${TARGET_REPO} --head ${branch} --json number --jq 'length' | grep -q '^0$'; then
-                    if gh api --method DELETE repos/${TARGET_REPO}/git/refs/heads/${branch} 2>/dev/null; then
-                      echo "Deleted old branch: $branch"
-                    else
-                      echo "::warning::Failed to delete branch: $branch"
-                    fi
-                  else
-                    echo "::notice::Skipping branch with open PR: $branch"
-                  fi
-                fi
-              fi
-            done
+          echo "::notice::Fast-forwarded main with ${COMMITS_BEHIND} commit(s) from ${SOURCE_REPO}"
