@@ -1,0 +1,179 @@
+name: Bidirectional Sync
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs: {}
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get other repo URL
+        id: repo
+        run: |
+          if [[ "${{ github.repository }}" == "ExaDev/claude-code-action" ]]; then
+            echo "target=adpeak/claude-code-action" >> "$GITHUB_OUTPUT"
+            echo "app_id=${{ vars.EXADEV_APP_ID }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "target=ExaDev/claude-code-action" >> "$GITHUB_OUTPUT"
+            echo "app_id=${{ vars.ADPEAK_APP_ID }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check if already a sync commit
+        id: check
+        run: |
+          if git log --format="%s" -1 | grep -q "\[sync from"; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping sync commit to avoid loop"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify required configuration
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          if [[ -z "${{ secrets.SYNC_PRIVATE_KEY }}" ]]; then
+            echo "::error::SYNC_PRIVATE_KEY secret is not set. Please configure it in repo settings."
+            exit 1
+          fi
+          if [[ -z "${{ steps.repo.outputs.app_id }}" ]]; then
+            echo "::error::GitHub App ID variable not set. Configure EXADEV_APP_ID or ADPEAK_APP_ID."
+            exit 1
+          fi
+
+      - name: Generate GitHub App token for other repo
+        if: steps.check.outputs.skip != 'true'
+        uses: tibdex/github-app-token@v2
+        id: token
+        with:
+          app_id: ${{ steps.repo.outputs.app_id }}
+          private_key: ${{ secrets.SYNC_PRIVATE_KEY }}
+
+      - name: Sync to other repo
+        id: sync
+        if: steps.check.outputs.skip != 'true'
+        env:
+          TARGET_REPO: ${{ steps.repo.outputs.target }}
+          TARGET_TOKEN: ${{ steps.token.outputs.token }}
+          SOURCE_REPO: ${{ github.repository }}
+        run: |
+          # Set up remote for target repo
+          git remote add target "https://x-access-token:${TARGET_TOKEN}@github.com/${TARGET_REPO}.git"
+
+          # Fetch target's main to check if we're ahead
+          git fetch target main
+
+          # Count commits we have that target doesn't
+          COMMITS_BEHIND=$(git log --oneline HEAD ^target/main | wc -l | tr -d ' ')
+
+          echo "Commits we have that target doesn't: $COMMITS_BEHIND"
+
+          if [[ "$COMMITS_BEHIND" -eq 0 ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Target repo is already up to date"
+            exit 0
+          fi
+
+          # Get short SHA and timestamp for branch naming
+          SHA=$(git rev-parse --short HEAD)
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          BRANCH_NAME="sync/${SOURCE_REPO}/${TIMESTAMP}-${SHA}"
+
+          # Try to rebase our commits on top of target/main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git rebase target/main 2>/dev/null; then
+            # Rebase successful - push directly to main
+            git push target HEAD:main
+            echo "skip_pr=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Successfully rebased and synced ${COMMITS_BEHIND} commit(s) to ${TARGET_REPO}"
+          else
+            # Rebase failed - abort and create PR
+            git rebase --abort
+            echo "skip_pr=false" >> "$GITHUB_OUTPUT"
+            echo "branch_name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
+
+            # Push the conflicting branch
+            git push target HEAD:refs/heads/${BRANCH_NAME}
+
+            echo "::warning::Rebase conflict - created branch ${BRANCH_NAME} for manual resolution"
+          fi
+
+      - name: Create PR for conflict resolution
+        if: steps.sync.outputs.skip_pr == 'false'
+        env:
+          TARGET_TOKEN: ${{ steps.token.outputs.token }}
+          TARGET_REPO: ${{ steps.repo.outputs.target }}
+          BRANCH: ${{ steps.sync.outputs.branch_name }}
+          SOURCE: ${{ github.repository }}
+        run: |
+          export GH_TOKEN="${TARGET_TOKEN}"
+
+          # Get commit count for PR description
+          COMMITS=$(git log --oneline target/main..HEAD | wc -l | tr -d ' ')
+
+          # Create PR with conflict marker
+          gh pr create \
+            --repo "${TARGET_REPO}" \
+            --base main \
+            --head "${BRANCH}" \
+            --title "sync: resolve merge conflicts from ${SOURCE}" \
+            --body "Automatic sync from **${SOURCE}** encountered merge conflicts and requires manual resolution.
+
+          ## What to do
+          1. Review the conflicts in the Files changed tab
+          2. Resolve conflicts locally:
+             \`\`\`bash
+             git fetch origin ${BRANCH}
+             git checkout ${BRANCH}
+             # Fix conflicts, then:
+             git add .
+             git rebase --continue
+             git push origin ${BRANCH}
+             \`\`\`
+          3. Merge the PR once resolved
+
+          ---
+          *Created automatically by bidirectional-sync workflow*"
+
+          echo "::notice::Created PR for conflict resolution"
+
+      - name: Cleanup old sync branches
+        if: steps.sync.outputs.skip != 'true'
+        env:
+          TARGET_TOKEN: ${{ steps.token.outputs.token }}
+          TARGET_REPO: ${{ steps.repo.outputs.target }}
+        run: |
+          export GH_TOKEN="${TARGET_TOKEN}"
+          SEVEN_DAYS_AGO=$(python3 -c 'from datetime import datetime, timedelta; print((datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ"))')
+
+          # Delete sync branches older than 7 days
+          gh api repos/${TARGET_REPO}/git/refs/heads --paginate --jq '.[].ref' |
+            grep -E 'refs/heads/sync/' | while read -r ref; do
+              branch=${ref#refs/heads/}
+              # Get commit date safely
+              commit_date=$(gh api repos/${TARGET_REPO}/git/refs/heads/${branch} --jq '.object.sha' | xargs -I {} gh api repos/${TARGET_REPO}/git/commits/{} --jq '.author.date' 2>/dev/null || echo "")
+
+              if [[ -n "$commit_date" ]]; then
+                # Compare dates using Python for portability
+                is_old=$(python3 -c "from datetime import datetime; d = datetime.fromisoformat('$commit_date'.replace('Z', '+00:00')); print(d < datetime.fromisoformat('$SEVEN_DAYS_AGO').replace(tzinfo=d.tzinfo))")
+                if [[ "$is_old" == "True" ]]; then
+                  if gh api --method DELETE repos/${TARGET_REPO}/git/refs/heads/${branch} 2>/dev/null; then
+                    echo "Deleted old branch: $branch"
+                  else
+                    echo "::warning::Failed to delete branch: $branch"
+                  fi
+                fi
+              fi
+            done
