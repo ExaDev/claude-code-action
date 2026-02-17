@@ -67,17 +67,19 @@ jobs:
           TARGET_DIR="/tmp/target-repo-${TIMESTAMP}"
           git clone "$TARGET_URL" "$TARGET_DIR"
 
-          # Copy the current HEAD (from ExaDev repo) to the target clone
-          git --git-dir=.git worktree add "$TARGET_DIR" HEAD
-
           # Change to target repo directory
           cd "$TARGET_DIR"
 
-          # Fetch target's main to check if we're ahead
+          # Add the source repo as a remote to fetch its current state
+          SOURCE_URL="https://x-access-token:${TARGET_TOKEN}@github.com/${SOURCE_REPO}.git"
+          git remote add source "$SOURCE_URL"
+          git fetch source main
+
+          # Fetch target's main to compare
           git fetch origin main
 
-          # Count commits we have that target doesn't
-          COMMITS_BEHIND=$(git log --oneline HEAD ^origin/main | wc -l | tr -d ' ')
+          # Count commits source has that target doesn't
+          COMMITS_BEHIND=$(git log --oneline source/main ^origin/main | wc -l | tr -d ' ')
 
           echo "Commits we have that target doesn't: $COMMITS_BEHIND"
 
@@ -100,8 +102,8 @@ jobs:
           echo "skip_pr=false" >> "$GITHUB_OUTPUT"
           echo "branch_name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
 
-          # Push the branch
-          git push origin HEAD:refs/heads/${BRANCH_NAME}
+          # Push the branch from source/main
+          git push origin source/main:refs/heads/${BRANCH_NAME}
           echo "::notice::Created branch ${BRANCH_NAME} with ${COMMITS_BEHIND} commit(s) from ${SOURCE_REPO}"
 
       - name: Create PR
@@ -114,8 +116,11 @@ jobs:
         run: |
           export GH_TOKEN="${TARGET_TOKEN}"
 
+          # Fetch the target repo's new branch to get commit info
+          git fetch https://x-access-token:${TARGET_TOKEN}@github.com/${TARGET_REPO}.git ${BRANCH}
+
           # Get commit count for PR description
-          COMMITS=$(git log --oneline origin/main..HEAD | wc -l | tr -d ' ')
+          COMMITS=$(git log --oneline main..origin/${BRANCH} | wc -l | tr -d ' ')
 
           # Create PR
           gh pr create \
@@ -126,7 +131,7 @@ jobs:
             --body "Automatic sync from **${SOURCE}** with ${COMMITS} commit(s).
 
           ## Changes
-          $(git log --oneline origin/main..HEAD | head -10 | sed 's/^/- /')
+          $(git log --oneline main..origin/${BRANCH} | head -10 | sed 's/^/- /')
 
           ---
           *Created automatically by bidirectional-sync workflow*"
