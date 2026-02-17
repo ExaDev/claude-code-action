@@ -146,7 +146,7 @@ jobs:
             --method PUT \
             -H "Accept: application/vnd.github+json" \
             repos/${TARGET_REPO}/pulls/${PR_NUMBER}/merge \
-            -f merge_method=merge \
+            -f merge_method=rebase \
             -f auto_merge=true
 
           echo "::notice::Created PR #${PR_NUMBER} for ${COMMITS} commit(s) from ${SOURCE} with auto-merge enabled"
