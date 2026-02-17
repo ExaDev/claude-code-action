@@ -62,6 +62,10 @@ jobs:
           # Set up remote for target repo
           git remote add target "https://x-access-token:${TARGET_TOKEN}@github.com/${TARGET_REPO}.git"
 
+          # Debug: show the remote URL
+          echo "=== Debug: Git remote URLs ==="
+          git remote -v
+
           # Fetch target's main to check if we're ahead
           git fetch target main
 
