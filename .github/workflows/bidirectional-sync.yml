@@ -61,7 +61,7 @@ jobs:
         run: |
           # Clone the target repo to work with it directly
           TARGET_URL="https://x-access-token:${TARGET_TOKEN}@github.com/${TARGET_REPO}.git"
-          TARGET_DIR="/tmp/target-repo"
+          TARGET_DIR="/tmp/target-repo-$(date +%s)"
           git clone "$TARGET_URL" "$TARGET_DIR"
 
           # Copy the current HEAD (from ExaDev repo) to the target clone
