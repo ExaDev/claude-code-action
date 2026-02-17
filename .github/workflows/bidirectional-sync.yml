@@ -31,12 +31,15 @@ jobs:
           fi
 
       - name: Verify required configuration
+        env:
+          SYNC_PRIVATE_KEY: ${{ secrets.SYNC_PRIVATE_KEY }}
+          APP_ID: ${{ steps.repo.outputs.app_id }}
         run: |
-          if [[ -z "${{ secrets.SYNC_PRIVATE_KEY }}" ]]; then
+          if [[ -z "$SYNC_PRIVATE_KEY" ]]; then
             echo "::error::SYNC_PRIVATE_KEY secret is not set. Please configure it in repo settings."
             exit 1
           fi
-          if [[ -z "${{ steps.repo.outputs.app_id }}" ]]; then
+          if [[ -z "$APP_ID" ]]; then
             echo "::error::GitHub App ID variable not set. Configure EXADEV_APP_ID or ADPEAK_APP_ID."
             exit 1
           fi
