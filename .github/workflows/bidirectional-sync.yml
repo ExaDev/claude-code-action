@@ -123,8 +123,8 @@ jobs:
           COMMITS=$(gh api repos/${TARGET_REPO}/compare/main...${BRANCH} --jq '.ahead_by')
           COMMIT_MESSAGES=$(gh api repos/${TARGET_REPO}/compare/main...${BRANCH} --jq '.commits[].message' | head -10 | sed 's/^/- /')
 
-          # Create PR
-          gh pr create \
+          # Create PR and capture PR number
+          PR_NUMBER=$(gh pr create \
             --repo "${TARGET_REPO}" \
             --base main \
             --head "${BRANCH}" \
@@ -135,9 +135,13 @@ jobs:
           ${COMMIT_MESSAGES}
 
           ---
-          *Created automatically by bidirectional-sync workflow*"
+          *Created automatically by bidirectional-sync workflow*" \
+            --json number --jq '.number')
 
-          echo "::notice::Created PR for ${COMMITS} commit(s) from ${SOURCE}"
+          # Enable auto-merge (will merge when checks pass)
+          gh pr merge --auto --merge "${PR_NUMBER}" --repo "${TARGET_REPO}"
+
+          echo "::notice::Created PR #${PR_NUMBER} for ${COMMITS} commit(s) from ${SOURCE} with auto-merge enabled"
 
       - name: Cleanup old sync branches
         if: steps.sync.outputs.skip != 'true'
