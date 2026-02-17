@@ -92,19 +92,12 @@ jobs:
             exit 0
           fi
 
-          # Get short SHA for branch naming
-          SHA=$(git rev-parse --short HEAD)
-          BRANCH_NAME="sync/${SOURCE_REPO}/${TIMESTAMP}-${SHA}"
-
           # Configure git user
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Fast-forward merge source/main into origin/main
-          git checkout origin/main
-          git merge --ff-only source/main
+          # Push source/main directly to origin/main
+          # Use --force to handle divergent histories from previous PR-based syncs
+          git push origin source/main:main --force
 
-          # Push directly to main
-          git push origin main
-
-          echo "::notice::Fast-forwarded main with ${COMMITS_BEHIND} commit(s) from ${SOURCE_REPO}"
+          echo "::notice::Synced main with ${COMMITS_BEHIND} commit(s) from ${SOURCE_REPO}"
