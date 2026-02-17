@@ -1,0 +1,51 @@
+name: Test Git Push
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ExaDev/claude-code-action
+
+      - name: Generate adpeak GitHub App token
+        uses: tibdex/github-app-token@v2
+        id: token_adpeak
+        with:
+          app_id: ${{ vars.ADPEAK_APP_ID }}
+          private_key: ${{ secrets.ADPEAK_SYNC_PRIVATE_KEY }}
+          installation_retrieval_mode: organization
+          installation_retrieval_payload: adpeak
+
+      - name: Test git operations with adpeak token
+        env:
+          GH_TOKEN: ${{ steps.token_adpeak.outputs.token }}
+        run: |
+          echo "Token: ${GH_TOKEN:0:20}..."
+
+          # Clone the adpeak repo using the token
+          echo ""
+          echo "=== Cloning adpeak/claude-code-action ==="
+          git clone https://x-access-token:${GH_TOKEN}@github.com/adpeak/claude-code-action.git /tmp/test-clone || echo "CLONE FAILED"
+
+          echo ""
+          echo "=== Trying a simple push (create a test branch) ==="
+          cd /tmp/test-clone
+          echo "test" > test-file.txt
+          git add test-file.txt
+          git config user.name "Test"
+          git config user.email "test@test.com"
+          git commit -m "test commit"
+          git push origin HEAD:test-branch-$(date +%s) || echo "PUSH FAILED"
+
+          echo ""
+          echo "=== Checking token permissions ==="
+          curl -s -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/user | jq '{login, type}' || echo "USER CHECK FAILED"
