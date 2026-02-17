@@ -119,27 +119,37 @@ jobs:
         run: |
           export GH_TOKEN="${TARGET_TOKEN}"
 
-          # Fetch the target repo's new branch to get commit info
-          git fetch https://x-access-token:${TARGET_TOKEN}@github.com/${TARGET_REPO}.git ${BRANCH}
+          # Get commit count and info using gh api
+          COMMITS=$(gh api repos/${TARGET_REPO}/compare/main...${BRANCH} --jq '.ahead_by')
+          COMMIT_MESSAGES=$(gh api repos/${TARGET_REPO}/compare/main...${BRANCH} --jq '.commits[].message' | head -10 | sed 's/^/- /')
 
-          # Get commit count for PR description
-          COMMITS=$(git log --oneline main..origin/${BRANCH} | wc -l | tr -d ' ')
-
-          # Create PR
-          gh pr create \
-            --repo "${TARGET_REPO}" \
-            --base main \
-            --head "${BRANCH}" \
-            --title "sync: merge changes from ${SOURCE}" \
-            --body "Automatic sync from **${SOURCE}** with ${COMMITS} commit(s).
+          # Create PR using gh api to get PR number
+          PR_RESPONSE=$(gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            repos/${TARGET_REPO}/pulls \
+            -f title="sync: merge changes from ${SOURCE}" \
+            -f body="Automatic sync from **${SOURCE}** with ${COMMITS} commit(s).
 
           ## Changes
-          $(git log --oneline main..origin/${BRANCH} | head -10 | sed 's/^/- /')
+          ${COMMIT_MESSAGES}
 
           ---
-          *Created automatically by bidirectional-sync workflow*"
+          *Created automatically by bidirectional-sync workflow*" \
+            -f head="${BRANCH}" \
+            -f base=main)
 
-          echo "::notice::Created PR for ${COMMITS} commit(s) from ${SOURCE}"
+          PR_NUMBER=$(echo "$PR_RESPONSE" | jq -r '.number')
+
+          # Enable auto-merge (will merge when checks pass)
+          gh api \
+            --method PUT \
+            -H "Accept: application/vnd.github+json" \
+            repos/${TARGET_REPO}/pulls/${PR_NUMBER}/merge \
+            -f merge_method=merge \
+            -f auto_merge=true
+
+          echo "::notice::Created PR #${PR_NUMBER} for ${COMMITS} commit(s) from ${SOURCE} with auto-merge enabled"
 
       - name: Cleanup old sync branches
         if: steps.sync.outputs.skip != 'true'
