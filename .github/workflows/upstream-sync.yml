@@ -14,6 +14,7 @@ permissions:
 
 jobs:
   upstream-sync:
+    if: github.repository == 'ExaDev/claude-code-action'
     runs-on: ubuntu-latest
     steps:
       - name: Check for existing sync PR
