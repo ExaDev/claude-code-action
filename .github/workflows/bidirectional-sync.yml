@@ -39,6 +39,8 @@ jobs:
         with:
           app_id: ${{ vars.ADPEAK_APP_ID }}
           private_key: ${{ secrets.ADPEAK_SYNC_PRIVATE_KEY }}
+          installation_retrieval_mode: organization
+          installation_retrieval_payload: adpeak
 
       - name: Generate GitHub App token (ExaDev)
         if: steps.repo.outputs.use_adpeak == 'false'
@@ -47,6 +49,8 @@ jobs:
         with:
           app_id: ${{ vars.EXADEV_APP_ID }}
           private_key: ${{ secrets.EXADEV_SYNC_PRIVATE_KEY }}
+          installation_retrieval_mode: organization
+          installation_retrieval_payload: ExaDev
 
       - name: Sync to other repo
         id: sync
