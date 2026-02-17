@@ -10,6 +10,18 @@ beyond the current PR. You can create issues to propose these improvements.
 
 Both types of prompts can be improved through issue creation.
 
+### Feedback Channels
+
+Use the appropriate channel for different types of feedback:
+
+| Channel | When to Use | Example |
+|---------|-------------|---------|
+| **PR Review** | Code/issues in the current PR's changes | "Line 42 has a bug" |
+| **PR Issue Comment** | Meta-feedback about the PR or process | "This PR needs tests" |
+| **Separate Issue** | Prompt improvements beyond current PR | "Add security guidelines" |
+
+**Key distinction:** Feedback about the PR's code goes in the review. Feedback about prompts goes in a separate issue. Do not mix these.
+
 ### Creating Issues
 
 If you notice gaps, inconsistencies, or improvement opportunities in prompts

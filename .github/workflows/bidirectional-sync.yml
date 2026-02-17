@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   sync:
@@ -29,18 +30,7 @@ jobs:
             echo "app_id=${{ vars.ADPEAK_APP_ID }}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Check if already a sync commit
-        id: check
-        run: |
-          if git log --format="%s" -1 | grep -q "\[sync from"; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Skipping sync commit to avoid loop"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Verify required configuration
-        if: steps.check.outputs.skip != 'true'
         run: |
           if [[ -z "${{ secrets.SYNC_PRIVATE_KEY }}" ]]; then
             echo "::error::SYNC_PRIVATE_KEY secret is not set. Please configure it in repo settings."
@@ -156,7 +146,7 @@ jobs:
           TARGET_REPO: ${{ steps.repo.outputs.target }}
         run: |
           export GH_TOKEN="${TARGET_TOKEN}"
-          SEVEN_DAYS_AGO=$(python3 -c 'from datetime import datetime, timedelta; print((datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ"))')
+          SEVEN_DAYS_AGO=$(python3 -c 'from datetime import datetime, timedelta, timezone; print((datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ"))')
 
           # Delete sync branches older than 7 days
           gh api repos/${TARGET_REPO}/git/refs/heads --paginate --jq '.[].ref' |
@@ -169,10 +159,15 @@ jobs:
                 # Compare dates using Python for portability
                 is_old=$(python3 -c "from datetime import datetime; d = datetime.fromisoformat('$commit_date'.replace('Z', '+00:00')); print(d < datetime.fromisoformat('$SEVEN_DAYS_AGO').replace(tzinfo=d.tzinfo))")
                 if [[ "$is_old" == "True" ]]; then
-                  if gh api --method DELETE repos/${TARGET_REPO}/git/refs/heads/${branch} 2>/dev/null; then
-                    echo "Deleted old branch: $branch"
+                  # Check for open PRs before deleting
+                  if gh pr list --repo ${TARGET_REPO} --head ${branch} --json number --jq 'length' | grep -q '^0$'; then
+                    if gh api --method DELETE repos/${TARGET_REPO}/git/refs/heads/${branch} 2>/dev/null; then
+                      echo "Deleted old branch: $branch"
+                    else
+                      echo "::warning::Failed to delete branch: $branch"
+                    fi
                   else
-                    echo "::warning::Failed to delete branch: $branch"
+                    echo "::notice::Skipping branch with open PR: $branch"
                   fi
                 fi
               fi
