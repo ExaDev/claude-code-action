@@ -93,24 +93,26 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           if git rebase target/main 2>/dev/null; then
-            # Rebase successful - push directly to URL instead of using remote
-            echo "=== Pushing to: ${TARGET_URL/x-access-token:$TARGET_TOKEN@/x-access-token:***@} ==="
-            git push "$TARGET_URL" HEAD:main -o ci.skip
-            echo "skip_pr=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Successfully rebased and synced ${COMMITS_BEHIND} commit(s) to ${TARGET_REPO}"
+            # Rebase successful - but target repo requires PR, so create PR
+            echo "skip_pr=false" >> "$GITHUB_OUTPUT"
+            echo "branch_name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
+
+            # Push the rebased branch
+            git push "$TARGET_URL" HEAD:refs/heads/${BRANCH_NAME}
+            echo "::notice::Successfully rebased ${COMMITS_BEHIND} commit(s). Created branch ${BRANCH_NAME} for PR."
           else
             # Rebase failed - abort and create PR
             git rebase --abort
             echo "skip_pr=false" >> "$GITHUB_OUTPUT"
             echo "branch_name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
 
-            # Push the conflicting branch directly to URL
+            # Push the conflicting branch
             git push "$TARGET_URL" HEAD:refs/heads/${BRANCH_NAME}
 
             echo "::warning::Rebase conflict - created branch ${BRANCH_NAME} for manual resolution"
           fi
 
-      - name: Create PR for conflict resolution
+      - name: Create PR
         if: steps.sync.outputs.skip_pr == 'false'
         env:
           TARGET_TOKEN: ${{ steps.token_adpeak.outputs.token }}
@@ -123,31 +125,21 @@ jobs:
           # Get commit count for PR description
           COMMITS=$(git log --oneline target/main..HEAD | wc -l | tr -d ' ')
 
-          # Create PR with conflict marker
+          # Create PR
           gh pr create \
             --repo "${TARGET_REPO}" \
             --base main \
             --head "${BRANCH}" \
-            --title "sync: resolve merge conflicts from ${SOURCE}" \
-            --body "Automatic sync from **${SOURCE}** encountered merge conflicts and requires manual resolution.
+            --title "sync: merge changes from ${SOURCE}" \
+            --body "Automatic sync from **${SOURCE}** with ${COMMITS} commit(s).
 
-          ## What to do
-          1. Review the conflicts in the Files changed tab
-          2. Resolve conflicts locally:
-             \`\`\`bash
-             git fetch origin ${BRANCH}
-             git checkout ${BRANCH}
-             # Fix conflicts, then:
-             git add .
-             git rebase --continue
-             git push origin ${BRANCH}
-             \`\`\`
-          3. Merge the PR once resolved
+          ## Changes
+          $(git log --oneline target/main..HEAD | head -10 | sed 's/^/- /')
 
           ---
           *Created automatically by bidirectional-sync workflow*"
 
-          echo "::notice::Created PR for conflict resolution"
+          echo "::notice::Created PR for ${COMMITS} commit(s) from ${SOURCE}"
 
       - name: Cleanup old sync branches
         if: steps.sync.outputs.skip != 'true'
