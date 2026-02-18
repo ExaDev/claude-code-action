@@ -62,6 +62,10 @@ jobs:
           gh api 'repos/anthropics/claude-code-action/commits?per_page=30' \
             > /tmp/upstream/commits.json
 
+          # Fetch CLI changelog for context on recent changes
+          gh api repos/anthropics/claude-code/contents/CHANGELOG.md \
+            --jq '.content' | base64 -d > /tmp/cli/CHANGELOG.md
+
           echo "::notice::Upstream context fetched successfully."
 
       - name: Run Claude Code for sync analysis

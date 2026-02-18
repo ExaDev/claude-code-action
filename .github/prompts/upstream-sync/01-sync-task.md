@@ -17,6 +17,7 @@ to reflect any new, changed, or removed inputs/outputs.
 4. `/tmp/upstream/README.md` — upstream documentation
 5. `/tmp/upstream/release.json` — latest upstream release info
 6. `/tmp/upstream/commits.json` — recent upstream commits
+7. `/tmp/cli/CHANGELOG.md` — CLI changelog for context on recent changes
 
 ## What to compare
 
@@ -30,6 +31,13 @@ to reflect any new, changed, or removed inputs/outputs.
   - Removed outputs → remove from ours
 - **README.md tables**: The "Action Inputs" and "Action Outputs" tables
   must match what's in our `action.yml` after updates.
+- **CLI Changelog**: Review `/tmp/cli/CHANGELOG.md` for context on
+  recent CLI changes. This helps understand:
+  - New features or flags that might warrant action input changes
+  - Breaking changes that affect how the action should be used
+  - Deprecations that might require updates to our defaults
+    Include relevant changelog highlights in the PR body when they
+    explain or contextualise the sync changes.
 
 ## Rules
 
@@ -69,6 +77,10 @@ If you made any meaningful changes:
    ## Changes
 
    <summarise what changed>
+
+   ## CLI Changelog Highlights
+
+   <if relevant, include notable CLI changes from CHANGELOG.md that relate to the action updates>
 
    ## Upstream reference
 
