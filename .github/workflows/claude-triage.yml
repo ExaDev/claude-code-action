@@ -1,0 +1,31 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: read
+  issues: write
+  id-token: write
+
+jobs:
+  claude-triage:
+    # Run on new issues, or when 'needs-triage' label is applied
+    if: >
+      (github.event.action == 'opened' &&
+       github.event.issue.user.type != 'Bot') ||
+      (github.event.action == 'labeled' &&
+       github.event.label.name == 'needs-triage')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./
+        with:
+          mode: triage
+          issue_number: ${{ github.event.issue.number }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Optional: Change the re-triage label
+          # triage_label: "needs-triage"
+          # Optional: Disable issue body updates
+          # update_issue_body: false
