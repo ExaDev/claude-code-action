@@ -36,6 +36,16 @@ After submitting a review, check the PR title and description with
 - **Description**: If the body is empty, always add a summary generated from the
   diff. If incomplete, add only what's missing. Skip only if it already has a
   complete summary.
+- **Issue links**: Check whether the PR relates to any open issues by examining
+  the branch name, commit messages, and existing PR body for issue references.
+  If related issues exist and aren't already linked, add closing keywords as a
+  bullet list in your marker block:
+  ```markdown
+  - Closes #42
+  - Closes #58
+  ```
+  Use `Closes` for issues fully resolved by the PR. Only add links you're
+  confident about — don't guess.
 
 When updating, add only what's missing. Use headings only when organizing
 multiple distinct sections — a single paragraph needs no `## Summary` heading
