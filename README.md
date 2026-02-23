@@ -23,6 +23,10 @@ curl -sL "https://raw.githubusercontent.com/ExaDev/claude-code-action/main/.gith
 curl -sL "https://raw.githubusercontent.com/ExaDev/claude-code-action/main/.github/workflows/claude-review.yml" \
   | sed "s|uses: \./|uses: ExaDev/claude-code-action@main|" \
   > .github/workflows/claude-review.yml
+
+curl -sL "https://raw.githubusercontent.com/ExaDev/claude-code-action/main/.github/workflows/claude-triage.yml" \
+  | sed "s|uses: \./|uses: ExaDev/claude-code-action@main|" \
+  > .github/workflows/claude-triage.yml
 ```
 
 </details>
@@ -40,6 +44,10 @@ curl -sL "https://raw.githubusercontent.com/adpeak/claude-code-action/main/.gith
 curl -sL "https://raw.githubusercontent.com/adpeak/claude-code-action/main/.github/workflows/claude-review.yml" \
   | sed "s|uses: \./|uses: adpeak/claude-code-action@main|" \
   > .github/workflows/claude-review.yml
+
+curl -sL "https://raw.githubusercontent.com/adpeak/claude-code-action/main/.github/workflows/claude-triage.yml" \
+  | sed "s|uses: \./|uses: adpeak/claude-code-action@main|" \
+  > .github/workflows/claude-triage.yml
 ```
 
 </details>
@@ -85,28 +93,36 @@ Composite action that wraps `anthropics/claude-code-action@v1` with org-wide pro
 - Tools: all interactive tools + `Read`, `Grep`, `Glob`, `git diff/log/blame`, `gh issue/pr create`
 - `PR_NUMBER` env var available for stale review cleanup
 
-Both modes: max 50 turns.
+**`triage`** — automatic issue triage on creation or re-label:
+
+- Tools: `gh api`, `gh issue edit/view/list/comment`, `gh label list`
+- `ISSUE_NUMBER` env var available for API calls
+- `UPDATE_ISSUE_BODY` controls whether triage summary is appended to the issue
+
+All modes: max 50 turns.
 
 ### Prompt Composition
 
 `action.yml` step 1 concatenates prompts in this order:
 
 1. Org-wide shared (`prompts/shared/*.md`) — base behavior, PR guidelines, comment hygiene
-2. Org-wide mode-specific (`prompts/{review|interactive}/*.md`)
+2. Org-wide mode-specific (`prompts/{review|interactive|triage}/*.md`)
 3. Consumer repo shared (`.github/prompts/shared/*.md`, if present)
-4. Consumer repo mode-specific (`.github/prompts/{review|interactive}/*.md`, if present)
+4. Consumer repo mode-specific (`.github/prompts/{review|interactive|triage}/*.md`, if present)
 
 Files are concatenated alphabetically. Org-wide files use numbers `01-09`, repo-specific use `10+`.
 
 Variables substituted via `envsubst` at runtime:
 
-| Variable      | Example                 |
-| ------------- | ----------------------- |
-| `$REPO`       | `YOUR_ORG/my-project`   |
-| `$REPO_OWNER` | `YOUR_ORG`              |
-| `$REPO_NAME`  | `my-project`            |
-| `$PR_NUMBER`  | `42` (review mode only) |
-| `$BOT_NAME`   | `claude[bot]`           |
+| Variable             | Example                   |
+| -------------------- | ------------------------- |
+| `$REPO`              | `YOUR_ORG/my-project`     |
+| `$REPO_OWNER`        | `YOUR_ORG`                |
+| `$REPO_NAME`         | `my-project`              |
+| `$PR_NUMBER`         | `42` (review mode only)   |
+| `$ISSUE_NUMBER`      | `7` (triage mode only)    |
+| `$UPDATE_ISSUE_BODY` | `true` (triage mode only) |
+| `$BOT_NAME`          | `claude[bot]`             |
 
 ### Action Inputs
 
@@ -115,8 +131,11 @@ Variables substituted via `envsubst` at runtime:
 
 | Input                            | Description                                                                                                                            | Default                      |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| `mode`                           | `interactive` or `review`                                                                                                              | `interactive`                |
+| `mode`                           | `interactive`, `review`, or `triage`                                                                                                   | `interactive`                |
 | `pr_number`                      | PR number (required for review mode)                                                                                                   | `''`                         |
+| `issue_number`                   | Issue number (required for triage mode)                                                                                                | `''`                         |
+| `triage_label`                   | Label that triggers re-triage when applied                                                                                             | `needs-triage`               |
+| `update_issue_body`              | Append triage summary to issue description                                                                                             | `true`                       |
 | `prompt_dir`                     | Override prompt directory                                                                                                              | `interactive` / `review`     |
 | `claude_args`                    | Override claude args                                                                                                                   | Auto-generated based on mode |
 | `claude_code_oauth_token`        | Claude Code OAuth token                                                                                                                | Required\*                   |
@@ -180,6 +199,36 @@ jobs:
     uses: YOUR_ORG/claude-code-action/.github/workflows/claude-review.yml@main
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+```
+
+### Automatic Issue Triage
+
+```yaml
+name: Claude Issue Triage
+on:
+  issues:
+    types: [opened, labeled]
+
+jobs:
+  triage:
+    uses: YOUR_ORG/claude-code-action/.github/workflows/claude-triage.yml@main
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+```
+
+### Custom Triage Taxonomy
+
+Add `.github/prompts/triage/10-taxonomy.md` in your repo:
+
+```markdown
+When triaging issues in this repository:
+
+- Use `priority:critical` for security issues and data loss
+- Use `priority:high` for broken features affecting users
+- Use `priority:medium` for bugs with workarounds
+- Use `priority:low` for cosmetic issues and minor improvements
+- Always set type to "Bug" for issues describing broken behaviour
+- Always set type to "Task" for issues requesting new features
 ```
 
 ### Security-Focused Reviews
