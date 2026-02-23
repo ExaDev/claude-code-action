@@ -2,7 +2,9 @@ name: Claude Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize, ready_for_review, reopened]
+    types: [opened, ready_for_review]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
@@ -13,18 +15,25 @@ permissions:
 
 jobs:
   claude-review:
-    # Skip draft PRs; allow claude[bot] but skip other bots
+    # Auto-review when PR is opened or marked ready for review (skip drafts and bots).
+    # Re-review when a user comments '@claude review' on a PR.
     if: >
-      (github.event.pull_request.user.type != 'Bot' ||
-       github.event.pull_request.user.login == 'claude[bot]') &&
-      github.event.pull_request.draft == false
+      (
+        github.event_name == 'pull_request' &&
+        (github.event.pull_request.user.type != 'Bot' || github.event.pull_request.user.login == 'claude[bot]') &&
+        github.event.pull_request.draft == false
+      ) || (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request != null &&
+        startsWith(github.event.comment.body, '@claude review')
+      )
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: ./
         with:
           mode: review
-          pr_number: ${{ github.event.pull_request.number }}
+          pr_number: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.event.issue.number }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           allowed_bots: "claude[bot]"
           # Optional: Enable progress tracking with checkboxes
