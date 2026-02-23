@@ -7,13 +7,25 @@ branding:
 
 inputs:
   mode:
-    description: "Mode: interactive or review"
+    description: "Mode: interactive, review, or triage"
     required: false
     default: "interactive"
   pr_number:
     description: "Pull request number (required for review mode)"
     required: false
     default: ""
+  issue_number:
+    description: "Issue number (required for triage mode)"
+    required: false
+    default: ""
+  triage_label:
+    description: "Label that triggers re-triage when applied to an issue"
+    required: false
+    default: "needs-triage"
+  update_issue_body:
+    description: "Append triage summary to the issue description"
+    required: false
+    default: "true"
   prompt_dir:
     description: "Override prompt directory (default: interactive or review based on mode)"
     required: false
@@ -184,12 +196,16 @@ runs:
         REPO_OWNER: ${{ github.repository_owner }}
         REPO_NAME: ${{ github.event.repository.name }}
         BOT_NAME: ${{ inputs.bot_name }}
+        ISSUE_NUMBER: ${{ inputs.issue_number }}
+        UPDATE_ISSUE_BODY: ${{ inputs.update_issue_body }}
       run: |
         # Determine prompt directory
         if [ -n "$PROMPT_DIR" ]; then
           DIR="$PROMPT_DIR"
         elif [ "$MODE" = "review" ]; then
           DIR="review"
+        elif [ "$MODE" = "triage" ]; then
+          DIR="triage"
         else
           DIR="interactive"
         fi
@@ -200,20 +216,20 @@ runs:
         # Org-wide shared prompts (bundled in action)
         for f in "${{ github.action_path }}/.github/prompts/shared"/*.md; do
           [ -f "$f" ] || continue
-          PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER $BOT_NAME' < "$f")"$'\n'
+          PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER $ISSUE_NUMBER $UPDATE_ISSUE_BODY $BOT_NAME' < "$f")"$'\n'
         done
 
         # Org-wide mode-specific prompts (bundled)
         for f in "${{ github.action_path }}/.github/prompts/$DIR"/*.md; do
           [ -f "$f" ] || continue
-          PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER $BOT_NAME' < "$f")"$'\n'
+          PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER $ISSUE_NUMBER $UPDATE_ISSUE_BODY $BOT_NAME' < "$f")"$'\n'
         done
 
         # Repo-specific shared prompts (if they exist)
         if [ -d ".github/prompts/shared" ]; then
           for f in .github/prompts/shared/*.md; do
             [ -f "$f" ] || continue
-            PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER $BOT_NAME' < "$f")"$'\n'
+            PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER $ISSUE_NUMBER $UPDATE_ISSUE_BODY $BOT_NAME' < "$f")"$'\n'
           done
         fi
 
@@ -221,7 +237,7 @@ runs:
         if [ -d ".github/prompts/$DIR" ]; then
           for f in ".github/prompts/$DIR"/*.md; do
             [ -f "$f" ] || continue
-            PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER $BOT_NAME' < "$f")"$'\n'
+            PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER $ISSUE_NUMBER $UPDATE_ISSUE_BODY $BOT_NAME' < "$f")"$'\n'
           done
         fi
 
@@ -236,6 +252,8 @@ runs:
 
         if [ "$MODE" = "review" ]; then
           TOOLS="$COMMON_TOOLS,Read,Grep,Glob,WebFetch,Bash(git diff:*),Bash(git log:*),Bash(git blame:*),Bash(gh issue create:*),Bash(gh pr create:*)"
+        elif [ "$MODE" = "triage" ]; then
+          TOOLS="Bash(gh api:*),Bash(gh issue edit:*),Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh issue comment:*),Bash(gh label list:*),mcp__github__get_issue,mcp__github__list_issues"
         else
           TOOLS="$COMMON_TOOLS,Bash(gh issue comment:*),Bash(gh issue view:*)"
         fi
