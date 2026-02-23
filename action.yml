@@ -198,6 +198,7 @@ runs:
         BOT_NAME: ${{ inputs.bot_name }}
         ISSUE_NUMBER: ${{ inputs.issue_number }}
         UPDATE_ISSUE_BODY: ${{ inputs.update_issue_body }}
+        TRIAGE_LABEL: ${{ inputs.triage_label }}
       run: |
         # Determine prompt directory
         if [ -n "$PROMPT_DIR" ]; then
@@ -216,20 +217,20 @@ runs:
         # Org-wide shared prompts (bundled in action)
         for f in "${{ github.action_path }}/.github/prompts/shared"/*.md; do
           [ -f "$f" ] || continue
-          PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER $ISSUE_NUMBER $UPDATE_ISSUE_BODY $BOT_NAME' < "$f")"$'\n'
+          PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER $ISSUE_NUMBER $UPDATE_ISSUE_BODY $TRIAGE_LABEL $BOT_NAME' < "$f")"$'\n'
         done
 
         # Org-wide mode-specific prompts (bundled)
         for f in "${{ github.action_path }}/.github/prompts/$DIR"/*.md; do
           [ -f "$f" ] || continue
-          PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER $ISSUE_NUMBER $UPDATE_ISSUE_BODY $BOT_NAME' < "$f")"$'\n'
+          PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER $ISSUE_NUMBER $UPDATE_ISSUE_BODY $TRIAGE_LABEL $BOT_NAME' < "$f")"$'\n'
         done
 
         # Repo-specific shared prompts (if they exist)
         if [ -d ".github/prompts/shared" ]; then
           for f in .github/prompts/shared/*.md; do
             [ -f "$f" ] || continue
-            PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER $ISSUE_NUMBER $UPDATE_ISSUE_BODY $BOT_NAME' < "$f")"$'\n'
+            PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER $ISSUE_NUMBER $UPDATE_ISSUE_BODY $TRIAGE_LABEL $BOT_NAME' < "$f")"$'\n'
           done
         fi
 
@@ -237,7 +238,7 @@ runs:
         if [ -d ".github/prompts/$DIR" ]; then
           for f in ".github/prompts/$DIR"/*.md; do
             [ -f "$f" ] || continue
-            PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER $ISSUE_NUMBER $UPDATE_ISSUE_BODY $BOT_NAME' < "$f")"$'\n'
+            PROMPT="${PROMPT}$(envsubst '$REPO $REPO_OWNER $REPO_NAME $PR_NUMBER $ISSUE_NUMBER $UPDATE_ISSUE_BODY $TRIAGE_LABEL $BOT_NAME' < "$f")"$'\n'
           done
         fi
 

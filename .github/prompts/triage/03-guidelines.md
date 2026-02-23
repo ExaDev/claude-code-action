@@ -25,11 +25,16 @@
   (e.g. "blocked by #42", "depends on #42", "requires #42 first").
 - Do not infer blockers from topical similarity.
 
+**Issue body updates:**
+
+The `update_issue_body` setting is currently: `$UPDATE_ISSUE_BODY`. Only update
+the issue body if this value is `true`.
+
 **Re-triage:**
 
-- When re-triaging (triggered by a label), check what metadata is already set.
+- When re-triaging (triggered by the `$TRIAGE_LABEL` label), check what
+  metadata is already set.
 - Do not remove existing type or labels unless they are clearly wrong.
-- Update the triage summary in the issue body if `update_issue_body` is enabled.
 
 **Error handling:**
 
