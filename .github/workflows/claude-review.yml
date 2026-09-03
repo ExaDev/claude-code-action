@@ -11,6 +11,10 @@ permissions:
   id-token: write
   actions: read
 
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   claude-review:
     # Skip draft PRs; allow claude[bot] but skip other bots
