@@ -1,3 +1,17 @@
+## [1.1.0](https://github.com/ExaDev/claude-code-action/compare/v1.0.0...v1.1.0) (2026-09-03)
+
+### Bug Fixes
+
+- **lint:** exclude the generated CHANGELOG.md from markdown lint ([a86559a](https://github.com/ExaDev/claude-code-action/commit/a86559a5a5c5f0fbb993e0fbd2e600c53864a4aa))
+- **prompts:** exclude gh api from what counts as an issue-creation tool ([e69ad48](https://github.com/ExaDev/claude-code-action/commit/e69ad48b6c1ce2676768f224fdb6849ec1a0c186))
+- **prompts:** make the out-of-scope issue-filing instruction mode-aware ([4512030](https://github.com/ExaDev/claude-code-action/commit/451203073a1185b0062f850074351e55c95d40c4))
+
+### Features
+
+- **prompts:** add a closing-keyword pass to the title/description fix ([b36b935](https://github.com/ExaDev/claude-code-action/commit/b36b935d72c0e505434b5ee60787999e8f98b0ab))
+- **prompts:** add a Conduct section to interactive mode ([794ae49](https://github.com/ExaDev/claude-code-action/commit/794ae4943e8bdd9db51c7dc01894ae6028422a08))
+- **prompts:** restore hallucinated-API and Streisand-artefact review checks ([fd67916](https://github.com/ExaDev/claude-code-action/commit/fd679164481777a9be337ec0423df945e76e4cb0))
+
 ## 1.0.0 (2026-09-03)
 
 ### Bug Fixes
