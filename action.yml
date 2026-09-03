@@ -8,8 +8,9 @@ branding:
 
 inputs:
   mode:
-    description: "Which behaviour to run: review, triage, or interactive."
-    required: true
+    description: "Which behaviour to run: review, triage, or interactive. Defaults to interactive -- real consumers of this action's own previous design relied on that default, invoking interactive mode without ever passing mode explicitly."
+    required: false
+    default: "interactive"
 
   # Entity-number overrides. All three modes resolve which pull request or issue they're running against from the GitHub event context automatically (github.event.pull_request.number / github.event.issue.number) -- these exist only so a caller with an unusual trigger (a workflow_dispatch, a matrix job with no direct event binding) can supply the number explicitly instead. Leave unset in the common case; an explicit value always wins over auto-detection where both are available, everywhere this action resolves an entity number for an API read or a comment. It does NOT extend to the review-mode automatic fix pass's own git operations ("Prepare fix pass" and downstream): those need a real git branch and repository, not just a number, which only a genuine pull_request event provides -- pr_number alone cannot stand in for that without an extra gh pr view lookup this action does not make, so the fix pass skips loudly, with an explicit message, rather than silently misusing an empty value.
   pr_number:
@@ -91,6 +92,16 @@ inputs:
     description: |
       Additional Claude Code CLI arguments appended after the arguments this action derives from the mode.
       Use it for things like --max-turns. Passing --allowedTools here adds to, rather than replaces, the mode allowlist.
+    required: false
+    default: ""
+  claude_args:
+    description: |
+      Full override: when set, replaces this action's own mode-derived --allowedTools/--max-turns/--model
+      arguments (and, in review mode, the session-resume --resume flag) entirely, rather than adding to them
+      the way extra_claude_args does. For a caller building its own fully custom invocation -- its own prompt
+      file via --prompt-file, its own tool allowlist, its own turn limit -- not for ordinary tuning, which
+      extra_claude_args covers without giving up this action's own mode-derived safety allowlist. Real
+      consumers of this action's own previous design rely on this exact override semantic.
     required: false
     default: ""
 
@@ -1027,7 +1038,7 @@ runs:
       uses: anthropics/claude-code-action@6b082c41935b4c8a3b8b0ef85ba4ba4d9eeb8975 # v1.0.189
       with:
         prompt: ${{ steps.prompt.outputs.text }}
-        claude_args: ${{ steps.resume.outputs.claude_args || steps.args.outputs.claude_args }}
+        claude_args: ${{ inputs.claude_args || steps.resume.outputs.claude_args || steps.args.outputs.claude_args }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_1_type == 'key' && steps.credentials.outputs.cred_1_token || '' }}
         claude_code_oauth_token: ${{ steps.credentials.outputs.cred_1_type == 'oauth' && steps.credentials.outputs.cred_1_token || '' }}
@@ -1074,7 +1085,7 @@ runs:
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here, unlike attempt_1: that output can carry --resume <id> for a session cached from an EARLIER JOB RUN, which is fine to resume -- but if attempt_1 failed mid-run rather than at auth time, it may have already appended turns to that same session file, and this attempt must not resume THAT. Always starting fresh here is what makes the README's "the next credential's attempt starts fresh" claim actually true.
-        claude_args: ${{ steps.args.outputs.claude_args }}
+        claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_2_type == 'key' && steps.credentials.outputs.cred_2_token || '' }}
         claude_code_oauth_token: ${{ steps.credentials.outputs.cred_2_type == 'oauth' && steps.credentials.outputs.cred_2_token || '' }}
@@ -1121,7 +1132,7 @@ runs:
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here -- see attempt_2's own comment: a fallback attempt within this same job run must always start fresh, never resume a session an earlier failed attempt in this run may have already written to.
-        claude_args: ${{ steps.args.outputs.claude_args }}
+        claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_3_type == 'key' && steps.credentials.outputs.cred_3_token || '' }}
         claude_code_oauth_token: ${{ steps.credentials.outputs.cred_3_type == 'oauth' && steps.credentials.outputs.cred_3_token || '' }}
@@ -1168,7 +1179,7 @@ runs:
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here -- see attempt_2's own comment: a fallback attempt within this same job run must always start fresh, never resume a session an earlier failed attempt in this run may have already written to.
-        claude_args: ${{ steps.args.outputs.claude_args }}
+        claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_4_type == 'key' && steps.credentials.outputs.cred_4_token || '' }}
         claude_code_oauth_token: ${{ steps.credentials.outputs.cred_4_type == 'oauth' && steps.credentials.outputs.cred_4_token || '' }}
@@ -1215,7 +1226,7 @@ runs:
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here -- see attempt_2's own comment: a fallback attempt within this same job run must always start fresh, never resume a session an earlier failed attempt in this run may have already written to.
-        claude_args: ${{ steps.args.outputs.claude_args }}
+        claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_5_type == 'key' && steps.credentials.outputs.cred_5_token || '' }}
         claude_code_oauth_token: ${{ steps.credentials.outputs.cred_5_type == 'oauth' && steps.credentials.outputs.cred_5_token || '' }}
