@@ -11,7 +11,8 @@ on:
     types: [submitted]
 
 permissions:
-  contents: read
+  # contents: write, not read -- interactive mode commits to a branch and pushes it. This was previously (incorrectly) contents: read, which would have failed the moment interactive mode actually tried to push, caught while comparing against the reusable interactive workflow's own (correctly-scoped) permissions block during the pre-public consolidation pass.
+  contents: write
   pull-requests: write
   issues: write
   id-token: write
@@ -29,6 +30,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: ./
         with:
+          mode: interactive
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Optional: Customize trigger phrase
           # trigger_phrase: "/claude"
