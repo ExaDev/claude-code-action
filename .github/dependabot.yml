@@ -1,18 +1,40 @@
+# One github-actions entry with directory: "/" is the only shape this ecosystem supports: it scans .github/workflows/*.yml and the root action.yml together in a single pass, so it also opens bump PRs for actions/checkout, actions/setup-node, actions/cache, and actions/create-github-app-token. That is free dependency hygiene, not scope creep -- grouping below keeps those routine bumps in one batched PR while anthropics/claude-code-action always arrives alone, so the Dependabot workflow's investigation step reasons about exactly one upstream release per PR. This repository's own reusable workflows self-reference the composite action via `uses: ./`, not a versioned `owner/repo@vN` reference, so there is no self-dependency for Dependabot to ever try bumping here -- unlike a consumer repository, which pins a real tag.
 version: 2
 
 updates:
-  - package-ecosystem: npm
-    directory: /
+  - package-ecosystem: "github-actions"
+    directory: "/"
     schedule:
-      interval: weekly
+      interval: "daily"
+    # A newly-published release can be a compromised maintainer account or a broken build before anyone's had time to notice -- the same reasoning behind a package manager's own minimum-release-age setting (commonly a matter of days). A bump only becomes a pull request, and only then reaches the investigation workflow, once its release has survived a week unretracted.
+    cooldown:
+      default-days: 7
+    # Dependabot's default commit message for this ecosystem carries no conventional-commit type at all, which fails this repository's commitlint job. "build" is in the shared commitTypes list (release.config.ts) and maps to a patch release -- correct for a dependency bump with no behavioural change of its own.
     commit-message:
-      prefix: chore
+      prefix: "build"
+      include: "scope"
     open-pull-requests-limit: 10
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "anthropics/claude-code-action"
 
-  - package-ecosystem: github-actions
-    directory: /
+  # A second, independent ecosystem entry, isolated from the github-actions one above: @anthropic-ai/claude-code is Anthropic's own CLI, published to npm on its own release cadence, completely separate from anthropics/claude-code-action (the GitHub Action bumped above). The "Investigate and adapt" step in .github/workflows/dependabot.yml runs this CLI via npx instead of calling that Action directly, specifically so a bump of one is never proposed in the same pull request as a bump of the other. Every other npm devDependency (typescript, eslint, prettier, semantic-release, commitlint, husky, turbo, and the rest) is tracked here too, batched into one routine group -- the same free-dependency-hygiene reasoning the github-actions entry above already applies to actions/checkout and friends.
+  - package-ecosystem: "npm"
+    directory: "/"
     schedule:
-      interval: weekly
+      interval: "daily"
+    cooldown:
+      default-days: 7
     commit-message:
-      prefix: chore
-    open-pull-requests-limit: 5
+      prefix: "build"
+      include: "scope"
+    open-pull-requests-limit: 10
+    groups:
+      npm-dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "@anthropic-ai/claude-code"

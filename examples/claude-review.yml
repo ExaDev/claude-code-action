@@ -1,0 +1,29 @@
+# Copy this to .github/workflows/claude-review.yml in a repository in your organisation.
+#
+# Claude reviews every pull request when it is opened, when new commits are pushed to it, and when a draft is marked ready for review. It submits a formal review -- inline comments plus a summary body -- requesting changes when it finds a blocker and never approving.
+#
+# Set the ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN secret (organisation or repository level) first. Either works; wire through whichever you set.
+
+name: Claude Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# Reviewing every push to a busy branch gets expensive and noisy. This cancels an in-flight review when the author pushes again, so only the latest commit is reviewed.
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Matches review.yml@v1's own permissions: block exactly -- see the README's step 3. A job calling a reusable workflow, in this repository or a different one, can declare its own permissions: to grant more than the repository's default workflow permissions provide; declaring it explicitly here means this example works regardless of what that default happens to be, rather than depending on it. If this repository's own default already covers contents: read and pull-requests: write, this block is redundant but harmless -- leave it in for the same reason: it stops working silently the moment that default is ever tightened.
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+    uses: ExaDev/claude-code-action/.github/workflows/review.yml@v1
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    # Every other input is optional with a sensible default — see .github/workflows/review.yml in ExaDev/claude-code-action for the full list and what each does.

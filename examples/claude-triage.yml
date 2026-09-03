@@ -1,0 +1,28 @@
+# Copy this to .github/workflows/claude-triage.yml in a repository in your organisation.
+#
+# When an issue is opened, Claude works out what it is, looks for duplicates, applies existing labels, says what information is missing, and suggests where to start looking.
+#
+# Set the ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN secret (organisation or repository level) first. Either works; wire through whichever you set.
+
+name: Claude Triage
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    # Matches triage.yml@v1's own permissions: block exactly -- see claude-review.yml's comment and the README's step 3 for why declaring this is safe and correct rather than something to avoid.
+    permissions:
+      contents: read
+      issues: write
+    uses: ExaDev/claude-code-action/.github/workflows/triage.yml@v1
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    with:
+      # Without this, only issues opened by someone with repository write access are triaged, which for most repositories means almost none of them. Setting it to '*' triages everyone's issues and is usually the point of running triage.
+      #
+      # It does mean untrusted issue text reaches the model, so read the security notes in the action's README before enabling it. Triage mode holds no pull-request or code-write scope, which is what makes this trade-off acceptable here; do not copy the same setting into the interactive workflow.
+      allowed_non_write_users: "*"
+      # Every other input is optional with a sensible default — see .github/workflows/triage.yml in ExaDev/claude-code-action for the full list and what each does.

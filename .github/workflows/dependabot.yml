@@ -1,0 +1,276 @@
+# Dependabot bumps the anthropics/claude-code-action pin in action.yml (dependabot.yml, alongside this workflow's own pin below). This workflow takes it from there: investigate what changed upstream and adapt this repository if needed, run the same dogfooded review as every other pull request, then auto-merge once that review clears -- for patch and minor bumps only, a major always stops for a human. All three stages (whether investigation runs at all, whether it may also touch prompts/, whether auto-merge runs at all, and which semver levels it covers) are configurable via the DEPENDABOT_* secrets the "Read configuration flags" step below reads -- see README's "Automated upstream bumps" for the full story and each flag's name and default.
+#
+# Three things shape almost every choice below, not just style. (1) A pull_request run triggered by Dependabot gets a forced-read-only GITHUB_TOKEN and cannot see ordinary repository secrets, only the separate "Dependabot secrets" store -- so CLAUDE_CODE_OAUTH_TOKEN must be duplicated into that store, not just the Actions one. (2) Declaring an explicit permissions: block on a job is what lifts that forced-read-only default for GITHUB_TOKEN -- a job calling this repository's own composite action directly (not the review.yml reusable workflow claude-review.yml calls) can do this. claude-review.yml itself still excludes Dependabot pull requests, calling review.yml as a reusable workflow instead of the composite action directly. A job calling a reusable workflow -- same repository or a different one -- can perfectly well declare its own permissions: block, but whether doing so also lifts Dependabot's forced-read-only default specifically, across that particular boundary, is untested here -- a genuinely separate question from whether the block is allowed at all. The direct-form path below is left as the already-working, already-proven choice rather than risked on that untested assumption. (3) A push authenticated with GITHUB_TOKEN never triggers a new workflow run, no matter how it's permissioned -- so the investigate job's own push authenticates separately, as this repository's own sync App (the same App ci.yml's release job already uses), which needs only contents: write and nothing else, since it only ever pushes. It is deliberately NOT used for reading or commenting on the pull request (it lacks pull-requests scope entirely), and this workflow deliberately does NOT use OIDC to act as the claude App the way examples/direct/claude-review.yml does: that App is owned by Anthropic, not this organisation, so there is no private key to mint an explicit token with, and the OIDC alternative (id-token: write) triggers a GitHub platform check that the calling workflow file be byte-identical to the default branch's copy -- which a Dependabot PR that bumps a pin used inside this very file (dependabot/fetch-metadata, actions/setup-node) always fails, silently skipping the review step.
+
+name: Dependabot
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: dependabot-${{ github.event.pull_request.number }}
+  # A mid-push cancellation would leave the branch in an indeterminate state -- queue instead of cancelling.
+  cancel-in-progress: false
+
+jobs:
+  metadata:
+    name: Metadata
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'ExaDev/claude-code-action'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      update-type: ${{ steps.metadata.outputs.update-type }}
+      is-upstream: ${{ steps.classify.outputs.is-upstream }}
+      investigate-enabled: ${{ steps.flags.outputs.investigate-enabled }}
+      allow-prompt-changes: ${{ steps.flags.outputs.allow-prompt-changes }}
+      automerge-enabled: ${{ steps.flags.outputs.automerge-enabled }}
+      automerge-eligible: ${{ steps.flags.outputs.automerge-eligible }}
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          # The default check -- "the branch contains only Dependabot-authored commits" -- stops holding the moment the investigate job below pushes its own adaptation commit. The actor gate in each job's own if: already does what that check would have done, so skipping it here is not a loss of safety.
+          skip-commit-verification: true
+      - name: Classify dependency
+        id: classify
+        env:
+          DEPENDENCY_NAMES: ${{ steps.metadata.outputs.dependency-names }}
+        run: |
+          set -euo pipefail
+          if [ "${DEPENDENCY_NAMES}" = "anthropics/claude-code-action" ]; then
+            echo "is-upstream=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is-upstream=false" >> "$GITHUB_OUTPUT"
+          fi
+      # Reads these as secrets, not vars: this job (like investigate below) always runs on a Dependabot-triggered event, which -- per the file header's point (1) -- can only read the separate "Dependabot secrets" store, and no Dependabot-scoped variables store exists at all (the same platform gap that made investigate's own token-minting step hardcode the sync App's App ID rather than read a vars.* value). A vars.* read here would silently and permanently resolve empty regardless of what's set in the ordinary Actions store, so these four are secrets instead, each defaulting to this repository's previous hardcoded behaviour when unset. Unlike CLAUDE_CODE_OAUTH_TOKEN and the sync App's own private key, these are read only here, in a job that only ever runs Dependabot-triggered -- so they belong solely in the Dependabot secrets store, not duplicated into the ordinary Actions one. See README's "Automated upstream bumps" for what each one does and its default.
+      - name: Read configuration flags
+        id: flags
+        env:
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+          INVESTIGATE_ENABLED: ${{ secrets.DEPENDABOT_INVESTIGATE_ENABLED }}
+          ALLOW_PROMPT_CHANGES: ${{ secrets.DEPENDABOT_INVESTIGATE_ALLOW_PROMPT_CHANGES }}
+          AUTOMERGE_ENABLED: ${{ secrets.DEPENDABOT_AUTOMERGE_ENABLED }}
+          AUTOMERGE_LEVELS: ${{ secrets.DEPENDABOT_AUTOMERGE_LEVELS }}
+        run: |
+          set -euo pipefail
+
+          investigate_enabled="true"
+          if [ "${INVESTIGATE_ENABLED}" = "false" ]; then
+            investigate_enabled="false"
+          fi
+          echo "investigate-enabled=${investigate_enabled}" >> "$GITHUB_OUTPUT"
+
+          allow_prompt_changes="false"
+          if [ "${ALLOW_PROMPT_CHANGES}" = "true" ]; then
+            allow_prompt_changes="true"
+          fi
+          echo "allow-prompt-changes=${allow_prompt_changes}" >> "$GITHUB_OUTPUT"
+
+          automerge_enabled="true"
+          if [ "${AUTOMERGE_ENABLED}" = "false" ]; then
+            automerge_enabled="false"
+          fi
+          echo "automerge-enabled=${automerge_enabled}" >> "$GITHUB_OUTPUT"
+
+          # Comma-separated, no spaces: patch, minor, major, in any combination. Defaults to this repository's previous hardcoded behaviour (patch and minor auto-merge, major always stops for a human) when unset.
+          levels="${AUTOMERGE_LEVELS:-patch,minor}"
+          automerge_eligible="false"
+          case "${UPDATE_TYPE}" in
+            version-update:semver-patch)
+              case ",${levels}," in *,patch,*) automerge_eligible="true" ;; esac
+              ;;
+            version-update:semver-minor)
+              case ",${levels}," in *,minor,*) automerge_eligible="true" ;; esac
+              ;;
+            version-update:semver-major)
+              case ",${levels}," in *,major,*) automerge_eligible="true" ;; esac
+              ;;
+          esac
+          echo "automerge-eligible=${automerge_eligible}" >> "$GITHUB_OUTPUT"
+
+  investigate:
+    name: Investigate upstream bump
+    needs: [metadata]
+    # github.triggering_actor is the pusher, not the PR author: on the opened event and on a Dependabot rebase it is dependabot[bot]; on the synchronize event caused by this job's own push (further down) it is this repository's own sync App, which is what stops this job re-entering itself in a loop against its own commit.
+    if: needs.metadata.outputs.is-upstream == 'true' && needs.metadata.outputs.investigate-enabled == 'true' && github.triggering_actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read # the checkout, and Claude's own git add/commit, only need this -- the push below is separate
+      pull-requests: write # for gh pr comment below; declaring this explicitly lifts Dependabot's read-only default
+    outputs:
+      pushed: ${{ steps.push.outputs.pushed }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+
+      # Runs the Claude Code CLI (@anthropic-ai/claude-code, installed as an ordinary devDependency by `npm ci` above) directly via npx, rather than calling anthropics/claude-code-action as a step. This step's own `uses:` used to be pinned to the same SHA action.yml pins, both bumped by the same Dependabot PR -- which meant this step executed the exact unreviewed SHA it was investigating, with CLAUDE_CODE_OAUTH_TOKEN and a pull-requests: write-scoped GITHUB_TOKEN in scope, before any human reviewed it. The CLI is a genuinely separate trust boundary: a package on npm's own registry, published by Anthropic on its own release cadence, tracked by .github/dependabot.yml's own "npm" ecosystem entry with its own seven-day cooldown, and never bumped by the same pull request as anthropics/claude-code-action -- the two ecosystems' scans never overlap. Investigating a bump of one no longer means running the unreviewed code of the other.
+      #
+      # No actor-type gate here, unlike the upstream Action this step used to call (which refused to run for a bot-triggered event unless the bot was named in its own allowed_bots input). A raw CLI invocation has no gate of its own; the job's own `if:` above -- github.triggering_actor == 'dependabot[bot]' -- was always the real, load-bearing gate, and is untouched by this change.
+      #
+      # gh CLI calls Claude's own Bash tool makes (gh release view, gh api, gh pr comment) authenticate via GH_TOKEN below -- the same GITHUB_TOKEN the composite action used to receive as its own github_token input, now exported directly since there is no wrapper to pass it through.
+      #
+      # Git commit identity is not set by the CLI itself (the upstream Action used to set this internally via its own bot_id/bot_name inputs, defaulted to 41898282/claude[bot] -- see action.yml's own bot_id/bot_name descriptions). Configured explicitly below to match that exact prior default, so Claude's own `git commit` tool call in step 4 of the prompt keeps working unchanged.
+      - name: Investigate and adapt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          INVESTIGATE_PROMPT: |
+            You are maintaining ExaDev/claude-code-action, a composite GitHub Action that wraps anthropics/claude-code-action. Dependabot has opened this pull request bumping the pinned upstream SHA. Your job is to work out whether that bump alone is sufficient, and to make this repository correct against the new upstream version if it is not.
+
+            1. Read the bump. `git diff origin/main...HEAD -- action.yml` shows the old and new SHA and version comment. Confirm the trailing `# vX.Y.Z` comment matches the SHA it annotates -- Dependabot has a known bug (dependabot-core #14716, #13466) where that comment can go stale. Confirm every pinned call site in `action.yml` moved together: all eight occurrences (the five credential-fallback attempt steps, Wrap up on turn limit, Apply confident fixes, Structured review summary) carry the same SHA and the same trailing version comment. This workflow file has no pinned `anthropics/claude-code-action` reference of its own to check -- the step that investigates a bump runs `@anthropic-ai/claude-code` instead, a separate package on a separate registry and release cadence, tracked by this repository's own `npm` Dependabot ecosystem entry and never bumped by the same pull request as this one.
+
+            2. Find out what changed upstream. Use `gh release view <tag> --repo anthropics/claude-code-action` for the release notes of every version between the old and new one. Use `gh api repos/anthropics/claude-code-action/compare/<old-sha>...<new-sha>` for the full diff. Read the upstream action.yml at both refs via `gh api repos/anthropics/claude-code-action/contents/action.yml?ref=<sha> --jq .content | base64 -d`. Keep gh api calls read-only and scoped to that repository and this pull request.
+
+            3. Decide what this repository needs, comparing upstream's inputs and outputs at the two refs:
+               - A new upstream input worth exposing to callers: add it as a new `inputs:` entry in action.yml with a description in this repository's own voice, pass it in the `with:` block at the call sites where it applies, and add a matching input to the reusable workflow(s) that expose that mode.
+               - A renamed or removed upstream input: update the `with:` keys at the call sites and the corresponding `inputs:` / reusable-workflow inputs, preserving this repository's own input names where callers depend on them.
+               - A renamed upstream output: update `outputs:` in action.yml and every `steps.<id>.outputs.<name>` reference.
+               - Behavioural changes with no interface change: no edit, but say so in your comment.
+               Do not invent pass-through inputs for upstream features this action has no use for.${{ needs.metadata.outputs.allow-prompt-changes == 'true' && ' Prompt changes are allowed for this run: if, and only if, this upstream release changed a behaviour that a fragment under prompts/ specifically instructs against or fails to account for, adapt that fragment too, and state exactly which behavioural change justified it in your comment -- do not touch prompts/ for anything else, including a purely cosmetic or docs-only upstream change.' || ' Do not change anything under prompts/ -- that is not what this pull request is for.' }} Editing anything under .github/workflows/ is fine if the adaptation genuinely needs it, but be aware the push after this step can only land a plain content commit -- if your commit touches .github/workflows/**, the push may fail on a permissions error unrelated to whether your change is correct; that is expected and reported separately, not something to work around here.
+
+            4. If you changed anything, run `npm run format`, `npm run lint`, and `npm run typecheck`, then `git add` the files you changed and commit. The commit type is a release decision in this repository (see the Versioning section of README.md): `feat:` for a new pass-through input, output, or capability -- including anything that changes what Claude is told; `fix:` for adapting to a renamed or removed upstream input, i.e. repairing something the bump would otherwise break; a `BREAKING CHANGE:` footer only if this repository's own input or output contract changes in a way that requires consuming repositories to act. Do not use `build:` -- Dependabot's own commit already carries `build(deps):` for the SHA bump itself, and reusing it for real capability would understate the release. Keep your change in its own commit, separate from Dependabot's. Do not push -- the workflow pushes after you finish, using a different identity than the one available to you.
+
+            5. Leave one comment on this pull request with `gh pr comment` either way: the upstream versions covered, what changed upstream that matters here, what you changed and why -- or an explicit statement that the bump needs no accompanying change and what you checked to conclude that. A human reviewer reads this to decide whether to trust the automation.
+        run: |
+          set -euo pipefail
+
+          # Matches the upstream Action's own prior default (bot_id 41898282, bot_name claude[bot] -- see action.yml's own bot_id/bot_name input descriptions) so Claude's own git commit tool call keeps working, unchanged.
+          git config user.name "claude[bot]"
+          git config user.email "41898282+claude[bot]@users.noreply.github.com"
+
+          OUTPUT_FILE="${RUNNER_TEMP}/investigate-output.jsonl"
+
+          # Toggled off only around the CLI invocation: a genuine investigation failure (a bad prompt, hitting --max-turns, a real bug) must not abort this script before the exit code is captured and the Step Summary is written below.
+          set +e
+          printf '%s' "$INVESTIGATE_PROMPT" | npx claude -p \
+            --max-turns 30 \
+            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*),Bash(git add:*),Bash(git commit:*),Bash(git rev-parse:*),Bash(gh release view:*),Bash(gh api:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(npm ci:*),Bash(npm run:*)" \
+            --disallowedTools "Bash(git push:*),Bash(git reset:*),Bash(git rebase:*),Bash(git tag:*),Bash(gh pr merge:*),Bash(gh pr review:*),Bash(gh pr close:*),Bash(gh release create:*),Bash(gh secret:*),Bash(gh variable:*),Bash(gh workflow:*)" \
+            --output-format stream-json --verbose \
+            | tee "$OUTPUT_FILE"
+          CLAUDE_EXIT="${PIPESTATUS[1]}"
+          set -e
+
+          # The last stream-json line is the final `result` event on a clean finish -- extract its human-readable text for the Step Summary (what display_report used to provide). The full per-turn/tool-call transcript is already in this step's own live log above (stream-json --verbose to stdout), which is what show_full_output used to add -- no separate flag or step needed for either.
+          RESULT_TEXT="$(tail -n 1 "$OUTPUT_FILE" 2>/dev/null | jq -r 'select(.type == "result") | (.result // empty)' 2>/dev/null || true)"
+          FALLBACK_TEXT="The run did not finish cleanly (exit ${CLAUDE_EXIT}); see the full transcript in this step's own log for what happened."
+          {
+            printf '## Investigate and adapt\n\n'
+            if [ -n "$RESULT_TEXT" ]; then
+              printf '%s\n' "$RESULT_TEXT"
+            else
+              printf '_%s_\n' "$FALLBACK_TEXT"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          exit "$CLAUDE_EXIT"
+
+      - name: Mint this repository's own sync App installation token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          # Hardcoded app-id, not vars.EXADEV_APP_ID: this job can run under Dependabot's restricted permissions, and GitHub has no Dependabot-scoped variables store at all -- repos/{owner}/{repo}/dependabot/variables 404s, confirmed directly, not assumed -- so a vars.* read would always resolve empty here regardless of anything set in the Actions store. The App ID isn't sensitive (it's a public identifier for the App's installation, the same kind of value GitHub shows in its own UI), so hardcoding it removes the dependency on a store that doesn't exist for this context, rather than working around it. Value confirmed live: `gh api repos/ExaDev/claude-code-action/actions/variables/EXADEV_APP_ID`.
+          app-id: "2852966"
+          private-key: ${{ secrets.EXADEV_SYNC_PRIVATE_KEY }}
+
+      - name: Push any changes
+        id: push
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet HEAD "origin/${HEAD_REF}"; then
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            echo "No adaptation commit; the SHA bump stands alone."
+            exit 0
+          fi
+          # An explicit token URL rather than actions/checkout's own token: the checkout above deliberately used the plain (read-scoped) GITHUB_TOKEN, since only this one push needs the sync App's identity -- see the file header for why a GITHUB_TOKEN push specifically would not retrigger CI on the new commit.
+          if git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${HEAD_REF}"; then
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Could not push the adaptation commit -- e.g. because it touches .github/workflows/** (needs workflows: write, which the sync App deliberately lacks; it holds only contents: write), or a non-fast-forward/transient git failure. See the pull request comment above for what Claude found -- if it's the workflows: write case, a human needs to apply that part of the change manually."
+            exit 1
+          fi
+
+  review:
+    name: Review
+    needs: [metadata, investigate]
+    # metadata.result == 'success' is required, not just investigate's outcome: on a pull request that isn't from Dependabot at all, metadata's own if: skips it, and investigate then skips too (as a downstream effect) -- which, without this check, satisfies "investigate didn't fail or push" trivially and would run this job on every ordinary pull request, not just Dependabot's. With that ruled out, this job runs for a non-upstream bump (investigate skipped because is-upstream was false), an upstream bump with investigation disabled (DEPENDABOT_INVESTIGATE_ENABLED set to false), or an upstream bump that needed no adaptation (investigate ran but did not push). When investigate did push, this run stands down: that push's own synchronize event starts a fresh run that reviews the final head instead of a commit that's already been superseded -- which is also what stops the pull request being reviewed twice.
+    if: |
+      always() &&
+      needs.metadata.result == 'success' &&
+      needs.investigate.result != 'failure' &&
+      needs.investigate.result != 'cancelled' &&
+      needs.investigate.outputs.pushed != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write # covers both the review submission and the disable-auto call below
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      # Direct (composite-action-step) form, not the review.yml reusable workflow that claude-review.yml calls -- see the file header for why. github_token is explicit here too, for the same reason as investigate's: this runs as github-actions[bot], the same identity claude-review.yml's reusable form already uses for every non-Dependabot pull request, so resolve_stale_threads is a no-op here exactly as it already is there -- a pre-existing, accepted limitation, not a regression.
+      - uses: ./
+        with:
+          mode: review
+          allowed_bots: "dependabot[bot]" # empty (the default) allows no bots, and every PR reaching this job is bot-authored
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Gate on the review verdict
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}/reviews" --paginate \
+            --jq "[.[] | select(.commit_id == \"${HEAD_SHA}\" and .state != \"COMMENTED\")] | last | .state // \"NONE\"")"
+          echo "Latest review state on ${HEAD_SHA}: ${state}"
+          if [ "${state}" = "CHANGES_REQUESTED" ] || [ "${state}" = "NONE" ]; then
+            # Undoes any auto-merge a review on an earlier, now-superseded head had enabled, so a stale green light cannot merge a revision this review has since objected to.
+            gh pr merge "${PR}" --disable-auto || true
+            echo "::error::Review did not clear this revision (${state}). Auto-merge withheld."
+            exit 1
+          fi
+
+  auto-merge:
+    name: Auto-merge
+    needs: [metadata, review]
+    # Patch and minor only by default (DEPENDABOT_AUTOMERGE_LEVELS, computed into automerge-eligible above) -- see README for why, and why a level this repository hasn't opted into still gets fully investigated and reviewed above, just not merged automatically. DEPENDABOT_AUTOMERGE_ENABLED off disables this job outright, regardless of level.
+    if: |
+      always() &&
+      needs.review.result == 'success' &&
+      needs.metadata.outputs.automerge-enabled == 'true' &&
+      needs.metadata.outputs.automerge-eligible == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        # --merge, never --squash: squashing would collapse Dependabot's build(deps): commit and any feat:/fix: commit investigate added under the pull request's own (patch-level) title, understating the release semantic-release would compute. A merge commit keeps them separate so each is analysed on its own -- allow_merge_commit must be enabled on this repository for this to work.
+        run: gh pr merge "${PR}" --auto --merge

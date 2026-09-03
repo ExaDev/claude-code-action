@@ -1,0 +1,33 @@
+# Composite-action-step (direct) form of claude-triage.yml. Copy this to .github/workflows/claude-triage.yml in a repository in your organisation.
+#
+# This calls the composite action directly as a step rather than through the reusable workflow (examples/claude-triage.yml), so the job can scope its own token (the reusable form cannot take a caller permissions: block). See the header of claude-review.yml in this directory for the general reason you'd pick the direct form.
+#
+# When an issue is opened, Claude works out what it is, looks for duplicates, applies existing labels, says what information is missing, and suggests where to start looking.
+#
+# Set the ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN secret (organisation or repository level) first. Either works; wire through whichever you set.
+
+name: Claude Triage
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ExaDev/claude-code-action@v1
+        with:
+          mode: triage
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Without this, only issues opened by someone with repository write access are triaged, which for most repositories means almost none of them. '*' triages everyone's issues and is usually the point of running triage.
+          #
+          # It does mean untrusted issue text reaches the model, so read the security notes in the action's README before enabling it. Triage mode holds no pull-request or code-write scope, which is what makes this trade-off acceptable here; do not copy the same setting into the interactive workflow.
+          allowed_non_write_users: "*"
+          # Every other input is optional with a sensible default -- see action.yml for the full list.

@@ -1,0 +1,66 @@
+# Composite-action-step (direct) form of claude-review.yml with the opt-in automatic fix pass turned on. Copy this to .github/workflows/claude-review.yml in a repository in your organisation -- INSTEAD OF, not alongside, either of the other two review examples.
+#
+# READ THIS BEFORE YOU COPY IT. Every other review workflow in this repository is read-only by construction: the worst a subverted or prompt-injected review can do is post a misleading comment, and that boundary is the reason review is a separate entry point from interactive at all. This file removes it. With fix_ci_failures or fix_diff_findings on, a second call after the review edits files and commits them, and this job pushes that commit to the pull request's branch -- so a review that has been talked into writing the wrong thing now writes it into someone's branch, where the next person to look may reasonably assume a bot-authored commit was checked by something. Use this on repositories whose pull requests come from people you would already give write access to, and nowhere else. It is not a default to roll out across the estate.
+#
+# Three limits bound that, and none of them is the prompt:
+#   - Fork pull requests never reach the fix call. This job's token cannot push to a fork, so the action skips the
+#     whole pass before it costs anything -- which is exactly the untrusted case.
+#   - The push target is fixed. The action pushes to this pull request's own head branch and nothing else, from a
+# bash step; the model has no git push tool at all, and anything it writes is discarded with the runner if that step does not publish it.
+#   - The review call itself is still read-only. Write and Edit stay on its denylist. Only the separate follow-up
+# call can touch a file. What is NOT bounded is the content of a fix, and the contents: write below is broader than the one branch that gets pushed to. Branch protection on your default branch is what makes that safe. Turn it on.
+#
+# Two things differ from examples/direct/claude-review.yml besides the flags:
+#   - contents: write, not contents: read. The fix commit's own push authenticates separately from the review, as
+# this repository's own sync App's installation token, minted below and passed as push_token -- not as the Claude Code App. The App identity from the OIDC exchange governs API calls for the review itself; the push_token input governs only the fix pass's git operations. So there are two identities in this one job: claude[bot] reviews, the sync App pushes.
+#   - Because of that: a push authenticated with the plain job GITHUB_TOKEN never starts new workflow runs, so checks
+# would not automatically re-run on the fix commit if push_token were left unset -- this is why push_token is wired below to the sync App's own installation token instead. That App is minimal (contents: write only, the same one ci.yml's release job already mints) and a push authenticated by a real GitHub App installation token does start workflow runs, so checks do re-run on the fix commit. Do NOT hand this token to actions/checkout's own token: input instead -- the action's fix-push step never uses the checkout-persisted credential, it builds its own authenticated URL from push_token (see action.yml's "Publish applied fixes" step), so wiring it into checkout would do nothing.
+#
+# fix_ci_failures requires include_ci_logs: true (the run fails at validation otherwise) and the actions: read scope below. It acts on CI results that already exist when the review runs, so on the first push of a pull request there is usually nothing recorded yet; it earns its keep on re-review after a push that broke something.
+#
+# Requires the Claude Code GitHub App installed on the organisation (https://github.com/apps/claude) and a CLAUDE_CODE_OAUTH_TOKEN secret, exactly as examples/direct/claude-review.yml does. Do NOT pass github_token -- leaving it unset is what makes the review run as claude[bot]. Also requires the sync App's own vars.EXADEV_APP_ID and secrets.EXADEV_SYNC_PRIVATE_KEY, the same ones ci.yml's release job already relies on -- if this repository does not have that App installed, either install it first or drop the create-github-app-token step and the push_token input below and accept that fix commits will not retrigger checks.
+
+name: Claude Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: write # the fix commit is pushed with the sync App's own token; contents: read makes the whole fix pass a no-op
+  pull-requests: write
+  actions: read # required by include_ci_logs, which fix_ci_failures in turn requires
+  id-token: write # the OIDC exchange that mints both the Claude Code App token and the sync App's installation token needs this
+
+# Reviewing every push to a busy branch gets expensive, and it matters more here: a cancelled run must not leave a half-applied fix. It cannot -- the commit is only ever published by the final step -- but cancelling early is still the cheaper outcome.
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      # Mints this repository's own sync App's installation token, passed as push_token below so the fix pass's own push authenticates as that App rather than this job's own GITHUB_TOKEN, so a fix commit does start new workflow runs. Same App, same mechanism, as ci.yml's release job.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          app-id: ${{ vars.EXADEV_APP_ID }}
+          private-key: ${{ secrets.EXADEV_SYNC_PRIVATE_KEY }}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: review compares against the base branch locally, and the fix pass needs to move the tree onto the pull request's real head branch (this event checks out the merge ref in detached HEAD, which cannot be pushed back). Plain checkout, no token: override -- the fix pass never uses this credential (see the header comment).
+          fetch-depth: 0
+      - uses: ExaDev/claude-code-action@v1
+        with:
+          mode: review
+          # No github_token: leaving it unset is what makes the review run as the Claude Code App (claude[bot]). See the header comment.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          include_ci_logs: true
+          fix_ci_failures: true
+          fix_diff_findings: true
+          add_regression_tests: true
+          push_token: ${{ steps.app-token.outputs.token }} # governs only the fix commit's own push, not the review call above
+          # Every other input is optional with a sensible default -- see action.yml for the full list.

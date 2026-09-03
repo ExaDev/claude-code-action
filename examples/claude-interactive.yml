@@ -1,0 +1,33 @@
+# Copy this to .github/workflows/claude-interactive.yml in a repository in your organisation.
+#
+# Mention @claude in an issue comment, a pull request comment, or a review, and Claude answers the question or makes the change on a branch and opens a pull request for it.
+#
+# Only users with repository write access can invoke it, which is deliberate: this mode can change code. See the security notes in the action's README.
+#
+# Set the ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN secret (organisation or repository level) first. Either works; wire through whichever you set.
+
+name: Claude Interactive
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  interactive:
+    # Matches interactive.yml@v1's own permissions: block exactly -- see claude-review.yml's comment and the README's step 3 for why declaring this is safe and correct rather than something to avoid.
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    uses: ExaDev/claude-code-action/.github/workflows/interactive.yml@v1
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      # ssh_signing_key is also available here, optional: sign commits with a real SSH key rather than plain git commits or GitHub-verified signing (use_commit_signing, a separate with: input, needs no key).
+    # Every other input is optional with a sensible default — see .github/workflows/interactive.yml in ExaDev/claude-code-action for the full list and what each does.
+    #
+    # Do not set allowed_non_write_users here. This mode can commit code and push a branch, so widening it hands write access to anyone who can write a comment.
