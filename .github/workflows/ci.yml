@@ -139,10 +139,11 @@ jobs:
   # Computes the next version from commits since the last tag, generates release notes and a CHANGELOG.md entry, creates the GitHub Release and version tag, commits CHANGELOG.md back to main, and (via the move-major-tag plugin in release.config.ts) moves the moving vN tag to point at the new release -- see release.config.ts and scripts/move-major-tag.mjs. There is no npm-publish step and therefore no id-token: write permission -- this repository ships a GitHub Action, not an npm package.
   release:
     name: Release
-    needs: [determine-runner, required-checks]
+    needs: [required-checks]
     # A bare `github.ref == ... && github.event_name == ...` here would look sufficient but isn't: without one of always()/success()/failure()/cancelled(), GitHub implicitly ANDs the condition with success() evaluated over the *entire* transitive job graph, not just needs: [required-checks] -- and commitlint (an ancestor via required-checks, skipped by its own `if:` on every push to main) reports "skipped", which fails that implicit check even though required-checks itself passed. always() plus an explicit check of required-checks' own result is what actually asks "did the one job I depend on succeed", ignoring how it got there.
     if: always() && needs.required-checks.result == 'success' && github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ${{ fromJson(needs.determine-runner.outputs.selected-runner) }}
+    # blacksmith-4vcpu-ubuntu-2404, not the shared determine-runner fleet routing every other job in this file uses: this job mints an installation token from secrets.EXADEV_SYNC_PRIVATE_KEY, the same powerful (contents: write, branch-protection-bypassing) credential dependabot.yml's investigate job mints -- and that job was deliberately kept off ExaDev's own self-hosted fleet for exactly this reason (a persistent host shared with every other ExaDev repository's CI, versus an ephemeral per-job VM). This job wields that credential to push directly to main, making it the single most sensitive job in this file; it gets the same treatment, not the generic fleet-preferred default the read-only checks above use.
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     permissions:
       contents: write # to create the GitHub Release; actual git pushes below authenticate as the ExaDev sync App instead, not this job token
