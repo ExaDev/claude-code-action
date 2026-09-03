@@ -11,7 +11,7 @@ inputs:
     description: "Which behaviour to run: review, triage, or interactive."
     required: true
 
-  # Entity-number overrides. All three modes resolve which pull request or issue they're running against from the GitHub event context automatically (github.event.pull_request.number / github.event.issue.number) -- these exist only so a caller with an unusual trigger (a workflow_dispatch, a matrix job with no direct event binding) can supply the number explicitly instead. Leave unset in the common case; an explicit value always wins over auto-detection where both are available.
+  # Entity-number overrides. All three modes resolve which pull request or issue they're running against from the GitHub event context automatically (github.event.pull_request.number / github.event.issue.number) -- these exist only so a caller with an unusual trigger (a workflow_dispatch, a matrix job with no direct event binding) can supply the number explicitly instead. Leave unset in the common case; an explicit value always wins over auto-detection where both are available, everywhere this action resolves an entity number for an API read or a comment. It does NOT extend to the review-mode automatic fix pass's own git operations ("Prepare fix pass" and downstream): those need a real git branch and repository, not just a number, which only a genuine pull_request event provides -- pr_number alone cannot stand in for that without an extra gh pr view lookup this action does not make, so the fix pass skips loudly, with an explicit message, rather than silently misusing an empty value.
   pr_number:
     description: "Pull request number. Optional -- auto-detected from the triggering event when unset. Only needed when the event itself carries no pull_request context (e.g. workflow_dispatch)."
     required: false
@@ -1401,6 +1401,11 @@ runs:
           exit 0
         }
 
+        # Unlike ENTITY_NUMBER above, HEAD_REF/HEAD_REPO have no pr_number-style override: they need a real git branch and repo, not just a number, and reconstructing that from a bare pr_number would need an extra gh pr view lookup this action does not make. So a run with no genuine pull_request event in scope (e.g. workflow_dispatch, even with pr_number set) always lands here -- distinguished from a genuine fork pull request so the message actually says which one happened, rather than misreporting an empty HEAD_REPO as "on a fork".
+        if [ -z "$HEAD_REPO" ]; then
+          skip "no pull_request event is in scope for this run, so there is no real head branch/repo to push a fix to. The automatic fix pass only runs against a genuine pull_request-triggered run; pr_number's own override covers entity-number resolution elsewhere in this action, not this."
+        fi
+
         # A fork's branch is not somewhere this job's token can push, regardless of maintainer_can_modify -- GITHUB_TOKEN is scoped to the base repository. That is also the untrusted case this feature's security story is about, so this is the one control here that is mechanical rather than prompt-shaped: a fork pull request never reaches the fix call at all.
         if [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
           skip "the head branch is on a fork (${HEAD_REPO}), which this job's token cannot push to."
@@ -1466,7 +1471,7 @@ runs:
       uses: anthropics/claude-code-action@6b082c41935b4c8a3b8b0ef85ba4ba4d9eeb8975 # v1.0.189
       with:
         prompt: |
-          You have just submitted your review of pull request #${{ github.event.pull_request.number }} in ${{ github.repository }}, in this same session. This is a separate, final pass with a different job: apply the fixes you are confident about, and commit them. It does not change the review you already submitted, and you must not submit another one.
+          You have just submitted your review of pull request #${{ inputs.pr_number || github.event.pull_request.number }} in ${{ github.repository }}, in this same session. This is a separate, final pass with a different job: apply the fixes you are confident about, and commit them. It does not change the review you already submitted, and you must not submit another one.
 
           Four things have changed since your last turn. Read them before you touch anything.
 
@@ -1516,7 +1521,7 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.push_token || inputs.github_token || github.token }}
         USING_PUSH_TOKEN: ${{ inputs.push_token != '' }}
-        PR_NUMBER: ${{ github.event.pull_request.number }}
+        PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number }}
         HEAD_REF: ${{ github.event.pull_request.head.ref }}
         BASE_SHA: ${{ steps.fix-args.outputs.base_sha }}
       run: |
@@ -1586,11 +1591,11 @@ runs:
       uses: anthropics/claude-code-action@6b082c41935b4c8a3b8b0ef85ba4ba4d9eeb8975 # v1.0.189
       with:
         prompt: |
-          You just finished reviewing pull request #${{ github.event.pull_request.number }} in ${{ github.repository }} in this same session. Do not review anything further, and do not re-judge your findings from memory.
+          You just finished reviewing pull request #${{ inputs.pr_number || github.event.pull_request.number }} in ${{ github.repository }} in this same session. Do not review anything further, and do not re-judge your findings from memory.
 
           Re-fetch what you actually submitted:
-          1. `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews` -- the review you just submitted is the one with the highest `id`. Note its `id` and its `state`.
-          2. `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments` -- filter to comments whose `pull_request_review_id` matches the `id` from step 1 (this scopes the count to only the review you just submitted, excluding comments left by earlier runs or other reviewers). Count how many of those begin with each of `**Blocker**`, `**Should fix**`, and `**Nit**` (the exact severity labels the review prompt uses).
+          1. `gh api repos/${{ github.repository }}/pulls/${{ inputs.pr_number || github.event.pull_request.number }}/reviews` -- the review you just submitted is the one with the highest `id`. Note its `id` and its `state`.
+          2. `gh api repos/${{ github.repository }}/pulls/${{ inputs.pr_number || github.event.pull_request.number }}/comments` -- filter to comments whose `pull_request_review_id` matches the `id` from step 1 (this scopes the count to only the review you just submitted, excluding comments left by earlier runs or other reviewers). Count how many of those begin with each of `**Blocker**`, `**Should fix**`, and `**Nit**` (the exact severity labels the review prompt uses).
 
           Respond with only the JSON object matching the schema you were given -- no prose before or after it. `review_state` is the state from step 1. `findings` is the counts from step 2. `summary` is one sentence.
         claude_args: ${{ steps.summary-args.outputs.claude_args }}
