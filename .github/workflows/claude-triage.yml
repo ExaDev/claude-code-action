@@ -24,7 +24,9 @@ jobs:
         with:
           mode: triage
           issue_number: ${{ github.event.issue.number }}
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_code_oauth_token: |
+            ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+            ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_BACKUP }}
           # Optional: Change the re-triage label (must also update the `if:` condition above to match)
           # triage_label: "needs-triage"
           # Optional: Disable issue body updates
