@@ -31,10 +31,10 @@ inputs:
     required: false
     default: ""
   claude_code_oauth_token:
-    description: "Claude Code OAuth token"
+    description: "Claude Code OAuth token. Provide one token, or several newline-separated tokens to fall through to the next one if an earlier attempt fails (e.g. separate accounts/subscriptions). Tried in the order given, before any anthropic_api_key entries. Up to 5 credentials total (across both inputs combined) are supported."
     required: false
   anthropic_api_key:
-    description: "Anthropic API key (alternative to OAuth token)"
+    description: "Anthropic API key (alternative to OAuth token). Provide one key, or several newline-separated keys to fall through to the next one if an earlier attempt fails. Tried in the order given, after every claude_code_oauth_token entry has been exhausted. Up to 5 credentials total (across both inputs combined) are supported."
     required: false
   github_token:
     description: "GitHub token (uses Claude App token if not provided, posts as claude[bot])"
@@ -168,19 +168,19 @@ inputs:
 outputs:
   execution_file:
     description: "Path to the Claude Code execution output file"
-    value: ${{ steps.claude.outputs.execution_file }}
+    value: ${{ steps.result.outputs.execution_file }}
   branch_name:
     description: "The branch created by Claude Code for this execution"
-    value: ${{ steps.claude.outputs.branch_name }}
+    value: ${{ steps.result.outputs.branch_name }}
   github_token:
     description: "The GitHub token used by the action (Claude App token if available)"
-    value: ${{ steps.claude.outputs.github_token }}
+    value: ${{ steps.result.outputs.github_token }}
   structured_output:
     description: "JSON string containing all structured output fields when --json-schema is provided in claude_args. Use fromJSON() to parse: fromJSON(steps.id.outputs.structured_output).field_name"
-    value: ${{ steps.claude.outputs.structured_output }}
+    value: ${{ steps.result.outputs.structured_output }}
   session_id:
     description: "The Claude Code session ID that can be used with --resume to continue this conversation"
-    value: ${{ steps.claude.outputs.session_id }}
+    value: ${{ steps.result.outputs.session_id }}
 
 runs:
   using: "composite"
@@ -261,13 +261,65 @@ runs:
 
         echo "tools=$TOOLS" >> "$GITHUB_OUTPUT"
 
-    - name: Run Claude Code
-      id: claude
+    - name: Parse credential fallback chain
+      id: credentials
+      shell: bash
+      env:
+        OAUTH_TOKENS: ${{ inputs.claude_code_oauth_token }}
+        API_KEYS: ${{ inputs.anthropic_api_key }}
+      run: |
+        # claude_code_oauth_token/anthropic_api_key each accept one value or several newline-separated values. Every value found is flattened into a single ordered fallback chain -- every oauth token first (in the order given), then every api key -- capped at MAX entries because a composite action has no native loop: the "Run Claude Code (attempt N)" steps below are statically unrolled, one per chain position, each trying the next credential only if the previous one failed.
+        set -euo pipefail
+
+        trim() {
+          local s="$1"
+          s="${s#"${s%%[![:space:]]*}"}"
+          s="${s%"${s##*[![:space:]]}"}"
+          printf '%s' "$s"
+        }
+
+        declare -a TYPES=()
+        declare -a TOKENS=()
+
+        while IFS= read -r line; do
+          value="$(trim "$line")"
+          [ -z "$value" ] && continue
+          TYPES+=("oauth")
+          TOKENS+=("$value")
+        done <<<"$OAUTH_TOKENS"
+
+        while IFS= read -r line; do
+          value="$(trim "$line")"
+          [ -z "$value" ] && continue
+          TYPES+=("key")
+          TOKENS+=("$value")
+        done <<<"$API_KEYS"
+
+        COUNT=${#TOKENS[@]}
+        MAX=5
+
+        if [ "$COUNT" -gt "$MAX" ]; then
+          echo "::error::${COUNT} credentials were supplied across claude_code_oauth_token and anthropic_api_key combined, but this action only wires up ${MAX} fallback attempts. Trim the list to ${MAX} or fewer, or extend the attempt_N steps in action.yml to raise the cap." >&2
+          exit 1
+        fi
+
+        for i in "${!TOKENS[@]}"; do
+          idx=$((i + 1))
+          echo "::add-mask::${TOKENS[$i]}"
+          echo "cred_${idx}_type=${TYPES[$i]}" >>"$GITHUB_OUTPUT"
+          echo "cred_${idx}_token=${TOKENS[$i]}" >>"$GITHUB_OUTPUT"
+        done
+
+        echo "credential_count=${COUNT}" >>"$GITHUB_OUTPUT"
+
+    - name: Run Claude Code (attempt 1)
+      id: attempt_1
+      continue-on-error: true
       uses: anthropics/claude-code-action@v1
       with:
         prompt: ${{ steps.compose.outputs.prompt }}
-        claude_code_oauth_token: ${{ inputs.claude_code_oauth_token }}
-        anthropic_api_key: ${{ inputs.anthropic_api_key }}
+        claude_code_oauth_token: ${{ steps.credentials.outputs.cred_1_type == 'oauth' && steps.credentials.outputs.cred_1_token || '' }}
+        anthropic_api_key: ${{ steps.credentials.outputs.cred_1_type == 'key' && steps.credentials.outputs.cred_1_token || '' }}
         github_token: ${{ inputs.github_token }}
         claude_args: ${{ inputs.claude_args || format('--max-turns 50 --allowedTools "{0}"', steps.compose.outputs.tools) }}
         track_progress: ${{ inputs.track_progress }}
@@ -298,3 +350,235 @@ runs:
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
         display_report: ${{ inputs.display_report }}
         show_full_output: ${{ inputs.show_full_output }}
+
+    - name: Run Claude Code (attempt 2)
+      id: attempt_2
+      if: steps.credentials.outputs.cred_2_token != '' && steps.attempt_1.outcome == 'failure'
+      continue-on-error: true
+      uses: anthropics/claude-code-action@v1
+      with:
+        prompt: ${{ steps.compose.outputs.prompt }}
+        claude_code_oauth_token: ${{ steps.credentials.outputs.cred_2_type == 'oauth' && steps.credentials.outputs.cred_2_token || '' }}
+        anthropic_api_key: ${{ steps.credentials.outputs.cred_2_type == 'key' && steps.credentials.outputs.cred_2_token || '' }}
+        github_token: ${{ inputs.github_token }}
+        claude_args: ${{ inputs.claude_args || format('--max-turns 50 --allowedTools "{0}"', steps.compose.outputs.tools) }}
+        track_progress: ${{ inputs.track_progress }}
+        include_fix_links: ${{ inputs.include_fix_links }}
+        use_sticky_comment: ${{ inputs.use_sticky_comment }}
+        trigger_phrase: ${{ inputs.trigger_phrase }}
+        assignee_trigger: ${{ inputs.assignee_trigger }}
+        label_trigger: ${{ inputs.label_trigger }}
+        base_branch: ${{ inputs.base_branch }}
+        branch_prefix: ${{ inputs.branch_prefix }}
+        branch_name_template: ${{ inputs.branch_name_template }}
+        additional_permissions: ${{ inputs.additional_permissions }}
+        allowed_bots: ${{ inputs.allowed_bots }}
+        allowed_non_write_users: ${{ inputs.allowed_non_write_users }}
+        include_comments_by_actor: ${{ inputs.include_comments_by_actor }}
+        exclude_comments_by_actor: ${{ inputs.exclude_comments_by_actor }}
+        use_commit_signing: ${{ inputs.use_commit_signing }}
+        ssh_signing_key: ${{ inputs.ssh_signing_key }}
+        bot_id: ${{ inputs.bot_id }}
+        bot_name: ${{ inputs.bot_name }}
+        settings: ${{ inputs.settings }}
+        plugins: ${{ inputs.plugins }}
+        plugin_marketplaces: ${{ inputs.plugin_marketplaces }}
+        use_bedrock: ${{ inputs.use_bedrock }}
+        use_vertex: ${{ inputs.use_vertex }}
+        use_foundry: ${{ inputs.use_foundry }}
+        path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
+        path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
+        display_report: ${{ inputs.display_report }}
+        show_full_output: ${{ inputs.show_full_output }}
+
+    - name: Run Claude Code (attempt 3)
+      id: attempt_3
+      if: steps.credentials.outputs.cred_3_token != '' && steps.attempt_2.outcome == 'failure'
+      continue-on-error: true
+      uses: anthropics/claude-code-action@v1
+      with:
+        prompt: ${{ steps.compose.outputs.prompt }}
+        claude_code_oauth_token: ${{ steps.credentials.outputs.cred_3_type == 'oauth' && steps.credentials.outputs.cred_3_token || '' }}
+        anthropic_api_key: ${{ steps.credentials.outputs.cred_3_type == 'key' && steps.credentials.outputs.cred_3_token || '' }}
+        github_token: ${{ inputs.github_token }}
+        claude_args: ${{ inputs.claude_args || format('--max-turns 50 --allowedTools "{0}"', steps.compose.outputs.tools) }}
+        track_progress: ${{ inputs.track_progress }}
+        include_fix_links: ${{ inputs.include_fix_links }}
+        use_sticky_comment: ${{ inputs.use_sticky_comment }}
+        trigger_phrase: ${{ inputs.trigger_phrase }}
+        assignee_trigger: ${{ inputs.assignee_trigger }}
+        label_trigger: ${{ inputs.label_trigger }}
+        base_branch: ${{ inputs.base_branch }}
+        branch_prefix: ${{ inputs.branch_prefix }}
+        branch_name_template: ${{ inputs.branch_name_template }}
+        additional_permissions: ${{ inputs.additional_permissions }}
+        allowed_bots: ${{ inputs.allowed_bots }}
+        allowed_non_write_users: ${{ inputs.allowed_non_write_users }}
+        include_comments_by_actor: ${{ inputs.include_comments_by_actor }}
+        exclude_comments_by_actor: ${{ inputs.exclude_comments_by_actor }}
+        use_commit_signing: ${{ inputs.use_commit_signing }}
+        ssh_signing_key: ${{ inputs.ssh_signing_key }}
+        bot_id: ${{ inputs.bot_id }}
+        bot_name: ${{ inputs.bot_name }}
+        settings: ${{ inputs.settings }}
+        plugins: ${{ inputs.plugins }}
+        plugin_marketplaces: ${{ inputs.plugin_marketplaces }}
+        use_bedrock: ${{ inputs.use_bedrock }}
+        use_vertex: ${{ inputs.use_vertex }}
+        use_foundry: ${{ inputs.use_foundry }}
+        path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
+        path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
+        display_report: ${{ inputs.display_report }}
+        show_full_output: ${{ inputs.show_full_output }}
+
+    - name: Run Claude Code (attempt 4)
+      id: attempt_4
+      if: steps.credentials.outputs.cred_4_token != '' && steps.attempt_3.outcome == 'failure'
+      continue-on-error: true
+      uses: anthropics/claude-code-action@v1
+      with:
+        prompt: ${{ steps.compose.outputs.prompt }}
+        claude_code_oauth_token: ${{ steps.credentials.outputs.cred_4_type == 'oauth' && steps.credentials.outputs.cred_4_token || '' }}
+        anthropic_api_key: ${{ steps.credentials.outputs.cred_4_type == 'key' && steps.credentials.outputs.cred_4_token || '' }}
+        github_token: ${{ inputs.github_token }}
+        claude_args: ${{ inputs.claude_args || format('--max-turns 50 --allowedTools "{0}"', steps.compose.outputs.tools) }}
+        track_progress: ${{ inputs.track_progress }}
+        include_fix_links: ${{ inputs.include_fix_links }}
+        use_sticky_comment: ${{ inputs.use_sticky_comment }}
+        trigger_phrase: ${{ inputs.trigger_phrase }}
+        assignee_trigger: ${{ inputs.assignee_trigger }}
+        label_trigger: ${{ inputs.label_trigger }}
+        base_branch: ${{ inputs.base_branch }}
+        branch_prefix: ${{ inputs.branch_prefix }}
+        branch_name_template: ${{ inputs.branch_name_template }}
+        additional_permissions: ${{ inputs.additional_permissions }}
+        allowed_bots: ${{ inputs.allowed_bots }}
+        allowed_non_write_users: ${{ inputs.allowed_non_write_users }}
+        include_comments_by_actor: ${{ inputs.include_comments_by_actor }}
+        exclude_comments_by_actor: ${{ inputs.exclude_comments_by_actor }}
+        use_commit_signing: ${{ inputs.use_commit_signing }}
+        ssh_signing_key: ${{ inputs.ssh_signing_key }}
+        bot_id: ${{ inputs.bot_id }}
+        bot_name: ${{ inputs.bot_name }}
+        settings: ${{ inputs.settings }}
+        plugins: ${{ inputs.plugins }}
+        plugin_marketplaces: ${{ inputs.plugin_marketplaces }}
+        use_bedrock: ${{ inputs.use_bedrock }}
+        use_vertex: ${{ inputs.use_vertex }}
+        use_foundry: ${{ inputs.use_foundry }}
+        path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
+        path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
+        display_report: ${{ inputs.display_report }}
+        show_full_output: ${{ inputs.show_full_output }}
+
+    - name: Run Claude Code (attempt 5)
+      id: attempt_5
+      if: steps.credentials.outputs.cred_5_token != '' && steps.attempt_4.outcome == 'failure'
+      continue-on-error: true
+      uses: anthropics/claude-code-action@v1
+      with:
+        prompt: ${{ steps.compose.outputs.prompt }}
+        claude_code_oauth_token: ${{ steps.credentials.outputs.cred_5_type == 'oauth' && steps.credentials.outputs.cred_5_token || '' }}
+        anthropic_api_key: ${{ steps.credentials.outputs.cred_5_type == 'key' && steps.credentials.outputs.cred_5_token || '' }}
+        github_token: ${{ inputs.github_token }}
+        claude_args: ${{ inputs.claude_args || format('--max-turns 50 --allowedTools "{0}"', steps.compose.outputs.tools) }}
+        track_progress: ${{ inputs.track_progress }}
+        include_fix_links: ${{ inputs.include_fix_links }}
+        use_sticky_comment: ${{ inputs.use_sticky_comment }}
+        trigger_phrase: ${{ inputs.trigger_phrase }}
+        assignee_trigger: ${{ inputs.assignee_trigger }}
+        label_trigger: ${{ inputs.label_trigger }}
+        base_branch: ${{ inputs.base_branch }}
+        branch_prefix: ${{ inputs.branch_prefix }}
+        branch_name_template: ${{ inputs.branch_name_template }}
+        additional_permissions: ${{ inputs.additional_permissions }}
+        allowed_bots: ${{ inputs.allowed_bots }}
+        allowed_non_write_users: ${{ inputs.allowed_non_write_users }}
+        include_comments_by_actor: ${{ inputs.include_comments_by_actor }}
+        exclude_comments_by_actor: ${{ inputs.exclude_comments_by_actor }}
+        use_commit_signing: ${{ inputs.use_commit_signing }}
+        ssh_signing_key: ${{ inputs.ssh_signing_key }}
+        bot_id: ${{ inputs.bot_id }}
+        bot_name: ${{ inputs.bot_name }}
+        settings: ${{ inputs.settings }}
+        plugins: ${{ inputs.plugins }}
+        plugin_marketplaces: ${{ inputs.plugin_marketplaces }}
+        use_bedrock: ${{ inputs.use_bedrock }}
+        use_vertex: ${{ inputs.use_vertex }}
+        use_foundry: ${{ inputs.use_foundry }}
+        path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
+        path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
+        display_report: ${{ inputs.display_report }}
+        show_full_output: ${{ inputs.show_full_output }}
+
+    - name: Determine result
+      id: result
+      shell: bash
+      env:
+        CREDENTIAL_COUNT: ${{ steps.credentials.outputs.credential_count }}
+        OUTCOME_1: ${{ steps.attempt_1.outcome }}
+        OUTCOME_2: ${{ steps.attempt_2.outcome }}
+        OUTCOME_3: ${{ steps.attempt_3.outcome }}
+        OUTCOME_4: ${{ steps.attempt_4.outcome }}
+        OUTCOME_5: ${{ steps.attempt_5.outcome }}
+        EXECUTION_FILE_1: ${{ steps.attempt_1.outputs.execution_file }}
+        EXECUTION_FILE_2: ${{ steps.attempt_2.outputs.execution_file }}
+        EXECUTION_FILE_3: ${{ steps.attempt_3.outputs.execution_file }}
+        EXECUTION_FILE_4: ${{ steps.attempt_4.outputs.execution_file }}
+        EXECUTION_FILE_5: ${{ steps.attempt_5.outputs.execution_file }}
+        BRANCH_NAME_1: ${{ steps.attempt_1.outputs.branch_name }}
+        BRANCH_NAME_2: ${{ steps.attempt_2.outputs.branch_name }}
+        BRANCH_NAME_3: ${{ steps.attempt_3.outputs.branch_name }}
+        BRANCH_NAME_4: ${{ steps.attempt_4.outputs.branch_name }}
+        BRANCH_NAME_5: ${{ steps.attempt_5.outputs.branch_name }}
+        GITHUB_TOKEN_OUT_1: ${{ steps.attempt_1.outputs.github_token }}
+        GITHUB_TOKEN_OUT_2: ${{ steps.attempt_2.outputs.github_token }}
+        GITHUB_TOKEN_OUT_3: ${{ steps.attempt_3.outputs.github_token }}
+        GITHUB_TOKEN_OUT_4: ${{ steps.attempt_4.outputs.github_token }}
+        GITHUB_TOKEN_OUT_5: ${{ steps.attempt_5.outputs.github_token }}
+        STRUCTURED_OUTPUT_1: ${{ steps.attempt_1.outputs.structured_output }}
+        STRUCTURED_OUTPUT_2: ${{ steps.attempt_2.outputs.structured_output }}
+        STRUCTURED_OUTPUT_3: ${{ steps.attempt_3.outputs.structured_output }}
+        STRUCTURED_OUTPUT_4: ${{ steps.attempt_4.outputs.structured_output }}
+        STRUCTURED_OUTPUT_5: ${{ steps.attempt_5.outputs.structured_output }}
+        SESSION_ID_1: ${{ steps.attempt_1.outputs.session_id }}
+        SESSION_ID_2: ${{ steps.attempt_2.outputs.session_id }}
+        SESSION_ID_3: ${{ steps.attempt_3.outputs.session_id }}
+        SESSION_ID_4: ${{ steps.attempt_4.outputs.session_id }}
+        SESSION_ID_5: ${{ steps.attempt_5.outputs.session_id }}
+      run: |
+        # Exactly one attempt_N step is expected to have succeeded (the chain stops at the first success); this picks that one's outputs. If every attempted credential failed, continue-on-error on the attempt_N steps above would otherwise let the whole composite action report success -- so this step is what actually surfaces the failure.
+        set -euo pipefail
+
+        WINNER=""
+        for i in 1 2 3 4 5; do
+          var="OUTCOME_${i}"
+          if [ "${!var:-}" = "success" ]; then
+            WINNER="$i"
+            break
+          fi
+        done
+
+        if [ -z "$WINNER" ]; then
+          echo "::error::All ${CREDENTIAL_COUNT:-0} attempted credential(s) failed to run Claude Code. See the individual 'Run Claude Code (attempt N)' step logs above for the underlying error from each." >&2
+          exit 1
+        fi
+
+        echo "Credential attempt ${WINNER} succeeded."
+
+        for field in execution_file branch_name github_token structured_output session_id; do
+          case "$field" in
+          execution_file) var="EXECUTION_FILE_${WINNER}" ;;
+          branch_name) var="BRANCH_NAME_${WINNER}" ;;
+          github_token) var="GITHUB_TOKEN_OUT_${WINNER}" ;;
+          structured_output) var="STRUCTURED_OUTPUT_${WINNER}" ;;
+          session_id) var="SESSION_ID_${WINNER}" ;;
+          esac
+          value="${!var:-}"
+          delim=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          {
+            echo "${field}<<${delim}"
+            echo "${value}"
+            echo "${delim}"
+          } >>"$GITHUB_OUTPUT"
+        done
