@@ -20,11 +20,15 @@ permissions:
 
 jobs:
   claude:
+    # github.event.sender.type != 'Bot' guards against a bot's own comment/review/issue text containing the literal trigger phrase -- confirmed directly on novus-power/hive (commit f509aa9a64): Anthropic's native Claude Code Review GitHub App posts a boilerplate "Comment @claude review for a one-time review..." notice on every pull request when its own automatic review is set to manual, and that boilerplate's own "@claude review" substring satisfied this trigger from the bot's own submission -- wasting a full checkout, Claude Code install, and OIDC/App token exchange before this repository's own actor checks (allowed_bots, etc.) caught it downstream. Excluding any bot-authored event here skips that class of self-trigger before any of that setup runs at all.
     if: >
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
-      || (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
-      || (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude'))
-      || (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      github.event.sender.type != 'Bot' &&
+      (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
+        || (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
+        || (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude'))
+        || (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      )
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0

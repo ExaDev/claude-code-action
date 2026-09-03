@@ -145,7 +145,7 @@ One consequence is worth being explicit about: on a `pull_request` event the che
 
 **Branch protection matters.** Interactive mode holds `contents: write`. Its prompt forbids committing to the default branch, force-pushing, and rewriting history, but branch protection on the default branch is what actually enforces it. Turn it on.
 
-**Cost and loops.** Interactive mode is gated on the trigger phrase in the reusable workflow's job condition rather than inside the action. This is load-bearing: supplying a prompt puts the underlying action into agent mode, which runs unconditionally and does not check the phrase itself. Without that condition every comment on every issue would start a paid run. The review example includes a `concurrency` block that cancels a superseded review when the author pushes again.
+**Cost and loops.** Interactive mode is gated on the trigger phrase in the reusable workflow's job condition rather than inside the action. This is load-bearing: supplying a prompt puts the underlying action into agent mode, which runs unconditionally and does not check the phrase itself. Without that condition every comment on every issue would start a paid run. That same job condition also excludes any bot-authored event — confirmed directly: Anthropic's own native Claude Code Review GitHub App posts a boilerplate "Comment @claude review for a one-time review..." notice on every pull request when its automatic review is set to manual, and that boilerplate's own text satisfies a naive trigger-phrase match, starting a paid run from the bot's own comment. The review example includes a `concurrency` block that cancels a superseded review when the author pushes again.
 
 ## Repository conventions come first
 
