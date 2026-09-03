@@ -228,8 +228,16 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
+      # A second checkout, at the pull request's BASE ref, into its own subdirectory. This is the copy `uses:` below actually runs -- see that step's own comment for why the candidate checkout above must never be the one that executes.
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .trusted-action
+
       # Direct (composite-action-step) form, not the review.yml reusable workflow that claude-review.yml calls -- see the file header for why. github_token is explicit here too, for the same reason as investigate's: this runs as github-actions[bot], the same identity claude-review.yml's reusable form already uses for every non-Dependabot pull request, so resolve_stale_threads is a no-op here exactly as it already is there -- a pre-existing, accepted limitation, not a regression.
-      - uses: ./
+      #
+      # `uses: ./.trusted-action`, not `uses: ./`: for an upstream bump, the candidate checkout's own action.yml carries the new, not-yet-human-reviewed anthropics/claude-code-action SHA Dependabot is proposing, at every one of its own call sites. Running that copy would mean this review's own execution -- with CLAUDE_CODE_OAUTH_TOKEN and a pull-requests: write token already in scope -- is the first thing to ever invoke that unreviewed release, before any verdict has been reached on it; a compromised release could steal the credential or tamper with the review meant to catch it. Pointing at the base-ref checkout instead means the composite action that actually runs -- prompts, stack fragments, and critically the pinned upstream SHA it invokes -- is always the one already vetted on this repository's own default branch, never the candidate. github.action_path resolves relative to whichever action.yml was invoked, so every ${{ github.action_path }}/... reference inside it (prompts, stack-detection fragments) correctly follows into .trusted-action too, not the candidate checkout at $GITHUB_WORKSPACE's own root. The candidate's actual content -- the SHA bump, and anything else in its diff -- still reaches Claude, exactly as intended, via gh pr diff/gh api against the real PR (prompts/review/base.md never depends on the local checkout matching PR head): the base-ref checkout only decides which code executes, never what gets reviewed. This applies uniformly to every Dependabot bump, not just upstream ones -- for a non-upstream (e.g. npm ecosystem) bump the base and candidate action.yml are identical, so nothing changes behaviourally, and always running the trusted copy is one invariant to reason about instead of two.
+      - uses: ./.trusted-action
         with:
           mode: review
           allowed_bots: "dependabot[bot]" # empty (the default) allows no bots, and every PR reaching this job is bot-authored
