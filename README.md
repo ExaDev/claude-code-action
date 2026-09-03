@@ -272,9 +272,11 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
-`mode` is the only required input. Every other input is optional with a default — `action.yml` is the source of truth for the full list, and every input keeps the upstream action's own name, so anything you already know about `anthropics/claude-code-action` applies. See [Extended options](#extended-options) below for what's available beyond the basics (`anthropic_api_key`, `claude_code_oauth_token`, `github_token`, `settings`, `trigger_phrase`, `allowed_bots`, `allowed_non_write_users`, `include_ci_logs`, `model`, `extra_claude_args`).
+Every input is optional with a default — `mode` itself defaults to `interactive` — and `action.yml` is the source of truth for the full list; every input keeps the upstream action's own name, so anything you already know about `anthropics/claude-code-action` applies. See [Extended options](#extended-options) below for what's available beyond the basics (`anthropic_api_key`, `claude_code_oauth_token`, `github_token`, `settings`, `trigger_phrase`, `allowed_bots`, `allowed_non_write_users`, `include_ci_logs`, `model`, `extra_claude_args`, `claude_args`).
 
 `extra_claude_args` is appended after the arguments derived from the mode. Because `--allowedTools` and `--disallowedTools` accumulate upstream rather than overwrite, passing `--allowedTools` there widens the mode's allowlist rather than replacing it. It cannot narrow it: to take a tool away, change the mode's allowlist in `action.yml`.
+
+`claude_args`, set, replaces this action's own mode-derived arguments (allowlist, turn limit, model, and — in review mode — the session-resume `--resume` flag) entirely, rather than adding to them. For a caller building a genuinely custom invocation — its own prompt via `--prompt-file`, its own tool allowlist, its own turn limit — not for ordinary tuning, which `extra_claude_args` covers without giving up this action's own mode-derived safety allowlist.
 
 If you call the action directly and omit `github_token`, the underlying action will try to mint a GitHub App token. The reusable workflows always pass the job's own `GITHUB_TOKEN`, so no App installation is needed.
 
