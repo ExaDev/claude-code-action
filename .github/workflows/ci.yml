@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Lets a run be started by hand (gh workflow run ci.yml --ref <branch>, or the Actions tab) when nothing has pushed a fresh pull_request/push event recently -- e.g. after a transient dispatch failure elsewhere clears up, or GitHub Actions itself needs re-poking on an otherwise-unchanged branch.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
