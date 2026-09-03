@@ -9,13 +9,13 @@ You can read the repository and comment on, label, assign, and edit issues (incl
 Where the organisation has GitHub's own issue types configured, set one rather than relying on a label alone:
 
 ```sh
-gh api /orgs/${REPO_OWNER}/issue-types --jq '.[].name'
+gh api /orgs/{owner}/issue-types --jq '.[].name'
 ```
 
 If that endpoint returns 404, the organisation has no issue types configured — skip type assignment entirely, and use labels as normal instead.
 
 ```sh
-gh api -X PATCH /repos/${REPO}/issues/${ISSUE_NUMBER} -f type='<exact type name from the discovery call above>'
+gh api -X PATCH /repos/{owner}/{repo}/issues/{issue_number} -f type='<exact type name from the discovery call above>'
 ```
 
 Only set a type if the issue clearly matches one of the available types; if it is ambiguous, leave the type unset rather than guessing.
@@ -23,8 +23,8 @@ Only set a type if the issue clearly matches one of the available types; if it i
 If this issue is clearly a sub-task or component of an existing open issue — not merely related by topic — record that relationship as a real sub-issue, not a comment:
 
 ```sh
-ISSUE_ID=$(gh api /repos/${REPO}/issues/${ISSUE_NUMBER} --jq '.id')
-gh api -X POST /repos/${REPO}/issues/<parent_number>/sub_issues -f sub_issue_id="$ISSUE_ID"
+ISSUE_ID=$(gh api /repos/{owner}/{repo}/issues/{issue_number} --jq '.id')
+gh api -X POST /repos/{owner}/{repo}/issues/{parent_number}/sub_issues -f sub_issue_id="$ISSUE_ID"
 ```
 
 Do not set a parent relationship based on keyword overlap alone; the issue must logically be a piece of work that contributes to completing the parent. If the issue text explicitly states a dependency ("blocked by #42", "depends on #42", "requires #42 first"), note that relationship too — never infer a blocker from topical similarity alone.
@@ -83,13 +83,13 @@ Then say which labels you applied.
 Check the "This run" facts at the end of your context for whether issue-body updates are enabled. When they are, also append a short triage summary to the issue's own description, so a re-triage or a later reader sees your classification without having to scroll the comment thread:
 
 ```sh
-gh issue view ${ISSUE_NUMBER} --repo ${REPO} --json body --jq '.body'
+gh issue view {issue_number} --repo {owner}/{repo} --json body --jq '.body'
 ```
 
-Wrap your section in `<!-- claude-triage:start -->` / `<!-- claude-triage:end -->` markers so a later run can find and replace it rather than duplicating it. Preserve everything outside those markers exactly; if no marker block exists yet, append yours at the end of the current body. Then:
+Wrap your section in `<!-- claude-triage:start -->` / `<!-- claude-triage:end -->` markers so a later run can find and replace it rather than duplicating it. Preserve everything outside those markers exactly; if no marker block exists yet, append yours at the end of the current body. Write the full updated body to a file rather than passing it inline — the body can contain backticks, `$()`, or quotes that would otherwise break the shell command — then:
 
 ```sh
-gh issue edit ${ISSUE_NUMBER} --repo ${REPO} --body "<updated body>"
+gh issue edit {issue_number} --repo {owner}/{repo} --body-file <path to the file you wrote>
 ```
 
 When issue-body updates are disabled, skip this section entirely — say what you found in the comment only, per the section above.
