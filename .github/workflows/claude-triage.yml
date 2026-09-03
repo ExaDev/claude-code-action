@@ -17,7 +17,8 @@ jobs:
        github.event.issue.user.type != 'Bot') ||
       (github.event.action == 'labeled' &&
        github.event.label.name == 'needs-triage')
-    runs-on: ubuntu-latest
+    # blacksmith-4vcpu-ubuntu-2404, not ExaDev's own self-hosted fleet: this job invokes Claude Code's own agentic execution (real Bash access within its tool allowlist), and the fleet is a persistent machine shared across every other ExaDev repo's CI -- an ephemeral per-job VM is the safer place for that, matching ExaDev/dex's own claude-review.yml, which makes the same choice for the same reason.
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v6
       - uses: ./
