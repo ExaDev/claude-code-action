@@ -46,7 +46,7 @@ on:
         required: false
         default: ""
       allowed_bots:
-        description: "Comma-separated bot usernames allowed to invoke Claude, or '*' for all. Empty allows none."
+        description: "Comma-separated bot usernames allowed to invoke Claude, or '*' for all. Empty allows none. No spaces around commas -- entries are matched exactly, and GitHub Actions expressions have no trim()."
         type: string
         required: false
         default: ""
