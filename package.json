@@ -1,27 +1,38 @@
 {
-	"private": true,
-	"type": "module",
-	"scripts": {
-		"lint": "eslint --cache",
-		"lint:fix": "eslint --cache --fix",
-		"prepare": "husky"
-	},
-	"lint-staged": {
-		"*.{js,ts,mjs,mts}": "eslint --fix",
-		"*.md": "eslint --fix",
-		"*.{yml,yaml}": "eslint --fix"
-	},
-	"devDependencies": {
-		"@eslint/markdown": "^7.5.1",
-		"@stylistic/eslint-plugin": "5.9.0",
-		"eslint": "^10.0.1",
-		"eslint-plugin-prettier": "5.5.5",
-		"eslint-plugin-yml": "3.2.1",
-		"husky": "9.1.7",
-		"jiti": "^2.6.1",
-		"lint-staged": "16.2.7",
-		"prettier": "3.8.1",
-		"tsx": "4.21.0",
-		"typescript": "^5.9.3"
-	}
+  "name": "claude-code-action",
+  "version": "0.0.0-managed-by-semantic-release",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@11.19.0",
+  "description": "Runs Claude Code for pull-request review, issue triage, or interactive @claude assistance, with shared org-wide prompts and per-mode tool allowlists.",
+  "scripts": {
+    "prepare": "husky",
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@anthropic-ai/claude-code": "2.1.259",
+    "@commitlint/cli": "21.2.2",
+    "@commitlint/config-conventional": "21.2.2",
+    "@eslint/json": "2.1.0",
+    "@eslint/markdown": "8.0.3",
+    "@semantic-release/changelog": "7.0.0",
+    "@semantic-release/git": "11.0.1",
+    "@types/node": "26.4.1",
+    "eslint": "10.9.1",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-prettier": "5.5.6",
+    "eslint-plugin-yml": "3.8.1",
+    "husky": "9.1.7",
+    "jiti": "2.7.0",
+    "lint-staged": "17.4.1",
+    "prettier": "3.9.6",
+    "semantic-release": "25.0.9",
+    "turbo": "2.10.12",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.69.0"
+  }
 }
