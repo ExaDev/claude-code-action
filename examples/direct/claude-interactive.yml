@@ -7,6 +7,8 @@
 # Set the ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN secret (organisation or repository level) first. Either works; wire through whichever you set.
 #
 # NOTE: the trigger phrase is matched in the job `if:` below (hardcoded to @claude). If you change the action's trigger_phrase input to something else, update that condition to match -- supplying a prompt puts the underlying action into agent mode, which runs unconditionally and does not check the phrase itself, so without this guard every comment would start a paid run.
+#
+# The job `if:` also excludes any bot-authored event (github.event.sender.type != 'Bot') -- confirmed directly on novus-power/hive (commit f509aa9a64): Anthropic's native Claude Code Review GitHub App posts a boilerplate "Comment @claude review for a one-time review..." notice on every pull request when its own automatic review is set to manual, and that boilerplate's own "@claude review" substring satisfied this trigger from the bot's own submission -- wasting a full checkout, Claude Code install, and OIDC/App token exchange for nothing. Update this guard too if you widen `trigger_phrase` to something a bot's own routine output might also contain.
 
 name: Claude Interactive
 
@@ -26,12 +28,14 @@ permissions:
 jobs:
   interactive:
     if: |
-      (
-        (github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment')
-        && contains(github.event.comment.body, '@claude')
-      ) || (
-        github.event_name == 'pull_request_review'
-        && contains(github.event.review.body, '@claude')
+      github.event.sender.type != 'Bot' && (
+        (
+          (github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment')
+          && contains(github.event.comment.body, '@claude')
+        ) || (
+          github.event_name == 'pull_request_review'
+          && contains(github.event.review.body, '@claude')
+        )
       )
     runs-on: ubuntu-latest
     steps:
