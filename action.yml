@@ -1035,7 +1035,7 @@ runs:
     - name: Run Claude Code (attempt 1)
       id: attempt_1
       continue-on-error: true
-      uses: anthropics/claude-code-action@6b082c41935b4c8a3b8b0ef85ba4ba4d9eeb8975 # v1.0.189
+      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         claude_args: ${{ inputs.claude_args || steps.resume.outputs.claude_args || steps.args.outputs.claude_args }}
@@ -1081,7 +1081,7 @@ runs:
       id: attempt_2
       if: steps.credentials.outputs.cred_2_token != '' && steps.attempt_1.outcome == 'failure'
       continue-on-error: true
-      uses: anthropics/claude-code-action@6b082c41935b4c8a3b8b0ef85ba4ba4d9eeb8975 # v1.0.189
+      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here, unlike attempt_1: that output can carry --resume <id> for a session cached from an EARLIER JOB RUN, which is fine to resume -- but if attempt_1 failed mid-run rather than at auth time, it may have already appended turns to that same session file, and this attempt must not resume THAT. Always starting fresh here is what makes the README's "the next credential's attempt starts fresh" claim actually true.
@@ -1128,7 +1128,7 @@ runs:
       id: attempt_3
       if: steps.credentials.outputs.cred_3_token != '' && steps.attempt_2.outcome == 'failure'
       continue-on-error: true
-      uses: anthropics/claude-code-action@6b082c41935b4c8a3b8b0ef85ba4ba4d9eeb8975 # v1.0.189
+      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here -- see attempt_2's own comment: a fallback attempt within this same job run must always start fresh, never resume a session an earlier failed attempt in this run may have already written to.
@@ -1175,7 +1175,7 @@ runs:
       id: attempt_4
       if: steps.credentials.outputs.cred_4_token != '' && steps.attempt_3.outcome == 'failure'
       continue-on-error: true
-      uses: anthropics/claude-code-action@6b082c41935b4c8a3b8b0ef85ba4ba4d9eeb8975 # v1.0.189
+      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here -- see attempt_2's own comment: a fallback attempt within this same job run must always start fresh, never resume a session an earlier failed attempt in this run may have already written to.
@@ -1222,7 +1222,7 @@ runs:
       id: attempt_5
       if: steps.credentials.outputs.cred_5_token != '' && steps.attempt_4.outcome == 'failure'
       continue-on-error: true
-      uses: anthropics/claude-code-action@6b082c41935b4c8a3b8b0ef85ba4ba4d9eeb8975 # v1.0.189
+      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here -- see attempt_2's own comment: a fallback attempt within this same job run must always start fresh, never resume a session an earlier failed attempt in this run may have already written to.
@@ -1377,7 +1377,7 @@ runs:
     - name: Wrap up on turn limit
       id: wrap-up
       if: ${{ steps.detect-turn-limit.outputs.hit_limit == 'true' }}
-      uses: anthropics/claude-code-action@6b082c41935b4c8a3b8b0ef85ba4ba4d9eeb8975 # v1.0.189
+      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
       with:
         prompt: |
           You may have been cut off by a turn limit in your previous run on this pull request or issue. Reply now, briefly and honestly: if your work is complete, say "Done." If you were interrupted, summarise what you found, what you completed, and what remains to be done. Do not start new work — this is a closing reply, not a continuation.
@@ -1479,7 +1479,7 @@ runs:
       id: apply-fixes
       if: ${{ steps.fix-args.outputs.can_push == 'true' }}
       continue-on-error: true
-      uses: anthropics/claude-code-action@6b082c41935b4c8a3b8b0ef85ba4ba4d9eeb8975 # v1.0.189
+      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
       with:
         prompt: |
           You have just submitted your review of pull request #${{ inputs.pr_number || github.event.pull_request.number }} in ${{ github.repository }}, in this same session. This is a separate, final pass with a different job: apply the fixes you are confident about, and commit them. It does not change the review you already submitted, and you must not submit another one.
@@ -1599,7 +1599,7 @@ runs:
       id: structured-summary
       if: ${{ inputs.mode == 'review' && inputs.structured_review_summary == 'true' && steps.claude.outputs.session_id != '' && steps.detect-turn-limit.outputs.hit_limit != 'true' }}
       continue-on-error: true
-      uses: anthropics/claude-code-action@6b082c41935b4c8a3b8b0ef85ba4ba4d9eeb8975 # v1.0.189
+      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
       with:
         prompt: |
           You just finished reviewing pull request #${{ inputs.pr_number || github.event.pull_request.number }} in ${{ github.repository }} in this same session. Do not review anything further, and do not re-judge your findings from memory.
