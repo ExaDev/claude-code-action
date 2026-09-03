@@ -55,6 +55,8 @@ Do not comment on:
 5. **Concurrency and resource handling.** Shared mutable state without synchronisation, races between check and use, deadlock ordering, unbounded growth, and resources acquired without a guaranteed release: connections, file handles, locks, subscriptions, timers, listeners.
 6. **Interface compatibility.** A change to an API response, a database schema, a queue message, a public function signature, or an exported type is a change to a contract someone else depends on. Ask who else consumes it and whether they must be deployed in step.
 7. **Tests.** Whether the tests present actually exercise the new behaviour and would fail if it regressed. A test that asserts on a mock rather than on behaviour, or that would pass with the implementation deleted, is worth flagging.
+8. **Hallucinated APIs and phantom dependencies.** A method or library call that does not exist in the dependency version actually in use, or an import for a package absent from `package.json` / `requirements.txt` / the equivalent manifest. Verify against the lockfile, the installed package, or its own documentation before flagging -- your training data can be stale, especially for a version newer than you expect, so check rather than assume.
+9. **Streisand artefacts.** A comment announcing removed code (`// removed for security`), a wrapper function that exists only to conceal a change, or a disclaimer more verbose than the problem it is disclaiming -- each draws more attention to the issue than leaving it alone would have.
 
 ## How to report
 
