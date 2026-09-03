@@ -1,32 +1,28 @@
-import markdown from "@eslint/markdown"
-import stylistic from "@stylistic/eslint-plugin"
-import prettier from "eslint-plugin-prettier"
-import yml from "eslint-plugin-yml"
-import { defineConfig } from "eslint/config"
+import { defineConfig } from "eslint/config";
+import tseslint from "typescript-eslint";
+import json from "@eslint/json";
+import markdown from "@eslint/markdown";
+// Recommended config, not the plugin itself: this both enables the prettier/prettier rule (reports formatting differences as lint errors, reading prettier.config.ts the same way `prettier --check` does) and applies eslint-config-prettier, which turns off every ESLint stylistic rule that could otherwise disagree with Prettier. It carries no `files:` restriction of its own, so it applies to everything ESLint actually lints below — YAML is untouched here (no ESLint language plugin for it), so `npm run format:check` remains the one authoritative formatting check that also covers the workflow/action YAML files.
+import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 
 export default defineConfig([
-	{
-		files: ["**/*.{js,ts,mjs,mts}"],
-		...stylistic.configs.customize({
-			indent: "tab",
-			quotes: "double",
-		}),
-	},
-	{
-		files: ["**/*.md"],
-		plugins: { markdown, prettier },
-		extends: ["markdown/recommended"],
-		language: "markdown/gfm",
-		rules: {
-			"prettier/prettier": ["error", {
-				useTabs: true,
-				singleQuote: false,
-				proseWrap: "preserve",
-			}],
-		},
-	},
-	...yml.configs["flat/recommended"],
-	{
-		ignores: [".git/", "node_modules/", ".claude/", "CLAUDE.md", "AGENTS.md"],
-	},
-])
+  {
+    files: ["**/*.ts"],
+    extends: [tseslint.configs.recommended],
+  },
+  {
+    files: ["**/*.json"],
+    ignores: ["package-lock.json"], // generated, not hand-maintained
+    language: "json/json",
+    plugins: { json },
+    extends: ["json/recommended"],
+  },
+  {
+    // gfm, not commonmark: every markdown file here is rendered on GitHub, and relies on GFM-only syntax CommonMark doesn't define at all — tables throughout this README, task-list-style content elsewhere.
+    files: ["**/*.md"],
+    plugins: { markdown },
+    language: "markdown/gfm",
+    extends: ["markdown/recommended"],
+  },
+  eslintPluginPrettierRecommended,
+]);
