@@ -1,0 +1,43 @@
+# Composite-action-step (direct) form of claude-review.yml. Copy this to .github/workflows/claude-review.yml in a repository in your organisation.
+#
+# This calls the composite action directly as a step rather than through the reusable workflow (examples/claude-review.yml), and it is the form that runs review as the Claude Code GitHub App (claude[bot]) -- which is the only identity that can submit a formal review AND resolve the bot's own stale threads on a re-review (resolve_stale_threads). The default github-actions[bot] token the reusable form uses is forbidden from both. Use this direct form when you want the App identity, the caller-side permissions: block below, or OIDC-based auth (Bedrock/Vertex/Foundry/Anthropic federation). Otherwise prefer examples/claude-review.yml -- it is shorter.
+#
+# Requires the Claude Code GitHub App installed on the organisation (https://github.com/apps/claude) and a CLAUDE_CODE_OAUTH_TOKEN secret, because the App token is minted per-run by an OIDC exchange that needs both. Do NOT pass github_token here -- leaving it unset is what makes the upstream take on the App identity; passing it would force github-actions[bot] and moderation would fail with FORBIDDEN, exactly as it does in the reusable form.
+#
+# Trade-off: the App token carries broad scopes (contents: write, workflows: write, and more) rather than the tight contents: read the reusable form's GITHUB_TOKEN is scoped to, so the prompt is the control on what review does, not the token scope. See the README's security notes before pointing this at a repository that accepts untrusted fork pull requests.
+#
+# Claude reviews every pull request when it is opened, when new commits are pushed to it, and when a draft is marked ready for review. It submits a formal review -- inline comments plus a summary body -- and by default approves a clean review (drop 'approve' from allowed_review_states if a human should be the only one who can merge).
+
+name: Claude Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read # only used when include_ci_logs is true; read-only, covers workflow-run metadata and logs
+  id-token: write # the OIDC exchange that mints the Claude Code App token needs this; the reusable-workflow form cannot grant it, which is why resolve_stale_threads only works here
+
+# Reviewing every push to a busy branch gets expensive. This cancels an in-flight review when the author pushes again.
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: review mode's local git diff/log/show tools compare against the base branch, which a shallow (depth-1) clone does not have.
+          fetch-depth: 0
+      - uses: ExaDev/claude-code-action@v1
+        with:
+          mode: review
+          # No github_token: leaving it unset is what makes the review run as the Claude Code App (claude[bot]). See the header comment.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Every other input is optional with a sensible default -- see action.yml for the full list.

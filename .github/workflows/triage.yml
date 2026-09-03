@@ -1,0 +1,208 @@
+name: Claude Issue Triage
+
+# Reusable workflow: triage of newly opened issues.
+#
+# A calling repository decides *when* this runs. Its own workflow supplies the `on: issues:` trigger and calls this one from a job. See examples/claude-triage.yml in this repository for a caller to copy.
+
+on:
+  workflow_call:
+    inputs:
+      allowed_non_write_users:
+        description: |
+          Comma-separated usernames allowed to trigger triage without repository write access, or '*' for all.
+          Empty (the default) means only an issue opened by someone with write access is triaged.
+
+          Set this to '*' if you want issues from reporters without write access triaged, which is the usual
+          reason to run triage at all. Doing so lets untrusted issue text reach the model, so it is a
+          deliberate per-repository decision. Triage holds no pull-request or code-write scope, which is
+          what makes the trade-off acceptable here. See the security notes in this action's README.
+        type: string
+        required: false
+        default: ""
+      model:
+        description: "Model passed to Claude Code as --model: an alias (sonnet, opus, haiku) or a full model name. Defaults to sonnet."
+        type: string
+        required: false
+        default: "sonnet"
+      resume_sessions:
+        description: "Cache and resume Claude Code sessions across runs. On by default."
+        type: boolean
+        required: false
+        default: true
+      settings:
+        description: "Claude Code settings: a JSON string, or a path to a settings file in the calling repository."
+        type: string
+        required: false
+        default: ""
+      extra_claude_args:
+        description: "Extra Claude Code CLI arguments, appended to the ones this workflow derives."
+        type: string
+        required: false
+        default: ""
+      allowed_bots:
+        description: "Comma-separated bot usernames whose issues may be triaged, or '*' for all. Empty allows none."
+        type: string
+        required: false
+        default: ""
+      track_progress:
+        description: "Post a visible progress-tracking comment while triage runs."
+        type: boolean
+        required: false
+        default: false
+      use_sticky_comment:
+        description: "Deliver triage comments through one continuously-updated comment instead of a new one each run."
+        type: boolean
+        required: false
+        default: false
+      post_progress_comment:
+        description: "Post a plain 'Claude is triaging this' comment before the run starts, then edit it once finished. Independent of track_progress/use_sticky_comment above, which need upstream's tag mode and never apply to this workflow's own agent-mode run. On by default."
+        type: boolean
+        required: false
+        default: true
+      include_comments_by_actor:
+        description: "Comma-separated actor usernames to include as context (supports '*[bot]' wildcards). Empty includes all actors."
+        type: string
+        required: false
+        default: ""
+      exclude_comments_by_actor:
+        description: "Comma-separated actor usernames to exclude from context (supports '*[bot]' wildcards). Empty excludes none."
+        type: string
+        required: false
+        default: ""
+      bot_id:
+        description: "GitHub user ID to use for git commit authorship, if triage ever needs one. Defaults to Claude's own bot ID — do not default this to an empty string, which would override that default with a blank identity end-to-end."
+        type: string
+        required: false
+        default: "41898282"
+      bot_name:
+        description: "GitHub username to use for git commit authorship, if triage ever needs one. Defaults to Claude's own bot name — do not default this to an empty string, for the same reason as bot_id."
+        type: string
+        required: false
+        default: "claude[bot]"
+      plugins:
+        description: "Newline-separated Claude Code plugin names to install before triage."
+        type: string
+        required: false
+        default: ""
+      plugin_marketplaces:
+        description: "Newline-separated plugin marketplace Git URLs to install plugins from."
+        type: string
+        required: false
+        default: ""
+      use_bedrock:
+        description: "Use Amazon Bedrock instead of the direct Anthropic API. Needs AWS credentials in this job's own environment. OIDC-based Bedrock auth needs id-token: write, which cannot be granted from a job calling this reusable workflow — call the composite action directly for that instead."
+        type: boolean
+        required: false
+        default: false
+      use_vertex:
+        description: "Use Google Vertex AI instead of the direct Anthropic API. Needs GCP credentials in this job's own environment. Same id-token: write caveat as use_bedrock."
+        type: boolean
+        required: false
+        default: false
+      use_foundry:
+        description: "Use Microsoft Foundry instead of the direct Anthropic API. Needs Foundry configuration in this job's own environment. Same id-token: write caveat as use_bedrock."
+        type: boolean
+        required: false
+        default: false
+      anthropic_federation_rule_id:
+        description: "Workload identity federation rule ID (fdrl_...). Requires id-token: write — see the use_bedrock note."
+        type: string
+        required: false
+        default: ""
+      anthropic_organization_id:
+        description: "Anthropic organisation UUID for workload identity federation."
+        type: string
+        required: false
+        default: ""
+      anthropic_service_account_id:
+        description: "Service account ID (svac_...) the federated token acts as."
+        type: string
+        required: false
+        default: ""
+      anthropic_workspace_id:
+        description: "Workspace ID (wrkspc_...) for workload identity federation."
+        type: string
+        required: false
+        default: ""
+      anthropic_oidc_audience:
+        description: "Audience to request on the GitHub OIDC token for workload identity federation."
+        type: string
+        required: false
+        default: ""
+      display_report:
+        description: "Display the Claude Code report in the GitHub Step Summary. Only for trusted-input repositories — see action.yml's own warning."
+        type: boolean
+        required: false
+        default: false
+      show_full_output:
+        description: "Show full JSON output from Claude Code. May contain secrets — debugging only, in non-sensitive contexts."
+        type: boolean
+        required: false
+        default: false
+      runs_on:
+        description: "Runner label for the job."
+        type: string
+        required: false
+        default: "ubuntu-latest"
+      timeout_minutes:
+        description: "Job timeout."
+        type: number
+        required: false
+        default: 10
+    secrets:
+      anthropic_api_key:
+        description: "Anthropic API key. Supply this or claude_code_oauth_token."
+        required: false
+      claude_code_oauth_token:
+        description: "Claude Code OAuth token. Supply this or anthropic_api_key."
+        required: false
+
+jobs:
+  triage:
+    name: Triage
+    runs-on: ${{ inputs.runs_on }}
+    timeout-minutes: ${{ inputs.timeout_minutes }}
+
+    # Least privilege for triage: label, comment on, and assign issues, and read the code to work out what an issue concerns. Deliberately no `pull-requests` scope, so a triage run cannot touch a pull request even if it were talked into trying.
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Triage issue
+        uses: ./
+        with:
+          mode: triage
+          allowed_non_write_users: ${{ inputs.allowed_non_write_users }}
+          model: ${{ inputs.model }}
+          settings: ${{ inputs.settings }}
+          resume_sessions: ${{ inputs.resume_sessions }}
+          extra_claude_args: ${{ inputs.extra_claude_args }}
+          allowed_bots: ${{ inputs.allowed_bots }}
+          track_progress: ${{ inputs.track_progress }}
+          use_sticky_comment: ${{ inputs.use_sticky_comment }}
+          post_progress_comment: ${{ inputs.post_progress_comment }}
+          include_comments_by_actor: ${{ inputs.include_comments_by_actor }}
+          exclude_comments_by_actor: ${{ inputs.exclude_comments_by_actor }}
+          bot_id: ${{ inputs.bot_id }}
+          bot_name: ${{ inputs.bot_name }}
+          plugins: ${{ inputs.plugins }}
+          plugin_marketplaces: ${{ inputs.plugin_marketplaces }}
+          use_bedrock: ${{ inputs.use_bedrock }}
+          use_vertex: ${{ inputs.use_vertex }}
+          use_foundry: ${{ inputs.use_foundry }}
+          anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
+          anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
+          anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
+          anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
+          anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+          display_report: ${{ inputs.display_report }}
+          show_full_output: ${{ inputs.show_full_output }}
+          anthropic_api_key: ${{ secrets.anthropic_api_key }}
+          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}

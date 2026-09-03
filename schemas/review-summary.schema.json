@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "review_state": {
+      "type": "string",
+      "enum": ["CHANGES_REQUESTED", "APPROVED", "COMMENT"]
+    },
+    "findings": {
+      "type": "object",
+      "properties": {
+        "blocker": { "type": "integer", "minimum": 0 },
+        "should_fix": { "type": "integer", "minimum": 0 },
+        "nit": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["blocker", "should_fix", "nit"],
+      "additionalProperties": false
+    },
+    "summary": { "type": "string" }
+  },
+  "required": ["review_state", "findings", "summary"],
+  "additionalProperties": false
+}
