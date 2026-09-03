@@ -9,12 +9,26 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# determine-runner routes every job below through ExaDev's self-hosted fleet, falling back to ubuntu-latest via ExaDev/runner-fallback-action -- which reads a secret gist refreshed by the fleet's heartbeat. No token, no secret, no per-repo setup. The Dependabot/fork-PR guard (force ubuntu-latest so untrusted code never runs on the fleet) lives inside the action. TEMPORARILY runs-on exadev-runners directly (not ubuntu-latest) rather than through the fallback action itself, because ExaDev's GitHub-hosted runners are blocked by an account billing issue -- revert to ubuntu-latest once billing clears, which activates the real fallback. The action is pinned to a commit SHA, not @main; bump deliberately when it changes (b774d51 = the secret-gist redesign). Matches the pattern already in use on ExaDev/Exie and ExaDev/dex's own ci.yml.
+#
+# exadev-runners is linux-arm64 (an Apple Silicon host), not linux-amd64 like ubuntu-latest -- confirmed live via a recent Exie CI run's own setup-node log. actionlint's install step below picks the matching release asset for whichever architecture it actually lands on, rather than assuming amd64.
 jobs:
+  determine-runner:
+    runs-on: exadev-runners
+    timeout-minutes: 5
+    outputs:
+      selected-runner: ${{ steps.fallback.outputs.selected-runner || '["ubuntu-latest"]' }}
+      preferred-available: ${{ steps.fallback.outputs.preferred-available || 'false' }}
+    steps:
+      - id: fallback
+        uses: ExaDev/runner-fallback-action@b774d51ff5360bf53705b2eb34ff019afd4d7f07
+
   commitlint:
     name: Commitlint
     # The local commit-msg hook (.husky/commit-msg) can be bypassed -- a merge via the GitHub web UI, a commit from a tool that doesn't run hooks. This checks every commit on a pull request against the same rules. Nothing to check on a plain push to main: those commits already passed this exact job on their pull request.
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    needs: determine-runner
+    runs-on: ${{ fromJson(needs.determine-runner.outputs.selected-runner) }}
     timeout-minutes: 5
     permissions:
       contents: read
@@ -34,24 +48,33 @@ jobs:
     # No action wrapper: actionlint is a self-contained static binary. Download the pinned release directly and verify its checksum, rather than trusting a third-party action.yml (rhysd/actionlint has none anyway) or an unpinned install script. actionlint only understands workflow files (.github/workflows/*.yml), not this repo's own composite action.yml -- see the README's own note on how action.yml's runs.steps are instead validated (a synthetic workflow_call wrapper, checked by hand during review, not by this job).
     env:
       ACTIONLINT_VERSION: "1.7.12"
-      ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
-    runs-on: ubuntu-latest
+      ACTIONLINT_SHA256_AMD64: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+      ACTIONLINT_SHA256_ARM64: "325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6"
+    needs: determine-runner
+    runs-on: ${{ fromJson(needs.determine-runner.outputs.selected-runner) }}
     timeout-minutes: 5
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v6
       - name: Install actionlint
+        # Picks the release asset matching the actual runner architecture (amd64 on ubuntu-latest, arm64 on exadev-runners) rather than assuming one -- see the file header comment.
         run: |
-          curl -sLO "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          echo "${ACTIONLINT_SHA256}  actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" | sha256sum -c -
-          tar xzf "actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" actionlint
+          case "$(uname -m)" in
+            x86_64) ARCH=amd64; SHA256="${ACTIONLINT_SHA256_AMD64}" ;;
+            aarch64|arm64) ARCH=arm64; SHA256="${ACTIONLINT_SHA256_ARM64}" ;;
+            *) echo "::error::Unsupported architecture: $(uname -m)"; exit 1 ;;
+          esac
+          curl -sLO "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_${ARCH}.tar.gz"
+          echo "${SHA256}  actionlint_${ACTIONLINT_VERSION}_linux_${ARCH}.tar.gz" | sha256sum -c -
+          tar xzf "actionlint_${ACTIONLINT_VERSION}_linux_${ARCH}.tar.gz" actionlint
       - run: ./actionlint -color
 
   # typecheck/lint/format each route through `turbo run <task>` rather than a plain `npm run` so a rerun with nothing relevant changed (a docs-only push, a rerun after an unrelated job failed) completes from cache instead of re-executing tsc/eslint/prettier from scratch.
   typecheck:
     name: Typecheck
-    runs-on: ubuntu-latest
+    needs: determine-runner
+    runs-on: ${{ fromJson(needs.determine-runner.outputs.selected-runner) }}
     timeout-minutes: 5
     permissions:
       contents: read
@@ -66,7 +89,8 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    needs: determine-runner
+    runs-on: ${{ fromJson(needs.determine-runner.outputs.selected-runner) }}
     timeout-minutes: 5
     permissions:
       contents: read
@@ -81,7 +105,8 @@ jobs:
 
   format:
     name: Format
-    runs-on: ubuntu-latest
+    needs: determine-runner
+    runs-on: ${{ fromJson(needs.determine-runner.outputs.selected-runner) }}
     timeout-minutes: 5
     permissions:
       contents: read
@@ -98,8 +123,8 @@ jobs:
   required-checks:
     name: Required Checks
     if: always()
-    needs: [commitlint, actionlint, typecheck, lint, format]
-    runs-on: ubuntu-latest
+    needs: [determine-runner, commitlint, actionlint, typecheck, lint, format]
+    runs-on: ${{ fromJson(needs.determine-runner.outputs.selected-runner) }}
     timeout-minutes: 5
     steps:
       - name: All required jobs passed
@@ -114,10 +139,10 @@ jobs:
   # Computes the next version from commits since the last tag, generates release notes and a CHANGELOG.md entry, creates the GitHub Release and version tag, commits CHANGELOG.md back to main, and (via the move-major-tag plugin in release.config.ts) moves the moving vN tag to point at the new release -- see release.config.ts and scripts/move-major-tag.mjs. There is no npm-publish step and therefore no id-token: write permission -- this repository ships a GitHub Action, not an npm package.
   release:
     name: Release
-    needs: [required-checks]
+    needs: [determine-runner, required-checks]
     # A bare `github.ref == ... && github.event_name == ...` here would look sufficient but isn't: without one of always()/success()/failure()/cancelled(), GitHub implicitly ANDs the condition with success() evaluated over the *entire* transitive job graph, not just needs: [required-checks] -- and commitlint (an ancestor via required-checks, skipped by its own `if:` on every push to main) reports "skipped", which fails that implicit check even though required-checks itself passed. always() plus an explicit check of required-checks' own result is what actually asks "did the one job I depend on succeed", ignoring how it got there.
     if: always() && needs.required-checks.result == 'success' && github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJson(needs.determine-runner.outputs.selected-runner) }}
     timeout-minutes: 10
     permissions:
       contents: write # to create the GitHub Release; actual git pushes below authenticate as the ExaDev sync App instead, not this job token

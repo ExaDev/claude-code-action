@@ -1,0 +1,5 @@
+self-hosted-runner:
+  # Custom runs-on labels used by this repository's own workflows, routing through ExaDev's self-hosted CI fleet and Blacksmith -- see ci.yml, dependabot.yml, claude-review.yml, claude-triage.yml, and claude-interactive.yml's own comments for why each job picks the label it does. actionlint has no way to know these exist without being told; omitting this file makes every one of them a false-positive "unknown label" finding.
+  labels:
+    - exadev-runners
+    - blacksmith-4vcpu-ubuntu-2404
