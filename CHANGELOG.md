@@ -1,3 +1,12 @@
+## [1.1.1](https://github.com/ExaDev/claude-code-action/compare/v1.1.0...v1.1.1) (2026-09-03)
+
+### Bug Fixes
+
+- **interactive:** check the right actor per event, restore allowed_bots ([9f48f86](https://github.com/ExaDev/claude-code-action/commit/9f48f86aae8802e11a9760e9e1fcdc8235b702bd))
+- **interactive:** correct a false safety claim about the deny list ([b8f88e2](https://github.com/ExaDev/claude-code-action/commit/b8f88e2b890dc6d20b081f6b670c7e8fa33e5f19))
+- **interactive:** grant bare Bash instead of an enumerated allowlist ([50bf557](https://github.com/ExaDev/claude-code-action/commit/50bf557ecc0fc937603fe9396e9307079108cdad))
+- **interactive:** skip bot-authored events before the trigger check ([4be7e3f](https://github.com/ExaDev/claude-code-action/commit/4be7e3fd2f8fd50f21752df286c4ba0108401f1a))
+
 ## [1.1.0](https://github.com/ExaDev/claude-code-action/compare/v1.0.0...v1.1.0) (2026-09-03)
 
 ### Bug Fixes
