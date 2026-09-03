@@ -17,7 +17,8 @@ jobs:
   metadata:
     name: Metadata
     if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'ExaDev/claude-code-action'
-    runs-on: ubuntu-latest
+    # blacksmith-4vcpu-ubuntu-2404, not ubuntu-latest or ExaDev's own self-hosted fleet: every job in this file runs with github.actor == 'dependabot[bot]' on its first trigger (the only exception is a synchronize event caused by investigate's own push, further down), and ExaDev/runner-fallback-action's own built-in guard force-routes that actor to its GitHub-hosted fallback label unconditionally, regardless of fleet health -- so routing this file through that action would silently re-hit the very billing block this change exists to route around. Blacksmith has no such guard and is an ephemeral per-job VM, not ExaDev's persistent shared fleet, so a Dependabot-triggered job here carries none of the shared-machine contamination risk that guard was written to prevent. Matches ExaDev/dex's own claude-review.yml, which makes the same choice for the same reason (its own Claude-Code-Action-invoking job).
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
     permissions:
       contents: read
@@ -98,7 +99,7 @@ jobs:
     needs: [metadata]
     # github.triggering_actor is the pusher, not the PR author: on the opened event and on a Dependabot rebase it is dependabot[bot]; on the synchronize event caused by this job's own push (further down) it is this repository's own sync App, which is what stops this job re-entering itself in a loop against its own commit.
     if: needs.metadata.outputs.is-upstream == 'true' && needs.metadata.outputs.investigate-enabled == 'true' && github.triggering_actor == 'dependabot[bot]'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404 # see metadata's own comment above for why not ExaDev/runner-fallback-action
     timeout-minutes: 20
     permissions:
       contents: read # the checkout, and Claude's own git add/commit, only need this -- the push below is separate
@@ -217,7 +218,7 @@ jobs:
       needs.investigate.result != 'failure' &&
       needs.investigate.result != 'cancelled' &&
       needs.investigate.outputs.pushed != 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404 # see metadata's own comment above for why not ExaDev/runner-fallback-action
     timeout-minutes: 20
     permissions:
       contents: read
@@ -272,7 +273,7 @@ jobs:
       needs.review.result == 'success' &&
       needs.metadata.outputs.automerge-enabled == 'true' &&
       needs.metadata.outputs.automerge-eligible == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404 # see metadata's own comment above for why not ExaDev/runner-fallback-action
     timeout-minutes: 5
     permissions:
       contents: write
