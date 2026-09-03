@@ -66,7 +66,7 @@ inputs:
     required: false
     default: ""
   allowed_bots:
-    description: "Comma-separated bot usernames permitted to invoke this action, or '*' for all bots. Empty allows no bots."
+    description: "Comma-separated bot usernames permitted to invoke this action, or '*' for all bots. Empty allows no bots. No spaces around commas -- entries are matched exactly, and GitHub Actions expressions have no trim()."
     required: false
     default: ""
   allowed_non_write_users:
