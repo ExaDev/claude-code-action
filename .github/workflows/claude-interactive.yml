@@ -31,7 +31,9 @@ jobs:
       - uses: ./
         with:
           mode: interactive
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_code_oauth_token: |
+            ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+            ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_BACKUP }}
           # Optional: Customize trigger phrase
           # trigger_phrase: "/claude"
           # Optional: Enable progress tracking
