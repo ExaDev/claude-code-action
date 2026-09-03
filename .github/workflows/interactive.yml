@@ -191,9 +191,15 @@ jobs:
     name: Interactive
     # The trigger phrase is gated here, in the job condition, and this is load-bearing. Supplying a prompt puts the underlying action into its agent mode, which runs unconditionally and does not itself check for the phrase. Without this condition every single comment on every issue and pull request would start a paid run.
     #
-    # github.event.sender.type != 'Bot' guards against a bot's own comment/review text containing the literal trigger phrase -- confirmed directly on novus-power/hive (commit f509aa9a64): Anthropic's native Claude Code Review GitHub App posts a boilerplate "Comment @claude review for a one-time review..." notice on every pull request when its own automatic review is set to manual, and that boilerplate's own "@claude review" substring satisfied a default-phrase trigger from the bot's own submission -- wasting a full checkout, Claude Code install, and OIDC/App token exchange before any downstream actor check caught it. Excluding any bot-authored event here skips that class of self-trigger before any of that setup runs at all.
+    # Guards against a bot's own comment/review text containing the literal trigger phrase -- confirmed directly on novus-power/hive (commit f509aa9a64): Anthropic's native Claude Code Review GitHub App posts a boilerplate "Comment @claude review for a one-time review..." notice on every pull request when its own automatic review is set to manual, and that boilerplate's own "@claude review" substring satisfied a default-phrase trigger from the bot's own submission -- wasting a full checkout, Claude Code install, and OIDC/App token exchange before any downstream actor check caught it.
+    #
+    # inputs.allowed_bots stays reachable through this guard rather than being shadowed by it: '*' allows any bot sender through, and a comma-separated list is checked by exact entry (padded with commas on both sides so a login that is merely a substring of another entry's name can't false-match). A caller that wants a specific trusted bot -- one it configures deliberately, not the accidental case above -- still can.
     if: |
-      github.event.sender.type != 'Bot' && (
+      (
+        github.event.sender.type != 'Bot'
+        || inputs.allowed_bots == '*'
+        || contains(format(',{0},', inputs.allowed_bots), format(',{0},', github.event.sender.login))
+      ) && (
         (
           (github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment')
           && contains(github.event.comment.body, inputs.trigger_phrase)
