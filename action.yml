@@ -598,10 +598,11 @@ runs:
           *) VERB="working on this" ;;
         esac
 
-        # "Update progress comment" below deletes this comment outright once the run succeeds -- every mode always leaves its own real output behind on success (a submitted review, a triage comment, an interactive reply), so nothing is lost. A marker-carrying comment found here can therefore only be a leftover from a run that did NOT succeed (its own "Update progress comment" left it in place instead of deleting it). Reusing that one instead of posting a new one is what stops a string of failed runs on the same pull request/issue from piling up "did not complete" comments one per run.
-        MARKER="<!-- claude-progress-comment -->"
-        BODY=$(printf '🔄 Claude is %s… [View job run](%s)\n\n%s' "$VERB" "$RUN_URL" "$MARKER")
-        EXISTING_ID=$(gh api "repos/${REPOSITORY}/issues/${ENTITY_NUMBER}/comments" --paginate -q 'map(select(.body | contains("<!-- claude-progress-comment -->"))) | (.[-1].id // empty)' 2>/dev/null || echo "")
+        # "Update progress comment" below deletes this comment outright once the run succeeds -- every mode always leaves its own real output behind on success (a submitted review, a triage comment, an interactive reply), so nothing is lost -- and on failure marks it with the FAILED marker instead, the terminal state below searches for. Only a FAILED-marked comment is eligible for reuse, never a PENDING one: interactive mode has no concurrency group, so two overlapping runs on the same pull request/issue are possible, and a PENDING comment may belong to a sibling run that is still in flight and has not resolved its own comment yet -- adopting it here would let this run's later delete-on-success silently erase that sibling's still-pending outcome out from under it. A FAILED comment, by contrast, can only exist once its own run has already reached "Update progress comment" and finished, so it is safe to take over.
+        MARKER_PENDING="<!-- claude-progress-comment:pending -->"
+        MARKER_FAILED="<!-- claude-progress-comment:failed -->"
+        BODY=$(printf '🔄 Claude is %s… [View job run](%s)\n\n%s' "$VERB" "$RUN_URL" "$MARKER_PENDING")
+        EXISTING_ID=$(gh api "repos/${REPOSITORY}/issues/${ENTITY_NUMBER}/comments" --paginate -q 'map(select(.user.type == "Bot" and (.body | contains("<!-- claude-progress-comment:failed -->")))) | (.[-1].id // empty)' 2>/dev/null || echo "")
 
         # Three attempts with a short backoff before falling back on continue-on-error above -- a transient rate limit or network blip shouldn't cost the comment even though a sustained failure (bad permissions, a real outage) still must not fail the job.
         COMMENT_ID=""
@@ -1666,8 +1667,8 @@ runs:
           exit 1
         fi
 
-        # Non-success: no other durable output is guaranteed to exist, so this comment stays as the one visible signal something went wrong -- left in place, still carrying the marker, for the next run's "Post progress comment" to find and reuse instead of piling up another one.
-        BODY=$(printf "❌ Claude's run did not complete (outcome: %s). [View job run](%s)\n\n<!-- claude-progress-comment -->" "$OUTCOME" "$RUN_URL")
+        # Non-success: no other durable output is guaranteed to exist, so this comment stays as the one visible signal something went wrong -- left in place, now carrying the FAILED marker (not the PENDING one it started with) so a later, non-concurrent run's "Post progress comment" can find and reuse it instead of piling up another one, without a still-running sibling ever mistaking it for a leftover to adopt.
+        BODY=$(printf "❌ Claude's run did not complete (outcome: %s). [View job run](%s)\n\n<!-- claude-progress-comment:failed -->" "$OUTCOME" "$RUN_URL")
         for attempt in 1 2 3; do
           if gh api -X PATCH "repos/${REPOSITORY}/issues/comments/${COMMENT_ID}" -f body="$BODY"; then
             echo "Updated progress comment ${COMMENT_ID} (outcome: ${OUTCOME})."
