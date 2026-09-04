@@ -1,3 +1,15 @@
+## [1.1.2](https://github.com/ExaDev/claude-code-action/compare/v1.1.1...v1.1.2) (2026-09-04)
+
+### Bug Fixes
+
+- correct the Node version needed for unflagged type stripping ([92886b8](https://github.com/ExaDev/claude-code-action/commit/92886b825d6b7f87377e1ec062d01f51199b0be4))
+- raise engines.node floor to match lint-staged's own requirement ([a27b95a](https://github.com/ExaDev/claude-code-action/commit/a27b95ace49ef874fd81ffe9910a16b6e04f09f1))
+
+### Reverts
+
+- Revert "chore: give CI jobs headroom for a slower npm ci under Node 24" ([f6c75c4](https://github.com/ExaDev/claude-code-action/commit/f6c75c4534e6f6475c34fe071ac6e9c31337e400))
+- Revert "chore: raise Node baseline to >=23.6" ([2f77c3e](https://github.com/ExaDev/claude-code-action/commit/2f77c3ebdb08eeb240a3886a10fd28366236df07))
+
 ## [1.1.1](https://github.com/ExaDev/claude-code-action/compare/v1.1.0...v1.1.1) (2026-09-03)
 
 ### Bug Fixes
