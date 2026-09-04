@@ -1,3 +1,11 @@
+## [1.1.3](https://github.com/ExaDev/claude-code-action/compare/v1.1.2...v1.1.3) (2026-09-04)
+
+### Bug Fixes
+
+- delete the progress comment once real output exists, dedupe reposts ([886ec7c](https://github.com/ExaDev/claude-code-action/commit/886ec7c42e666555c13a216345e9e1a682dcd7b4))
+- never adopt an existing progress comment, only ever delete stale ones ([ff58947](https://github.com/ExaDev/claude-code-action/commit/ff58947fafce85b7b614d4976666dbd92d5a79be))
+- only reuse a terminal-failed progress comment, never a pending one ([4b1647c](https://github.com/ExaDev/claude-code-action/commit/4b1647c9ea5c99f452957c966af57c4b5d855479))
+
 ## [1.1.2](https://github.com/ExaDev/claude-code-action/compare/v1.1.1...v1.1.2) (2026-09-04)
 
 ### Bug Fixes
