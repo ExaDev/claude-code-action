@@ -17,7 +17,8 @@ jobs:
     # The local commit-msg hook (.husky/commit-msg) can be bypassed -- a merge via the GitHub web UI, a commit from a tool that doesn't run hooks. This checks every commit on a pull request against the same rules. Nothing to check on a plain push to main: those commits already passed this exact job on their pull request.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # 5 was enough while npm ci reliably finished in well under a minute on a warm cache; npm 11 (bundled with the Node 24 baseline below) has been observed taking most of 5 minutes for the same install even with a cache hit, so every job below that runs npm ci gets the same headroom.
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -54,7 +55,7 @@ jobs:
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -69,7 +70,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -84,7 +85,7 @@ jobs:
   format:
     name: Format
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
