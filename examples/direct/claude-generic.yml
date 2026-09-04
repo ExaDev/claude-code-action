@@ -40,7 +40,7 @@ jobs:
           model: sonnet
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ github.token }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           post_progress_comment: false
           resume_sessions: false
           wrap_up_on_turn_limit: false
