@@ -565,7 +565,7 @@ runs:
 
         echo "credential_count=${COUNT}" >>"$GITHUB_OUTPUT"
 
-    # --- Progress comment --- A plain, ordinary issue comment posted and later edited entirely by this action's own steps via `gh api`, independent of track_progress/use_sticky_comment above: those are pure passthroughs to upstream's own tracking-comment mechanism, which only its tag mode implements, and every mode this action runs (review, triage, interactive) always sets `prompt` (see "Compose prompt" below) -- upstream's detectMode treats a non-empty prompt as agent mode, which has no tracking-comment support at all. Placed first, before stack detection or prompt composition, so the comment lands as early as possible rather than waiting on work this comment doesn't depend on.
+    # --- Progress comment --- A plain, ordinary issue comment posted and later deleted (on success) or edited (on failure) entirely by this action's own steps via `gh api`, independent of track_progress/use_sticky_comment above: those are pure passthroughs to upstream's own tracking-comment mechanism, which only its tag mode implements, and every mode this action runs (review, triage, interactive) always sets `prompt` (see "Compose prompt" below) -- upstream's detectMode treats a non-empty prompt as agent mode, which has no tracking-comment support at all. Placed first, before stack detection or prompt composition, so the comment lands as early as possible rather than waiting on work this comment doesn't depend on.
     - name: Post progress comment
       id: progress-comment
       if: ${{ inputs.post_progress_comment == 'true' }}
@@ -598,10 +598,20 @@ runs:
           *) VERB="working on this" ;;
         esac
 
+        # "Update progress comment" below deletes this comment outright once the run succeeds -- every mode always leaves its own real output behind on success (a submitted review, a triage comment, an interactive reply), so nothing is lost. A marker-carrying comment found here can therefore only be a leftover from a run that did NOT succeed (its own "Update progress comment" left it in place instead of deleting it). Reusing that one instead of posting a new one is what stops a string of failed runs on the same pull request/issue from piling up "did not complete" comments one per run.
+        MARKER="<!-- claude-progress-comment -->"
+        BODY=$(printf '🔄 Claude is %s… [View job run](%s)\n\n%s' "$VERB" "$RUN_URL" "$MARKER")
+        EXISTING_ID=$(gh api "repos/${REPOSITORY}/issues/${ENTITY_NUMBER}/comments" --paginate -q 'map(select(.body | contains("<!-- claude-progress-comment -->"))) | (.[-1].id // empty)' 2>/dev/null || echo "")
+
         # Three attempts with a short backoff before falling back on continue-on-error above -- a transient rate limit or network blip shouldn't cost the comment even though a sustained failure (bad permissions, a real outage) still must not fail the job.
         COMMENT_ID=""
         for attempt in 1 2 3; do
-          if COMMENT_ID=$(gh api "repos/${REPOSITORY}/issues/${ENTITY_NUMBER}/comments" -f body="🔄 Claude is ${VERB}… [View job run](${RUN_URL})" -q .id); then
+          if [ -n "$EXISTING_ID" ]; then
+            if gh api -X PATCH "repos/${REPOSITORY}/issues/comments/${EXISTING_ID}" -f body="$BODY"; then
+              COMMENT_ID="$EXISTING_ID"
+              break
+            fi
+          elif COMMENT_ID=$(gh api "repos/${REPOSITORY}/issues/${ENTITY_NUMBER}/comments" -f body="$BODY" -q .id); then
             break
           fi
           COMMENT_ID=""
@@ -1621,7 +1631,7 @@ runs:
         path: ~/.claude/projects
         key: ${{ steps.cache-scope.outputs.cache_key }}
 
-    # Counterpart to "Post progress comment" above -- edits the SAME comment (by its captured id) once the whole run has finished, including any optional wrap-up/fix/summary pass above, so the placeholder never sits stale as "in progress" once real output exists. if: always() so it still fires when Run Claude Code itself failed outright -- exactly when a plain visible status marker matters most, since nothing else in this composite action guarantees any comment lands when a mode's own model-driven output (a review, a triage comment, an interactive reply) never got produced.
+    # Counterpart to "Post progress comment" above -- resolves the SAME comment (by its captured id) once the whole run has finished, including any optional wrap-up/fix/summary pass above. if: always() so it still fires when Run Claude Code itself failed outright -- exactly when a plain visible status marker matters most, since nothing else in this composite action guarantees any comment lands when a mode's own model-driven output (a review, a triage comment, an interactive reply) never got produced.
     - name: Update progress comment
       if: ${{ always() && inputs.post_progress_comment == 'true' && steps.progress-comment.outputs.comment_id != '' }}
       # Same reasoning as "Post progress comment" above: this is the composite action's own final step, and a transient gh api failure here must not surface as this whole action having failed when the actual mode work (review/triage/interactive) already completed beforehand.
@@ -1641,12 +1651,23 @@ runs:
         if [ "$OUTCOME" = "success" ] && [ -n "${WRAP_UP_OUTCOME:-}" ] && [ "$WRAP_UP_OUTCOME" != "success" ] && [ "$WRAP_UP_OUTCOME" != "skipped" ]; then
           OUTCOME="$WRAP_UP_OUTCOME"
         fi
+
+        # Real output now exists elsewhere (a submitted review, a triage comment, an interactive reply -- every mode always leaves one on success, per each mode's own prompt), so this placeholder has nothing left to say. Deleting it outright, rather than editing it to a "finished" message, is what stops repeat runs on the same pull request/issue from leaving a trail of near-identical status pings behind.
         if [ "$OUTCOME" = "success" ]; then
-          BODY="✅ Claude finished — see below for the result. [View job run](${RUN_URL})"
-        else
-          BODY="❌ Claude's run did not complete (outcome: ${OUTCOME}). [View job run](${RUN_URL})"
+          for attempt in 1 2 3; do
+            if gh api -X DELETE "repos/${REPOSITORY}/issues/comments/${COMMENT_ID}"; then
+              echo "Deleted progress comment ${COMMENT_ID} (outcome: success)."
+              exit 0
+            fi
+            echo "Failed to delete progress comment (attempt ${attempt}/3)."
+            [ "$attempt" -lt 3 ] && sleep 2
+          done
+          echo "Giving up on deleting the progress comment after 3 attempts."
+          exit 1
         fi
-        # Same three-attempt backoff as "Post progress comment" above.
+
+        # Non-success: no other durable output is guaranteed to exist, so this comment stays as the one visible signal something went wrong -- left in place, still carrying the marker, for the next run's "Post progress comment" to find and reuse instead of piling up another one.
+        BODY=$(printf "❌ Claude's run did not complete (outcome: %s). [View job run](%s)\n\n<!-- claude-progress-comment -->" "$OUTCOME" "$RUN_URL")
         for attempt in 1 2 3; do
           if gh api -X PATCH "repos/${REPOSITORY}/issues/comments/${COMMENT_ID}" -f body="$BODY"; then
             echo "Updated progress comment ${COMMENT_ID} (outcome: ${OUTCOME})."
