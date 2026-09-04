@@ -8,7 +8,7 @@ branding:
 
 inputs:
   mode:
-    description: "Which behaviour to run: review, triage, or interactive. Defaults to interactive -- real consumers of this action's own previous design relied on that default, invoking interactive mode without ever passing mode explicitly."
+    description: "Which behaviour to run: review, triage, interactive, or generic. Defaults to interactive -- real consumers of this action's own previous design relied on that default, invoking interactive mode without ever passing mode explicitly."
     required: false
     default: "interactive"
 
@@ -31,6 +31,16 @@ inputs:
     default: "true"
   prompt_dir:
     description: "Override the prompt directory this run loads from (normally derived from mode). Rarely needed -- for testing a fragment set without changing mode."
+    required: false
+    default: ""
+  prompt_file:
+    description: |
+      Generic mode only, and required by it. Path to a file on the runner whose full content becomes
+      this run's ENTIRE prompt, verbatim -- no prompts/shared/base.md universal preamble, no mode
+      fragment, no generated "This run" facts block. A deliberate full bypass of "Compose prompt"
+      below, for a caller that has already built its own complete prompt and wants nothing this action
+      would otherwise add or infer. Same philosophy as claude_args's own full-override escape hatch:
+      for a caller building its own fully custom invocation, not for ordinary tuning.
     required: false
     default: ""
 
@@ -355,16 +365,22 @@ runs:
         RESUME_SESSIONS: ${{ inputs.resume_sessions }}
         POST_PROGRESS_COMMENT: ${{ inputs.post_progress_comment }}
         UPDATE_ISSUE_BODY: ${{ inputs.update_issue_body }}
+        PROMPT_FILE: ${{ inputs.prompt_file }}
       run: |
         set -euo pipefail
 
         case "$MODE" in
-          review|triage|interactive) ;;
+          review|triage|interactive|generic) ;;
           *)
-            echo "::error::mode must be one of: review, triage, interactive. Got '${MODE}'."
+            echo "::error::mode must be one of: review, triage, interactive, generic. Got '${MODE}'."
             exit 1
             ;;
         esac
+
+        if [ "$MODE" = "generic" ] && [ -z "${PROMPT_FILE:-}" ]; then
+          echo "::error::mode: generic requires prompt_file to be set -- generic mode has no mode fragment or generated prompt of its own; it needs a caller-supplied prompt file to run at all."
+          exit 1
+        fi
 
         case "$SEVERITY_RATINGS" in
           always|optional|never) ;;
@@ -759,6 +775,7 @@ runs:
         FIX_DIFF_FINDINGS: ${{ inputs.fix_diff_findings }}
         ADD_REGRESSION_TESTS: ${{ inputs.add_regression_tests }}
         PROMPT_DIR: ${{ inputs.prompt_dir }}
+        PROMPT_FILE: ${{ inputs.prompt_file }}
         TRIAGE_LABEL: ${{ inputs.triage_label }}
         UPDATE_ISSUE_BODY: ${{ inputs.update_issue_body }}
       run: |
@@ -766,6 +783,21 @@ runs:
 
         OUT="${RUNNER_TEMP}/claude-code-action-prompt.md"
         : > "$OUT"
+
+        # Full bypass: PROMPT_FILE's content becomes the entire prompt, verbatim. Skips every fragment/stack/conventions/"This run" composition step below. "Validate inputs" already requires this to be set for mode: generic; nothing stops a caller in another mode from setting it too (same escape-hatch philosophy as claude_args), it just isn't documented or exercised as a supported combination there.
+        if [ -n "${PROMPT_FILE:-}" ]; then
+          cat "$PROMPT_FILE" > "$OUT"
+          echo "Composed prompt: verbatim from ${PROMPT_FILE} ($(wc -c < "$OUT") bytes, $(wc -l < "$OUT") lines)."
+
+          delim="PROMPT_$(openssl rand -hex 16)"
+          {
+            echo "text<<${delim}"
+            cat "$OUT"
+            echo "${delim}"
+          } >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
         DIR="${PROMPT_DIR:-$MODE}"
 
         append_file() {
@@ -979,6 +1011,12 @@ runs:
             ADDITIONAL_PERMISSIONS=''
             # Command spellings this run must never reach even by accident -- not a security boundary on their own; see the comment above.
             DISALLOWED='Bash(gh api:*),Bash(gh pr merge:*),Bash(gh pr close:*),Bash(gh issue close:*),Bash(gh release:*),Bash(gh secret:*),Bash(gh variable:*),Bash(gh workflow:*),Bash(gh repo delete:*),Bash(git reset:*),Bash(git rebase:*),Bash(git tag:*)'
+            ;;
+          generic)
+            # No GitHub entity, no tools -- mirrors a plain `claude --print --allowedTools ""` CLI call. A caller supplied its own complete prompt via prompt_file and wants Claude Code purely as a text/JSON generator, nothing more. Still fully overridable per-call via extra_claude_args for a caller that wants more.
+            ALLOWED=""
+            DISALLOWED='Write,Edit,NotebookEdit'
+            ADDITIONAL_PERMISSIONS=''
             ;;
         esac
 
