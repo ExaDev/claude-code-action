@@ -5,6 +5,8 @@
 # Set the ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN secret (organisation or repository level) first. Either works; wire through whichever you set.
 #
 # This demo summarises the repository's own CHANGELOG.md into a short JSON object, validated against an inline --json-schema, and prints the parsed result -- standing in for "build a prompt file from data only your job has, then read structured_output back" (see structured_output's own description on the action's outputs). Note the caveat there: a schema-validation failure THROWS and fails this step outright -- add continue-on-error: true if a given call is best-effort in your own job.
+#
+# github_token is passed explicitly here even though generic mode makes no GitHub API calls of its own: without it, the upstream action tries to mint its own GitHub App token via OIDC regardless of mode, which needs a real network round-trip and, on a workflow file GitHub has not yet seen on the repository's default branch, fails workflow-content validation outright. Passing the job's own token, same as every reusable workflow this repository ships already does, skips that entirely.
 
 name: Claude Generic (demo)
 
@@ -38,6 +40,7 @@ jobs:
           model: sonnet
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
           post_progress_comment: false
           resume_sessions: false
           wrap_up_on_turn_limit: false
