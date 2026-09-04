@@ -1,0 +1,48 @@
+# Composite-action-step (direct) form for mode: generic -- a one-shot, no-tools, no-GitHub-entity call: build your own prompt file, get text or (with --json-schema) validated JSON back.
+#
+# There is no examples/claude-generic.yml (reusable-workflow) counterpart and no dedicated event trigger. The three reusable workflows this repository ships exist to centralise EVENT-TRIGGER gating logic (label/mention/author-association checks for pull-request and issue events), and generic mode has none of that -- it is called imperatively from inside a job you already have (a release pipeline, a scheduled report, a data pipeline step), not dispatched off a GitHub event of its own. Copy the "Build prompt" and "Print the result" steps below into your own job rather than this whole file verbatim; the workflow_dispatch trigger and checkout step here exist only so this file is itself runnable on its own.
+#
+# Set the ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN secret (organisation or repository level) first. Either works; wire through whichever you set.
+#
+# This demo summarises the repository's own CHANGELOG.md into a short JSON object, validated against an inline --json-schema, and prints the parsed result -- standing in for "build a prompt file from data only your job has, then read structured_output back" (see structured_output's own description on the action's outputs). Note the caveat there: a schema-validation failure THROWS and fails this step outright -- add continue-on-error: true if a given call is best-effort in your own job.
+
+name: Claude Generic (demo)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  summarise:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build prompt
+        run: |
+          {
+            echo "Summarise the changes described in CHANGELOG.md below in one sentence."
+            echo "Respond with only the JSON object matching the schema you were given -- no prose, no code fences."
+            echo
+            echo "CHANGELOG.md:"
+            cat CHANGELOG.md
+          } > "${RUNNER_TEMP}/prompt.txt"
+
+      - uses: ExaDev/claude-code-action@v1
+        id: claude
+        with:
+          mode: generic
+          prompt_file: ${{ runner.temp }}/prompt.txt
+          model: sonnet
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          post_progress_comment: false
+          resume_sessions: false
+          wrap_up_on_turn_limit: false
+          extra_claude_args: |-
+            --json-schema '{"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"],"additionalProperties":false}'
+
+      - name: Print the result
+        run: echo '${{ steps.claude.outputs.structured_output }}' | jq .
