@@ -598,21 +598,20 @@ runs:
           *) VERB="working on this" ;;
         esac
 
-        # "Update progress comment" below deletes this comment outright once the run succeeds -- every mode always leaves its own real output behind on success (a submitted review, a triage comment, an interactive reply), so nothing is lost -- and on failure marks it with the FAILED marker instead, the terminal state below searches for. Only a FAILED-marked comment is eligible for reuse, never a PENDING one: interactive mode has no concurrency group, so two overlapping runs on the same pull request/issue are possible, and a PENDING comment may belong to a sibling run that is still in flight and has not resolved its own comment yet -- adopting it here would let this run's later delete-on-success silently erase that sibling's still-pending outcome out from under it. A FAILED comment, by contrast, can only exist once its own run has already reached "Update progress comment" and finished, so it is safe to take over.
-        MARKER_PENDING="<!-- claude-progress-comment:pending -->"
+        # Delete every terminal-FAILED progress comment this bot left behind on a now-finished previous run, then always create a fresh comment of this run's own -- never adopt an existing one's identity by editing it in place. Adopting via lookup-then-patch is a check-then-act race: interactive mode has no concurrency group, so two overlapping runs (or a stale failed comment plus a fresh run starting moments apart) can both find the same candidate before either has claimed it, both patch it, and both believe they own it -- whichever finishes last then loses its own outcome to a 404 when the comment underneath it has already been deleted or reused by the other. Deleting has no such race: a delete that loses to a sibling's own delete of the same comment just 404s, a harmless no-op, and creating always mints a comment only this run's own id will ever point at, so its own eventual delete-on-success or patch-to-failed below can never step on another run's.
         MARKER_FAILED="<!-- claude-progress-comment:failed -->"
-        BODY=$(printf '🔄 Claude is %s… [View job run](%s)\n\n%s' "$VERB" "$RUN_URL" "$MARKER_PENDING")
-        EXISTING_ID=$(gh api "repos/${REPOSITORY}/issues/${ENTITY_NUMBER}/comments" --paginate -q 'map(select(.user.type == "Bot" and (.body | contains("<!-- claude-progress-comment:failed -->")))) | (.[-1].id // empty)' 2>/dev/null || echo "")
+        JQ_STALE_FILTER='map(select(.user.type == "Bot" and (.body | contains("'"$MARKER_FAILED"'")))) | .[].id'
+        STALE_IDS=$(gh api "repos/${REPOSITORY}/issues/${ENTITY_NUMBER}/comments" --paginate -q "$JQ_STALE_FILTER" 2>/dev/null || echo "")
+        for id in $STALE_IDS; do
+          gh api -X DELETE "repos/${REPOSITORY}/issues/comments/${id}" >/dev/null 2>&1 || true
+        done
+
+        BODY=$(printf '🔄 Claude is %s… [View job run](%s)' "$VERB" "$RUN_URL")
 
         # Three attempts with a short backoff before falling back on continue-on-error above -- a transient rate limit or network blip shouldn't cost the comment even though a sustained failure (bad permissions, a real outage) still must not fail the job.
         COMMENT_ID=""
         for attempt in 1 2 3; do
-          if [ -n "$EXISTING_ID" ]; then
-            if gh api -X PATCH "repos/${REPOSITORY}/issues/comments/${EXISTING_ID}" -f body="$BODY"; then
-              COMMENT_ID="$EXISTING_ID"
-              break
-            fi
-          elif COMMENT_ID=$(gh api "repos/${REPOSITORY}/issues/${ENTITY_NUMBER}/comments" -f body="$BODY" -q .id); then
+          if COMMENT_ID=$(gh api "repos/${REPOSITORY}/issues/${ENTITY_NUMBER}/comments" -f body="$BODY" -q .id); then
             break
           fi
           COMMENT_ID=""
@@ -624,6 +623,8 @@ runs:
           exit 1
         fi
         echo "comment_id=${COMMENT_ID}" >> "$GITHUB_OUTPUT"
+        # Threaded through to "Update progress comment" below as the single source of truth for the marker text, rather than a second hardcoded literal that has to be kept in sync by hand.
+        echo "marker_failed=${MARKER_FAILED}" >> "$GITHUB_OUTPUT"
         echo "Posted progress comment ${COMMENT_ID}."
 
     - name: Detect stack
@@ -1642,6 +1643,7 @@ runs:
         GH_TOKEN: ${{ inputs.github_token || github.token }}
         REPOSITORY: ${{ github.repository }}
         COMMENT_ID: ${{ steps.progress-comment.outputs.comment_id }}
+        MARKER_FAILED: ${{ steps.progress-comment.outputs.marker_failed }}
         CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
         # "Wrap up on turn limit" is the one later step with no continue-on-error and no prior id (unlike the fix pass / structured-summary steps, which are all continue-on-error: true and so can never make an already-successful primary run look failed here) -- if it runs and itself fails, the job outcome is failure even though steps.claude.outcome is still the earlier, successful "success". Folded in below rather than trusted on its own, since it reports "skipped" (not "success") whenever detect-turn-limit didn't fire, which must not be read as a failure.
         WRAP_UP_OUTCOME: ${{ steps.wrap-up.outcome }}
@@ -1667,8 +1669,8 @@ runs:
           exit 1
         fi
 
-        # Non-success: no other durable output is guaranteed to exist, so this comment stays as the one visible signal something went wrong -- left in place, now carrying the FAILED marker (not the PENDING one it started with) so a later, non-concurrent run's "Post progress comment" can find and reuse it instead of piling up another one, without a still-running sibling ever mistaking it for a leftover to adopt.
-        BODY=$(printf "❌ Claude's run did not complete (outcome: %s). [View job run](%s)\n\n<!-- claude-progress-comment:failed -->" "$OUTCOME" "$RUN_URL")
+        # Non-success: no other durable output is guaranteed to exist, so this comment stays as the one visible signal something went wrong -- left in place, now carrying the FAILED marker (threaded through from "Post progress comment" above as the single source of truth for its exact text) so a later run's own "Post progress comment" step deletes it during its own cleanup pass instead of it piling up indefinitely.
+        BODY=$(printf '❌ Claude'"'"'s run did not complete (outcome: %s). [View job run](%s)\n\n%s' "$OUTCOME" "$RUN_URL" "$MARKER_FAILED")
         for attempt in 1 2 3; do
           if gh api -X PATCH "repos/${REPOSITORY}/issues/comments/${COMMENT_ID}" -f body="$BODY"; then
             echo "Updated progress comment ${COMMENT_ID} (outcome: ${OUTCOME})."
