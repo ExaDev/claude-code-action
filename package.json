@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "packageManager": "npm@11.19.0",
+  "engines": {
+    "node": ">=22.18.0 <23.0.0 || >=23.6.0"
+  },
   "description": "Runs Claude Code for pull-request review, issue triage, or interactive @claude assistance, with shared org-wide prompts and per-mode tool allowlists.",
   "scripts": {
     "prepare": "husky",
