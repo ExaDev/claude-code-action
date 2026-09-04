@@ -1,13 +1,12 @@
 name: Test generic mode (temporary)
 
 on:
-  workflow_dispatch:
-  push:
-    branches: [feat/generic-mode]
+  pull_request:
     paths: [.github/workflows/_test-generic-mode.yml]
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   summarise:
