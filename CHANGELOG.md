@@ -1,3 +1,14 @@
+## [1.2.0](https://github.com/ExaDev/claude-code-action/compare/v1.1.3...v1.2.0) (2026-09-04)
+
+### Bug Fixes
+
+- **generic:** pass github_token in the direct example to skip OIDC App-token minting ([6b49270](https://github.com/ExaDev/claude-code-action/commit/6b49270b554fcd011e8cd06494866424f8785f9f))
+
+### Features
+
+- **generic:** add direct-call example for generic mode ([6f8ee76](https://github.com/ExaDev/claude-code-action/commit/6f8ee76ad1090f4b0925530aafda9d3abf8691ea))
+- **generic:** add generic mode with prompt_file input ([cd20856](https://github.com/ExaDev/claude-code-action/commit/cd20856e7a9a2fcba1f2e1f42bbed3c9394c8bd9))
+
 ## [1.1.3](https://github.com/ExaDev/claude-code-action/compare/v1.1.2...v1.1.3) (2026-09-04)
 
 ### Bug Fixes
