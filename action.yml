@@ -40,7 +40,12 @@ inputs:
       fragment, no generated "This run" facts block. A deliberate full bypass of "Compose prompt"
       below, for a caller that has already built its own complete prompt and wants nothing this action
       would otherwise add or infer. Same philosophy as claude_args's own full-override escape hatch:
-      for a caller building its own fully custom invocation, not for ordinary tuning.
+      for a caller building its own fully custom invocation, not for ordinary tuning. resume_sessions
+      defaults to true and is mode-agnostic: it resumes whichever session file was most recently
+      modified under this job's own local cache directory, with no awareness of mode, entity, or
+      prompt_file -- calling generic mode more than once in the same job will silently feed an earlier
+      call's unrelated conversation into the next one's context unless you set resume_sessions: false
+      on each call.
     required: false
     default: ""
 
