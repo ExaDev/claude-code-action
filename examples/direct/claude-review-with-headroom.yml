@@ -1,0 +1,50 @@
+# Composite-action-step (direct) form of claude-review.yml with the opt-in Headroom context-compression proxy turned on. Copy this to .github/workflows/claude-review.yml in a repository in your organisation -- INSTEAD OF, not alongside, either of the other two review examples.
+#
+# headroom_enabled needs nothing beyond what review already requires: ubuntu-latest already has Docker (review mode needs it for github/github-mcp-server), and the proxy runs loopback-only inside this job, so no new permissions: scope is needed either. It is genuinely orthogonal to token scope -- it changes how Claude Code talks to Anthropic, not what it can do on GitHub -- which is why this file's permissions: block is identical to examples/direct/claude-review.yml's.
+#
+# Two things worth knowing before enabling this on a repository that accepts untrusted fork pull requests, beyond what the README's "Context compression (Headroom)" and "Security notes" sections already say:
+#   - Headroom becomes a new third-party dependency processing every diff, CI log, and file read this action already
+# treats as attacker-influenced input on such a repository -- on its own claims that compression runs entirely locally with no data leaving the machine, but it is still new code in that path.
+#   - claude_code_oauth_token compatibility is unverified (see the README). If your organisation authenticates via
+# CLAUDE_CODE_OAUTH_TOKEN rather than an API key, check the headroom_proxied output after a run before relying on this compressing anything.
+#
+# Requires the Claude Code GitHub App installed on the organisation (https://github.com/apps/claude) and a CLAUDE_CODE_OAUTH_TOKEN secret, exactly as examples/direct/claude-review.yml does. Do NOT pass github_token -- leaving it unset is what makes the review run as claude[bot].
+
+name: Claude Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read # only used when include_ci_logs is true; read-only, covers workflow-run metadata and logs
+  id-token: write # the OIDC exchange that mints the Claude Code App token needs this; the reusable-workflow form cannot grant it, which is why resolve_stale_threads only works here
+
+# Reviewing every push to a busy branch gets expensive. This cancels an in-flight review when the author pushes again.
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: review mode's local git diff/log/show tools compare against the base branch, which a shallow (depth-1) clone does not have.
+          fetch-depth: 0
+      - uses: ExaDev/claude-code-action@v1
+        id: claude
+        with:
+          mode: review
+          # No github_token: leaving it unset is what makes the review run as the Claude Code App (claude[bot]). See examples/direct/claude-review.yml's header comment.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          headroom_enabled: true
+          # headroom_image and headroom_port both default sensibly -- see action.yml. Every other input is optional with a sensible default too -- see action.yml for the full list.
+      - name: Report whether Headroom actually compressed this run
+        if: always()
+        run: echo "headroom_proxied=${{ steps.claude.outputs.headroom_proxied }}" >> "$GITHUB_STEP_SUMMARY"
