@@ -307,6 +307,32 @@ inputs:
     required: false
     default: ""
 
+  # Context compression, via a local Headroom (github.com/headroomlabs-ai/headroom) proxy. All-mode: this shapes how every anthropics/claude-code-action call in this run talks to Anthropic, not a mode-specific behaviour.
+  headroom_enabled:
+    description: |
+      Run a local Headroom context-compression proxy in front of the Anthropic API for this job, and
+      point every anthropics/claude-code-action call in it at that proxy via ANTHROPIC_BASE_URL. Off
+      by default. See the README's "Context compression (Headroom)" section.
+
+      Mutually exclusive with use_bedrock, use_vertex, use_foundry, and workload identity federation
+      (anthropic_federation_rule_id) -- each of those routes Claude Code's requests to its own provider
+      directly, bypassing ANTHROPIC_BASE_URL and the proxy silently. Setting headroom_enabled alongside
+      any of them fails validation rather than starting a proxy that compresses nothing.
+
+      Compatibility with claude_code_oauth_token is unverified as of this input's introduction -- this
+      run checks the proxy's own request count afterwards and reports headroom_proxied accordingly,
+      rather than assuming it worked either way.
+    required: false
+    default: "false"
+  headroom_image:
+    description: "Docker image for the Headroom proxy, pinned by digest. Ignored when headroom_enabled is false. See the README's 'Context compression (Headroom)' section for how this pin is tracked and bumped."
+    required: false
+    default: "ghcr.io/headroomlabs-ai/headroom@sha256:35b799e94eef4644cb15a2e695b4b99698fe7668614623e9338cb10c10ececf9"
+  headroom_port:
+    description: "Loopback port the Headroom proxy listens on. Change only to avoid a collision with another localhost service already running in the same job. Ignored when headroom_enabled is false."
+    required: false
+    default: "8787"
+
   # Advanced/debugging overrides. Upstream passthroughs, rarely needed.
   path_to_claude_code_executable:
     description: "Optional path to a custom Claude Code executable. If provided, skips automatic installation and uses this executable instead. WARNING: using an older version may cause problems if this action begins relying on a newer Claude Code feature."
@@ -346,6 +372,9 @@ outputs:
   fixes_pushed:
     description: "Review mode only. 'true' if the automatic fix pass (fix_ci_failures / fix_diff_findings) committed and successfully pushed a fix to the pull request's branch this run, 'false' otherwise -- including when the pass is off, found nothing to fix, or could not push. Lets a caller gate a follow-on step on whether a fix actually landed, without parsing comments."
     value: ${{ steps.push-fixes.outputs.pushed }}
+  headroom_proxied:
+    description: "'true' if headroom_enabled was set and the proxy recorded at least one proxied request by the time this run finished, 'false' otherwise -- including when the feature is off, the proxy never started, or an unverified auth path (see headroom_enabled's own description) bypassed it entirely. Lets a caller gate on real compression having happened, rather than trusting the input alone."
+    value: ${{ steps.headroom-verify.outputs.headroom_proxied }}
 
 runs:
   using: "composite"
@@ -371,6 +400,11 @@ runs:
         POST_PROGRESS_COMMENT: ${{ inputs.post_progress_comment }}
         UPDATE_ISSUE_BODY: ${{ inputs.update_issue_body }}
         PROMPT_FILE: ${{ inputs.prompt_file }}
+        HEADROOM_ENABLED: ${{ inputs.headroom_enabled }}
+        USE_BEDROCK: ${{ inputs.use_bedrock }}
+        USE_VERTEX: ${{ inputs.use_vertex }}
+        USE_FOUNDRY: ${{ inputs.use_foundry }}
+        ANTHROPIC_FEDERATION_RULE_ID: ${{ inputs.anthropic_federation_rule_id }}
       run: |
         set -euo pipefail
 
@@ -527,6 +561,26 @@ runs:
             exit 1
             ;;
         esac
+
+        case "$HEADROOM_ENABLED" in
+          true|false) ;;
+          *)
+            echo "::error::headroom_enabled must be true or false. Got '${HEADROOM_ENABLED}'."
+            exit 1
+            ;;
+        esac
+
+        # Bedrock, Vertex, Foundry, and workload identity federation each make Claude Code call its own provider directly, bypassing ANTHROPIC_BASE_URL entirely and silently. Left unchecked, headroom_enabled alongside any of these would start the proxy, pay the Docker pull and startup cost, and compress nothing, with no error at all.
+        if [ "$HEADROOM_ENABLED" = "true" ]; then
+          if [ "$USE_BEDROCK" = "true" ] || [ "$USE_VERTEX" = "true" ] || [ "$USE_FOUNDRY" = "true" ]; then
+            echo "::error::headroom_enabled cannot be combined with use_bedrock, use_vertex, or use_foundry. Each of those routes Claude Code's requests to its own provider directly, bypassing the Headroom proxy (and ANTHROPIC_BASE_URL) entirely. Set headroom_enabled: false, or drop the alternative-provider input."
+            exit 1
+          fi
+          if [ -n "${ANTHROPIC_FEDERATION_RULE_ID:-}" ]; then
+            echo "::error::headroom_enabled cannot be combined with workload identity federation (anthropic_federation_rule_id set). That path authenticates and routes independently of ANTHROPIC_BASE_URL, so the proxy would start and compress nothing. Set headroom_enabled: false, or drop the federation inputs."
+            exit 1
+          fi
+        fi
 
         if [ "$HAS_API_KEY" != "true" ] && [ "$HAS_OAUTH_TOKEN" != "true" ]; then
           echo "::error::No Claude credentials supplied. Set either anthropic_api_key or claude_code_oauth_token."
@@ -1082,6 +1136,40 @@ runs:
           echo "${delim}"
         } >> "$GITHUB_OUTPUT"
 
+    # Runs before every attempt_N below so ANTHROPIC_BASE_URL, once exported to $GITHUB_ENV, is already in the job's process environment for all of them -- and for the wrap-up/apply-fixes/structured-summary calls further down too, since $GITHUB_ENV persists for the rest of the job. This is the only place in this file that writes $GITHUB_ENV rather than $GITHUB_OUTPUT: every other value here flows through one of the upstream action's own declared `with:` inputs, but there is no anthropic_base_url input on that action to pass this through -- it has to land in the process environment directly.
+    - name: Start Headroom compression proxy
+      id: headroom
+      if: ${{ inputs.headroom_enabled == 'true' }}
+      shell: bash
+      env:
+        HEADROOM_IMAGE: ${{ inputs.headroom_image }}
+        HEADROOM_PORT: ${{ inputs.headroom_port }}
+      run: |
+        set -euo pipefail
+
+        # The image's own ENTRYPOINT/CMD already runs `headroom proxy --host 0.0.0.0 --port 8787` -- no command override needed. The container listens on 0.0.0.0 internally (required for Docker's own port mapping to reach it); binding the published port to 127.0.0.1 below is what actually confines it to this runner.
+        docker run -d --rm --name headroom-proxy -p "127.0.0.1:${HEADROOM_PORT}:8787" "${HEADROOM_IMAGE}"
+
+        ready=false
+        for _ in $(seq 1 30); do
+          if curl -fsS "http://127.0.0.1:${HEADROOM_PORT}/readyz" >/dev/null 2>&1; then
+            ready=true
+            break
+          fi
+          sleep 2
+        done
+
+        if [ "$ready" != "true" ]; then
+          echo "::group::Headroom container logs"
+          docker logs headroom-proxy || true
+          echo "::endgroup::"
+          echo "::error::Headroom proxy never became ready at http://127.0.0.1:${HEADROOM_PORT}/readyz after 60s. Refusing to proceed with headroom_enabled: true against a dead proxy."
+          exit 1
+        fi
+
+        echo "ANTHROPIC_BASE_URL=http://127.0.0.1:${HEADROOM_PORT}" >> "$GITHUB_ENV"
+        echo "Headroom proxy healthy; ANTHROPIC_BASE_URL exported for every following step in this job."
+
     # Pinned to the commit that anthropics/claude-code-action's v1 tag resolved to on 2026-08-08 (v1.0.189). Update the pin deliberately, never by moving to @v1: see the Versioning section of README.md.
     #
     # attempt_1 .. attempt_5 are one statically-unrolled step per position in the credential fallback chain "Parse credential fallback chain" built above -- a composite action has no native loop, so this is the fallback mechanism itself, not a stutter. attempt_N (N=2..5) only runs if there is a credential at that position AND the previous attempt genuinely failed (continue-on-error means downstream steps still run either way; .outcome, not .conclusion, is what actually reflects a real failure -- .conclusion is rewritten to success by continue-on-error even when the step failed). "Resolve Claude Code result" below picks whichever attempt actually succeeded and re-exposes its outputs under the stable id `claude` that every later step already reads, so nothing past this point needs to know fallback happened at all.
@@ -1405,6 +1493,41 @@ runs:
             echo "${delim}"
           } >>"$GITHUB_OUTPUT"
         done
+
+    - name: Verify Headroom actually proxied this run
+      id: headroom-verify
+      if: ${{ always() && inputs.headroom_enabled == 'true' }}
+      continue-on-error: true
+      shell: bash
+      env:
+        HEADROOM_PORT: ${{ inputs.headroom_port }}
+        WINNING_CRED_TYPE: ${{ steps.claude.outputs.winning_cred_type }}
+      run: |
+        set -euo pipefail
+        # requests.total counts every request Headroom actually forwarded to https://api.anthropic.com, incrementing even on a response the real API itself rejects (confirmed: a deliberately invalid key still increments it, since the proxy did genuinely forward the request) -- so it distinguishes "the proxy handled a real Claude Code call" from "nothing ever reached it," which is exactly what this check needs.
+        STATS="$(curl -fsS "http://127.0.0.1:${HEADROOM_PORT}/stats" 2>/dev/null || echo '{}')"
+        PROXIED_COUNT="$(node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{console.log(JSON.parse(d).requests?.total ?? 0)}catch{console.log(0)}})' <<< "$STATS" 2>/dev/null || echo 0)"
+
+        if [ "${PROXIED_COUNT:-0}" -gt 0 ] 2>/dev/null; then
+          echo "headroom_proxied=true" >> "$GITHUB_OUTPUT"
+          echo "Headroom proxied ${PROXIED_COUNT} request(s) this run."
+        else
+          echo "headroom_proxied=false" >> "$GITHUB_OUTPUT"
+          if [ "$WINNING_CRED_TYPE" = "oauth" ]; then
+            echo "::warning::Headroom recorded zero proxied requests this run, authenticated with a claude_code_oauth_token credential -- the documented, unverified compatibility gap (see headroom_enabled's own description). Compression did not happen."
+          else
+            echo "::warning::Headroom recorded zero proxied requests this run despite headroom_enabled: true. Compression did not happen -- check the container logs below."
+          fi
+        fi
+        echo "::group::Headroom container logs"
+        docker logs headroom-proxy 2>&1 | tail -100 || true
+        echo "::endgroup::"
+
+    - name: Stop Headroom proxy
+      if: ${{ always() && inputs.headroom_enabled == 'true' }}
+      continue-on-error: true
+      shell: bash
+      run: docker stop headroom-proxy >/dev/null 2>&1 || true
 
     # --- Wrap-up on turn limit --- When the primary run hits --max-turns, Claude Code exits mid-task with no closing reply. This detects that and fires a short follow-on (3 turns) that resumes the session with a summarise-what-you-found prompt, so the work is captured rather than lost. Modelled on Exie's wrap-up pattern: short follow-on, full prior context via --resume, a nudge forcing a closing answer.
     - name: Detect turn-limit hit
