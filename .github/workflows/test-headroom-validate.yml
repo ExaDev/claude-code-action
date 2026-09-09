@@ -23,6 +23,7 @@ jobs:
         with:
           mode: review
           pr_number: ${{ github.event.pull_request.number }}
+          github_token: ${{ github.token }} # unset would make upstream try to mint a GitHub App token via OIDC, needing id-token: write this workflow doesn't grant (confirmed live: "Could not fetch an OIDC token" on the first attempt of this file)
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           headroom_enabled: true
           allowed_review_states: "comment"
