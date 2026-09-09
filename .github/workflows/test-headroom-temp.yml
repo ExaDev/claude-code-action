@@ -18,10 +18,12 @@ jobs:
         id: claude
         with:
           mode: generic
+          github_token: ${{ github.token }} # unset would make upstream try to mint a GitHub App token via OIDC, needing id-token: write this workflow doesn't grant; generic mode makes no GitHub API calls, so the value doesn't matter, only that one is present
           prompt_file: .github/test-headroom-prompt.md
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           headroom_enabled: true
           model: haiku
+          post_progress_comment: false # this workflow has no pull-requests/issues: write scope; the progress comment is best-effort (continue-on-error) but there is no reason to pay for three retries against a 403
       - name: Report result
         if: always()
         run: |
