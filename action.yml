@@ -334,6 +334,10 @@ inputs:
     description: "Loopback port the Headroom proxy listens on. Change only to avoid a collision with another localhost service already running in the same job. Ignored when headroom_enabled is false."
     required: false
     default: "8787"
+  headroom_show_savings:
+    description: "On by default. Post a short comment on the pull request or issue reporting Headroom's compression stats for this run (requests proxied, tokens saved, compression percentage), in addition to the Step Summary this action always writes when headroom_enabled is true. Skipped when nothing was proxied, or in generic mode, which posts nothing to GitHub by design. Set false to keep the numbers in the Step Summary only. Ignored when headroom_enabled is false."
+    required: false
+    default: "true"
 
   # Advanced/debugging overrides. Upstream passthroughs, rarely needed.
   path_to_claude_code_executable:
@@ -409,6 +413,7 @@ runs:
         UPDATE_ISSUE_BODY: ${{ inputs.update_issue_body }}
         PROMPT_FILE: ${{ inputs.prompt_file }}
         HEADROOM_ENABLED: ${{ inputs.headroom_enabled }}
+        HEADROOM_SHOW_SAVINGS: ${{ inputs.headroom_show_savings }}
         USE_BEDROCK: ${{ inputs.use_bedrock }}
         USE_VERTEX: ${{ inputs.use_vertex }}
         USE_FOUNDRY: ${{ inputs.use_foundry }}
@@ -574,6 +579,14 @@ runs:
           true|false) ;;
           *)
             echo "::error::headroom_enabled must be true or false. Got '${HEADROOM_ENABLED}'."
+            exit 1
+            ;;
+        esac
+
+        case "$HEADROOM_SHOW_SAVINGS" in
+          true|false) ;;
+          *)
+            echo "::error::headroom_show_savings must be true or false. Got '${HEADROOM_SHOW_SAVINGS}'."
             exit 1
             ;;
         esac
@@ -1526,8 +1539,11 @@ runs:
           });
         ' <<< "$STATS" 2>/dev/null || echo "0 0 0")"
 
-        echo "headroom_tokens_saved=${TOKENS_SAVED}" >> "$GITHUB_OUTPUT"
-        echo "headroom_compression_percent=${COMPRESSION_PCT}" >> "$GITHUB_OUTPUT"
+        {
+          echo "requests_proxied=${PROXIED_COUNT}"
+          echo "headroom_tokens_saved=${TOKENS_SAVED}"
+          echo "headroom_compression_percent=${COMPRESSION_PCT}"
+        } >> "$GITHUB_OUTPUT"
 
         if [ "${PROXIED_COUNT:-0}" -gt 0 ] 2>/dev/null; then
           echo "headroom_proxied=true" >> "$GITHUB_OUTPUT"
@@ -1551,6 +1567,43 @@ runs:
         echo "::group::Headroom container logs"
         docker logs headroom-proxy 2>&1 | tail -100 || true
         echo "::endgroup::"
+
+    # The Step Summary above is only visible to someone who opens this run in the Actions tab. This posts the same numbers where a PR/issue author actually looks -- a short, dedicated comment, never the progress comment above, which is deleted outright on a successful run (see "Update progress comment" below) precisely when there would be real savings to show. Skipped in generic mode, which posts nothing to GitHub by design, and skipped entirely when nothing was proxied -- a comment reporting zero savings on every run would be noise, and the Step Summary's own warning already covers that case for whoever is looking at the log.
+    - name: Post Headroom savings comment
+      if: ${{ always() && inputs.headroom_enabled == 'true' && inputs.headroom_show_savings == 'true' && inputs.mode != 'generic' && steps.headroom-verify.outputs.headroom_proxied == 'true' }}
+      continue-on-error: true
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token || github.token }}
+        REPOSITORY: ${{ github.repository }}
+        PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number }}
+        ISSUE_NUMBER: ${{ inputs.issue_number || github.event.issue.number }}
+        REQUESTS_PROXIED: ${{ steps.headroom-verify.outputs.requests_proxied }}
+        TOKENS_SAVED: ${{ steps.headroom-verify.outputs.headroom_tokens_saved }}
+        COMPRESSION_PERCENT: ${{ steps.headroom-verify.outputs.headroom_compression_percent }}
+      run: |
+        set -euo pipefail
+
+        if [ -n "${PR_NUMBER:-}" ]; then
+          ENTITY_NUMBER="$PR_NUMBER"
+        elif [ -n "${ISSUE_NUMBER:-}" ]; then
+          ENTITY_NUMBER="$ISSUE_NUMBER"
+        else
+          echo "No pull request or issue in this event; nothing to post the Headroom savings comment on."
+          exit 0
+        fi
+
+        BODY=$(printf '🗜️ **Headroom** compressed this run'"'"'s context: proxied %s request(s), saving %s tokens (%s%% average compression).' "$REQUESTS_PROXIED" "$TOKENS_SAVED" "$COMPRESSION_PERCENT")
+        for attempt in 1 2 3; do
+          if gh api "repos/${REPOSITORY}/issues/${ENTITY_NUMBER}/comments" -f body="$BODY" >/dev/null; then
+            echo "Posted Headroom savings comment."
+            exit 0
+          fi
+          echo "Failed to post Headroom savings comment (attempt ${attempt}/3)."
+          [ "$attempt" -lt 3 ] && sleep 2
+        done
+        echo "Giving up on posting the Headroom savings comment after 3 attempts."
+        exit 1
 
     - name: Stop Headroom proxy
       if: ${{ always() && inputs.headroom_enabled == 'true' }}
