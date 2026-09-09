@@ -1,3 +1,9 @@
+## [1.3.0](https://github.com/ExaDev/claude-code-action/compare/v1.2.0...v1.3.0) (2026-09-09)
+
+### Features
+
+- **examples:** gate review on whether the event changed anything ([7736007](https://github.com/ExaDev/claude-code-action/commit/7736007aa5ea470145460984acfd8a835e3061ce))
+
 ## [1.2.0](https://github.com/ExaDev/claude-code-action/compare/v1.1.3...v1.2.0) (2026-09-04)
 
 ### Bug Fixes
