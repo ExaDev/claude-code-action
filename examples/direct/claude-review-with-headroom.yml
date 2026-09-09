@@ -35,14 +35,10 @@ jobs:
           # Full history: review mode's local git diff/log/show tools compare against the base branch, which a shallow (depth-1) clone does not have.
           fetch-depth: 0
       - uses: ExaDev/claude-code-action@v1
-        id: claude
         with:
           mode: review
           # No github_token: leaving it unset is what makes the review run as the Claude Code App (claude[bot]). See examples/direct/claude-review.yml's header comment.
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           headroom_enabled: true
-          # headroom_image and headroom_port both default sensibly -- see action.yml. Every other input is optional with a sensible default too -- see action.yml for the full list.
-      - name: Report whether Headroom actually compressed this run
-        if: always()
-        run: echo "headroom_proxied=${{ steps.claude.outputs.headroom_proxied }}" >> "$GITHUB_STEP_SUMMARY"
+          # headroom_image and headroom_port both default sensibly -- see action.yml. Every other input is optional with a sensible default too -- see action.yml for the full list. No separate reporting step needed: the action itself writes a "Headroom context compression" section (requests proxied, tokens saved, compression %) straight to this job's Step Summary, and exposes the same numbers as the headroom_proxied/headroom_tokens_saved/headroom_compression_percent outputs if you want to consume them programmatically instead.
