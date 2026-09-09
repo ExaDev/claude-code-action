@@ -1,14 +1,10 @@
-# TEMPORARY. Live smoke test for headroom_enabled (PR #40) -- proves the actual anthropics/claude-code-action invocation honours ANTHROPIC_BASE_URL end to end, against real credentials, which nothing short of a real Actions run can verify. mode: generic is used deliberately: it makes no GitHub API calls and posts nothing, so this is purely a "did the request reach the model through the proxy" check. Removed once both credential types have been run once each and the results recorded on the PR.
+# TEMPORARY. Live smoke test for headroom_enabled (PR #40) -- proves the actual anthropics/claude-code-action invocation honours ANTHROPIC_BASE_URL end to end, against a real credential, which nothing short of a real Actions run can verify. mode: generic is used deliberately: it makes no GitHub API calls and posts nothing, so this is purely a "did the request reach the model through the proxy" check. push, not workflow_dispatch: a workflow_dispatch trigger only registers for dispatch once merged to the default branch, which this file never will be. This repository has no ANTHROPIC_API_KEY secret at all -- only CLAUDE_CODE_OAUTH_TOKEN -- so claude_code_oauth_token is the credential that actually needs proving here. Removed once verified.
 name: Test Headroom (temporary)
 
 on:
-  workflow_dispatch:
-    inputs:
-      credential:
-        description: "Which credential type to test"
-        type: choice
-        options: [api_key, oauth_token]
-        default: api_key
+  push:
+    branches: [feat/headroom-context-compression]
+    paths: [.github/workflows/test-headroom-temp.yml]
 
 permissions:
   contents: read
@@ -23,15 +19,14 @@ jobs:
         with:
           mode: generic
           prompt_file: .github/test-headroom-prompt.md
-          anthropic_api_key: ${{ inputs.credential == 'api_key' && secrets.ANTHROPIC_API_KEY || '' }}
-          claude_code_oauth_token: ${{ inputs.credential == 'oauth_token' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           headroom_enabled: true
           model: haiku
       - name: Report result
         if: always()
         run: |
           {
-            echo "### Headroom smoke test (${{ inputs.credential }})"
+            echo "### Headroom smoke test (claude_code_oauth_token)"
             echo "conclusion: ${{ steps.claude.outputs.conclusion }}"
             echo "headroom_proxied: ${{ steps.claude.outputs.headroom_proxied }}"
           } >> "$GITHUB_STEP_SUMMARY"
