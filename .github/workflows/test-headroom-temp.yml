@@ -1,0 +1,35 @@
+# TEMPORARY. Live smoke test for headroom_enabled (PR #40) -- proves the actual anthropics/claude-code-action invocation honours ANTHROPIC_BASE_URL end to end, against real credentials, which nothing short of a real Actions run can verify. mode: generic is used deliberately: it makes no GitHub API calls and posts nothing, so this is purely a "did the request reach the model through the proxy" check. Removed once both credential types have been run once each and the results recorded on the PR.
+name: Test Headroom (temporary)
+
+on:
+  workflow_dispatch:
+    inputs:
+      credential:
+        description: "Which credential type to test"
+        type: choice
+        options: [api_key, oauth_token]
+        default: api_key
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./
+        id: claude
+        with:
+          mode: generic
+          prompt_file: .github/test-headroom-prompt.md
+          anthropic_api_key: ${{ inputs.credential == 'api_key' && secrets.ANTHROPIC_API_KEY || '' }}
+          claude_code_oauth_token: ${{ inputs.credential == 'oauth_token' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
+          headroom_enabled: true
+          model: haiku
+      - name: Report result
+        if: always()
+        run: |
+          echo "### Headroom smoke test (${{ inputs.credential }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "conclusion: ${{ steps.claude.outputs.conclusion }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "headroom_proxied: ${{ steps.claude.outputs.headroom_proxied }}" >> "$GITHUB_STEP_SUMMARY"
