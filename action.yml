@@ -1510,6 +1510,11 @@ runs:
         STATS="$(curl -fsS "http://127.0.0.1:${HEADROOM_PORT}/stats" 2>/dev/null || echo '{}')"
         PROXIED_COUNT="$(node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{console.log(JSON.parse(d).requests?.total ?? 0)}catch{console.log(0)}})' <<< "$STATS" 2>/dev/null || echo 0)"
 
+        # DIAGNOSTIC ONLY -- never shipped, throwaway branch for measuring real savings on one validation run.
+        echo "::group::Headroom compression stats (diagnostic)"
+        node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{const j=JSON.parse(d);console.log(JSON.stringify({summary:j.summary,tokens:j.tokens},null,2))}catch(e){console.log("parse failed",e.message)}})' <<< "$STATS" >> "$GITHUB_STEP_SUMMARY" 2>&1 || true
+        echo "::endgroup::"
+
         if [ "${PROXIED_COUNT:-0}" -gt 0 ] 2>/dev/null; then
           echo "headroom_proxied=true" >> "$GITHUB_OUTPUT"
           echo "Headroom proxied ${PROXIED_COUNT} request(s) this run."

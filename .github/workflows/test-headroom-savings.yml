@@ -1,0 +1,37 @@
+# TEMPORARY, DIAGNOSTIC ONLY. Measures real Headroom compression savings on a review with a large, repetitive JSON diff (test-fixture-logs.json), using action.yml's own temporarily-instrumented headroom-verify step (this branch only, never merged) which prints full /stats to the job summary.
+name: Test Headroom Savings (temporary)
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  test:
+    if: github.event.pull_request.head.ref == 'test/validate-headroom-savings'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: ./
+        id: claude
+        with:
+          mode: review
+          pr_number: ${{ github.event.pull_request.number }}
+          github_token: ${{ github.token }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          headroom_enabled: true
+          allowed_review_states: "comment"
+      - name: Report result
+        if: always()
+        run: |
+          {
+            echo "### Headroom savings validation"
+            echo "conclusion: ${{ steps.claude.outputs.conclusion }}"
+            echo "headroom_proxied: ${{ steps.claude.outputs.headroom_proxied }}"
+          } >> "$GITHUB_STEP_SUMMARY"

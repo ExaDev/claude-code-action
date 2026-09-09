@@ -1,0 +1,7602 @@
+[
+  {
+    "id": "req-00000",
+    "timestamp": "2026-09-09T21:00:00Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 12,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00000"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 0
+    }
+  },
+  {
+    "id": "req-00001",
+    "timestamp": "2026-09-09T21:01:07Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 13,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00001"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 1
+    }
+  },
+  {
+    "id": "req-00002",
+    "timestamp": "2026-09-09T21:02:14Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 14,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00002"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 2
+    }
+  },
+  {
+    "id": "req-00003",
+    "timestamp": "2026-09-09T21:03:21Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 15,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00003"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 3
+    }
+  },
+  {
+    "id": "req-00004",
+    "timestamp": "2026-09-09T21:04:28Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 16,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00004"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 4
+    }
+  },
+  {
+    "id": "req-00005",
+    "timestamp": "2026-09-09T21:05:35Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 17,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00005"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 5
+    }
+  },
+  {
+    "id": "req-00006",
+    "timestamp": "2026-09-09T21:06:42Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 18,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00006"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 6
+    }
+  },
+  {
+    "id": "req-00007",
+    "timestamp": "2026-09-09T21:07:49Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 19,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00007"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 7
+    }
+  },
+  {
+    "id": "req-00008",
+    "timestamp": "2026-09-09T21:08:56Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 20,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00008"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 8
+    }
+  },
+  {
+    "id": "req-00009",
+    "timestamp": "2026-09-09T21:09:03Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 21,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00009"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 9
+    }
+  },
+  {
+    "id": "req-00010",
+    "timestamp": "2026-09-09T21:10:10Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 22,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00010"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 10
+    }
+  },
+  {
+    "id": "req-00011",
+    "timestamp": "2026-09-09T21:11:17Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 23,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00011"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 11
+    }
+  },
+  {
+    "id": "req-00012",
+    "timestamp": "2026-09-09T21:12:24Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 24,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00012"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 12
+    }
+  },
+  {
+    "id": "req-00013",
+    "timestamp": "2026-09-09T21:13:31Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 25,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00013"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 13
+    }
+  },
+  {
+    "id": "req-00014",
+    "timestamp": "2026-09-09T21:14:38Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 26,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00014"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 14
+    }
+  },
+  {
+    "id": "req-00015",
+    "timestamp": "2026-09-09T21:15:45Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 27,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00015"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 15
+    }
+  },
+  {
+    "id": "req-00016",
+    "timestamp": "2026-09-09T21:16:52Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 28,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00016"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 16
+    }
+  },
+  {
+    "id": "req-00017",
+    "timestamp": "2026-09-09T21:17:59Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 29,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00017"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 17
+    }
+  },
+  {
+    "id": "req-00018",
+    "timestamp": "2026-09-09T21:18:06Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 30,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00018"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 18
+    }
+  },
+  {
+    "id": "req-00019",
+    "timestamp": "2026-09-09T21:19:13Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 31,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00019"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 19
+    }
+  },
+  {
+    "id": "req-00020",
+    "timestamp": "2026-09-09T21:20:20Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 32,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00020"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 20
+    }
+  },
+  {
+    "id": "req-00021",
+    "timestamp": "2026-09-09T21:21:27Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 33,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00021"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 21
+    }
+  },
+  {
+    "id": "req-00022",
+    "timestamp": "2026-09-09T21:22:34Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 34,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00022"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 22
+    }
+  },
+  {
+    "id": "req-00023",
+    "timestamp": "2026-09-09T21:23:41Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 35,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00023"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 23
+    }
+  },
+  {
+    "id": "req-00024",
+    "timestamp": "2026-09-09T21:24:48Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 36,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00024"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 24
+    }
+  },
+  {
+    "id": "req-00025",
+    "timestamp": "2026-09-09T21:25:55Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 37,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00025"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 25
+    }
+  },
+  {
+    "id": "req-00026",
+    "timestamp": "2026-09-09T21:26:02Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 38,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00026"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 26
+    }
+  },
+  {
+    "id": "req-00027",
+    "timestamp": "2026-09-09T21:27:09Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 39,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00027"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 27
+    }
+  },
+  {
+    "id": "req-00028",
+    "timestamp": "2026-09-09T21:28:16Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 40,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00028"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 28
+    }
+  },
+  {
+    "id": "req-00029",
+    "timestamp": "2026-09-09T21:29:23Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 41,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00029"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 29
+    }
+  },
+  {
+    "id": "req-00030",
+    "timestamp": "2026-09-09T21:30:30Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 12,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00030"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 30
+    }
+  },
+  {
+    "id": "req-00031",
+    "timestamp": "2026-09-09T21:31:37Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 13,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00031"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 31
+    }
+  },
+  {
+    "id": "req-00032",
+    "timestamp": "2026-09-09T21:32:44Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 14,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00032"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 32
+    }
+  },
+  {
+    "id": "req-00033",
+    "timestamp": "2026-09-09T21:33:51Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 15,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00033"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 33
+    }
+  },
+  {
+    "id": "req-00034",
+    "timestamp": "2026-09-09T21:34:58Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 16,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00034"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 34
+    }
+  },
+  {
+    "id": "req-00035",
+    "timestamp": "2026-09-09T21:35:05Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 17,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00035"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 35
+    }
+  },
+  {
+    "id": "req-00036",
+    "timestamp": "2026-09-09T21:36:12Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 18,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00036"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 36
+    }
+  },
+  {
+    "id": "req-00037",
+    "timestamp": "2026-09-09T21:37:19Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 19,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00037"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 37
+    }
+  },
+  {
+    "id": "req-00038",
+    "timestamp": "2026-09-09T21:38:26Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 20,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00038"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 38
+    }
+  },
+  {
+    "id": "req-00039",
+    "timestamp": "2026-09-09T21:39:33Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 21,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00039"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 39
+    }
+  },
+  {
+    "id": "req-00040",
+    "timestamp": "2026-09-09T21:40:40Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 22,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00040"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 40
+    }
+  },
+  {
+    "id": "req-00041",
+    "timestamp": "2026-09-09T21:41:47Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 23,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00041"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 41
+    }
+  },
+  {
+    "id": "req-00042",
+    "timestamp": "2026-09-09T21:42:54Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 24,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00042"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 42
+    }
+  },
+  {
+    "id": "req-00043",
+    "timestamp": "2026-09-09T21:43:01Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 25,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00043"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 43
+    }
+  },
+  {
+    "id": "req-00044",
+    "timestamp": "2026-09-09T21:44:08Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 26,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00044"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 44
+    }
+  },
+  {
+    "id": "req-00045",
+    "timestamp": "2026-09-09T21:45:15Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 27,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00045"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 45
+    }
+  },
+  {
+    "id": "req-00046",
+    "timestamp": "2026-09-09T21:46:22Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 28,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00046"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 46
+    }
+  },
+  {
+    "id": "req-00047",
+    "timestamp": "2026-09-09T21:47:29Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 29,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00047"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 47
+    }
+  },
+  {
+    "id": "req-00048",
+    "timestamp": "2026-09-09T21:48:36Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 30,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00048"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 48
+    }
+  },
+  {
+    "id": "req-00049",
+    "timestamp": "2026-09-09T21:49:43Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 31,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00049"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 49
+    }
+  },
+  {
+    "id": "req-00050",
+    "timestamp": "2026-09-09T21:50:50Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 32,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00050"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 50
+    }
+  },
+  {
+    "id": "req-00051",
+    "timestamp": "2026-09-09T21:51:57Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 33,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00051"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 51
+    }
+  },
+  {
+    "id": "req-00052",
+    "timestamp": "2026-09-09T21:52:04Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 34,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00052"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 52
+    }
+  },
+  {
+    "id": "req-00053",
+    "timestamp": "2026-09-09T21:53:11Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 35,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00053"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 53
+    }
+  },
+  {
+    "id": "req-00054",
+    "timestamp": "2026-09-09T21:54:18Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 36,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00054"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 54
+    }
+  },
+  {
+    "id": "req-00055",
+    "timestamp": "2026-09-09T21:55:25Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 37,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00055"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 55
+    }
+  },
+  {
+    "id": "req-00056",
+    "timestamp": "2026-09-09T21:56:32Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 38,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00056"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 56
+    }
+  },
+  {
+    "id": "req-00057",
+    "timestamp": "2026-09-09T21:57:39Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 39,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00057"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 57
+    }
+  },
+  {
+    "id": "req-00058",
+    "timestamp": "2026-09-09T21:58:46Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 40,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00058"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 58
+    }
+  },
+  {
+    "id": "req-00059",
+    "timestamp": "2026-09-09T21:59:53Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 41,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00059"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 59
+    }
+  },
+  {
+    "id": "req-00060",
+    "timestamp": "2026-09-09T21:00:00Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 12,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00060"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 60
+    }
+  },
+  {
+    "id": "req-00061",
+    "timestamp": "2026-09-09T21:01:07Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 13,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00061"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 61
+    }
+  },
+  {
+    "id": "req-00062",
+    "timestamp": "2026-09-09T21:02:14Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 14,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00062"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 62
+    }
+  },
+  {
+    "id": "req-00063",
+    "timestamp": "2026-09-09T21:03:21Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 15,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00063"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 63
+    }
+  },
+  {
+    "id": "req-00064",
+    "timestamp": "2026-09-09T21:04:28Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 16,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00064"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 64
+    }
+  },
+  {
+    "id": "req-00065",
+    "timestamp": "2026-09-09T21:05:35Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 17,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00065"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 65
+    }
+  },
+  {
+    "id": "req-00066",
+    "timestamp": "2026-09-09T21:06:42Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 18,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00066"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 66
+    }
+  },
+  {
+    "id": "req-00067",
+    "timestamp": "2026-09-09T21:07:49Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 19,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00067"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 67
+    }
+  },
+  {
+    "id": "req-00068",
+    "timestamp": "2026-09-09T21:08:56Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 20,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00068"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 68
+    }
+  },
+  {
+    "id": "req-00069",
+    "timestamp": "2026-09-09T21:09:03Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 21,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00069"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 69
+    }
+  },
+  {
+    "id": "req-00070",
+    "timestamp": "2026-09-09T21:10:10Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 22,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00070"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 70
+    }
+  },
+  {
+    "id": "req-00071",
+    "timestamp": "2026-09-09T21:11:17Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 23,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00071"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 71
+    }
+  },
+  {
+    "id": "req-00072",
+    "timestamp": "2026-09-09T21:12:24Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 24,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00072"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 72
+    }
+  },
+  {
+    "id": "req-00073",
+    "timestamp": "2026-09-09T21:13:31Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 25,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00073"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 73
+    }
+  },
+  {
+    "id": "req-00074",
+    "timestamp": "2026-09-09T21:14:38Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 26,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00074"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 74
+    }
+  },
+  {
+    "id": "req-00075",
+    "timestamp": "2026-09-09T21:15:45Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 27,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00075"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 75
+    }
+  },
+  {
+    "id": "req-00076",
+    "timestamp": "2026-09-09T21:16:52Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 28,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00076"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 76
+    }
+  },
+  {
+    "id": "req-00077",
+    "timestamp": "2026-09-09T21:17:59Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 29,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00077"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 77
+    }
+  },
+  {
+    "id": "req-00078",
+    "timestamp": "2026-09-09T21:18:06Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 30,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00078"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 78
+    }
+  },
+  {
+    "id": "req-00079",
+    "timestamp": "2026-09-09T21:19:13Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 31,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00079"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 79
+    }
+  },
+  {
+    "id": "req-00080",
+    "timestamp": "2026-09-09T21:20:20Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 32,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00080"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 80
+    }
+  },
+  {
+    "id": "req-00081",
+    "timestamp": "2026-09-09T21:21:27Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 33,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00081"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 81
+    }
+  },
+  {
+    "id": "req-00082",
+    "timestamp": "2026-09-09T21:22:34Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 34,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00082"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 82
+    }
+  },
+  {
+    "id": "req-00083",
+    "timestamp": "2026-09-09T21:23:41Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 35,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00083"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 83
+    }
+  },
+  {
+    "id": "req-00084",
+    "timestamp": "2026-09-09T21:24:48Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 36,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00084"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 84
+    }
+  },
+  {
+    "id": "req-00085",
+    "timestamp": "2026-09-09T21:25:55Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 37,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00085"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 85
+    }
+  },
+  {
+    "id": "req-00086",
+    "timestamp": "2026-09-09T21:26:02Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 38,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00086"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 86
+    }
+  },
+  {
+    "id": "req-00087",
+    "timestamp": "2026-09-09T21:27:09Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 39,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00087"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 87
+    }
+  },
+  {
+    "id": "req-00088",
+    "timestamp": "2026-09-09T21:28:16Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 40,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00088"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 88
+    }
+  },
+  {
+    "id": "req-00089",
+    "timestamp": "2026-09-09T21:29:23Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 41,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00089"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 89
+    }
+  },
+  {
+    "id": "req-00090",
+    "timestamp": "2026-09-09T21:30:30Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 12,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00090"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 90
+    }
+  },
+  {
+    "id": "req-00091",
+    "timestamp": "2026-09-09T21:31:37Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 13,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00091"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 91
+    }
+  },
+  {
+    "id": "req-00092",
+    "timestamp": "2026-09-09T21:32:44Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 14,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00092"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 92
+    }
+  },
+  {
+    "id": "req-00093",
+    "timestamp": "2026-09-09T21:33:51Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 15,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00093"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 93
+    }
+  },
+  {
+    "id": "req-00094",
+    "timestamp": "2026-09-09T21:34:58Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 16,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00094"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 94
+    }
+  },
+  {
+    "id": "req-00095",
+    "timestamp": "2026-09-09T21:35:05Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 17,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00095"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 95
+    }
+  },
+  {
+    "id": "req-00096",
+    "timestamp": "2026-09-09T21:36:12Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 18,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00096"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 96
+    }
+  },
+  {
+    "id": "req-00097",
+    "timestamp": "2026-09-09T21:37:19Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 19,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00097"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 97
+    }
+  },
+  {
+    "id": "req-00098",
+    "timestamp": "2026-09-09T21:38:26Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 20,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00098"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 98
+    }
+  },
+  {
+    "id": "req-00099",
+    "timestamp": "2026-09-09T21:39:33Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 21,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00099"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 99
+    }
+  },
+  {
+    "id": "req-00100",
+    "timestamp": "2026-09-09T21:40:40Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 22,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00100"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 100
+    }
+  },
+  {
+    "id": "req-00101",
+    "timestamp": "2026-09-09T21:41:47Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 23,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00101"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 101
+    }
+  },
+  {
+    "id": "req-00102",
+    "timestamp": "2026-09-09T21:42:54Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 24,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00102"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 102
+    }
+  },
+  {
+    "id": "req-00103",
+    "timestamp": "2026-09-09T21:43:01Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 25,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00103"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 103
+    }
+  },
+  {
+    "id": "req-00104",
+    "timestamp": "2026-09-09T21:44:08Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 26,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00104"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 104
+    }
+  },
+  {
+    "id": "req-00105",
+    "timestamp": "2026-09-09T21:45:15Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 27,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00105"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 105
+    }
+  },
+  {
+    "id": "req-00106",
+    "timestamp": "2026-09-09T21:46:22Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 28,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00106"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 106
+    }
+  },
+  {
+    "id": "req-00107",
+    "timestamp": "2026-09-09T21:47:29Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 29,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00107"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 107
+    }
+  },
+  {
+    "id": "req-00108",
+    "timestamp": "2026-09-09T21:48:36Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 30,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00108"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 108
+    }
+  },
+  {
+    "id": "req-00109",
+    "timestamp": "2026-09-09T21:49:43Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 31,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00109"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 109
+    }
+  },
+  {
+    "id": "req-00110",
+    "timestamp": "2026-09-09T21:50:50Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 32,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00110"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 110
+    }
+  },
+  {
+    "id": "req-00111",
+    "timestamp": "2026-09-09T21:51:57Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 33,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00111"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 111
+    }
+  },
+  {
+    "id": "req-00112",
+    "timestamp": "2026-09-09T21:52:04Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 34,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00112"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 112
+    }
+  },
+  {
+    "id": "req-00113",
+    "timestamp": "2026-09-09T21:53:11Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 35,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00113"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 113
+    }
+  },
+  {
+    "id": "req-00114",
+    "timestamp": "2026-09-09T21:54:18Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 36,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00114"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 114
+    }
+  },
+  {
+    "id": "req-00115",
+    "timestamp": "2026-09-09T21:55:25Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 37,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00115"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 115
+    }
+  },
+  {
+    "id": "req-00116",
+    "timestamp": "2026-09-09T21:56:32Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 38,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00116"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 116
+    }
+  },
+  {
+    "id": "req-00117",
+    "timestamp": "2026-09-09T21:57:39Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 39,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00117"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 117
+    }
+  },
+  {
+    "id": "req-00118",
+    "timestamp": "2026-09-09T21:58:46Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 40,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00118"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 118
+    }
+  },
+  {
+    "id": "req-00119",
+    "timestamp": "2026-09-09T21:59:53Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 41,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00119"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 119
+    }
+  },
+  {
+    "id": "req-00120",
+    "timestamp": "2026-09-09T21:00:00Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 12,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00120"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 120
+    }
+  },
+  {
+    "id": "req-00121",
+    "timestamp": "2026-09-09T21:01:07Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 13,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00121"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 121
+    }
+  },
+  {
+    "id": "req-00122",
+    "timestamp": "2026-09-09T21:02:14Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 14,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00122"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 122
+    }
+  },
+  {
+    "id": "req-00123",
+    "timestamp": "2026-09-09T21:03:21Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 15,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00123"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 123
+    }
+  },
+  {
+    "id": "req-00124",
+    "timestamp": "2026-09-09T21:04:28Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 16,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00124"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 124
+    }
+  },
+  {
+    "id": "req-00125",
+    "timestamp": "2026-09-09T21:05:35Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 17,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00125"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 125
+    }
+  },
+  {
+    "id": "req-00126",
+    "timestamp": "2026-09-09T21:06:42Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 18,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00126"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 126
+    }
+  },
+  {
+    "id": "req-00127",
+    "timestamp": "2026-09-09T21:07:49Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 19,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00127"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 127
+    }
+  },
+  {
+    "id": "req-00128",
+    "timestamp": "2026-09-09T21:08:56Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 20,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00128"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 128
+    }
+  },
+  {
+    "id": "req-00129",
+    "timestamp": "2026-09-09T21:09:03Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 21,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00129"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 129
+    }
+  },
+  {
+    "id": "req-00130",
+    "timestamp": "2026-09-09T21:10:10Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 22,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00130"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 130
+    }
+  },
+  {
+    "id": "req-00131",
+    "timestamp": "2026-09-09T21:11:17Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 23,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00131"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 131
+    }
+  },
+  {
+    "id": "req-00132",
+    "timestamp": "2026-09-09T21:12:24Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 24,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00132"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 132
+    }
+  },
+  {
+    "id": "req-00133",
+    "timestamp": "2026-09-09T21:13:31Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 25,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00133"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 133
+    }
+  },
+  {
+    "id": "req-00134",
+    "timestamp": "2026-09-09T21:14:38Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 26,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00134"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 134
+    }
+  },
+  {
+    "id": "req-00135",
+    "timestamp": "2026-09-09T21:15:45Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 27,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00135"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 135
+    }
+  },
+  {
+    "id": "req-00136",
+    "timestamp": "2026-09-09T21:16:52Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 28,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00136"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 136
+    }
+  },
+  {
+    "id": "req-00137",
+    "timestamp": "2026-09-09T21:17:59Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 29,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00137"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 137
+    }
+  },
+  {
+    "id": "req-00138",
+    "timestamp": "2026-09-09T21:18:06Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 30,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00138"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 138
+    }
+  },
+  {
+    "id": "req-00139",
+    "timestamp": "2026-09-09T21:19:13Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 31,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00139"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 139
+    }
+  },
+  {
+    "id": "req-00140",
+    "timestamp": "2026-09-09T21:20:20Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 32,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00140"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 140
+    }
+  },
+  {
+    "id": "req-00141",
+    "timestamp": "2026-09-09T21:21:27Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 33,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00141"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 141
+    }
+  },
+  {
+    "id": "req-00142",
+    "timestamp": "2026-09-09T21:22:34Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 34,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00142"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 142
+    }
+  },
+  {
+    "id": "req-00143",
+    "timestamp": "2026-09-09T21:23:41Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 35,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00143"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 143
+    }
+  },
+  {
+    "id": "req-00144",
+    "timestamp": "2026-09-09T21:24:48Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 36,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00144"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 144
+    }
+  },
+  {
+    "id": "req-00145",
+    "timestamp": "2026-09-09T21:25:55Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 37,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00145"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 145
+    }
+  },
+  {
+    "id": "req-00146",
+    "timestamp": "2026-09-09T21:26:02Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 38,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00146"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 146
+    }
+  },
+  {
+    "id": "req-00147",
+    "timestamp": "2026-09-09T21:27:09Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 39,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00147"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 147
+    }
+  },
+  {
+    "id": "req-00148",
+    "timestamp": "2026-09-09T21:28:16Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 40,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00148"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 148
+    }
+  },
+  {
+    "id": "req-00149",
+    "timestamp": "2026-09-09T21:29:23Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 41,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00149"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 149
+    }
+  },
+  {
+    "id": "req-00150",
+    "timestamp": "2026-09-09T21:30:30Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 12,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00150"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 150
+    }
+  },
+  {
+    "id": "req-00151",
+    "timestamp": "2026-09-09T21:31:37Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 13,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00151"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 151
+    }
+  },
+  {
+    "id": "req-00152",
+    "timestamp": "2026-09-09T21:32:44Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 14,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00152"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 152
+    }
+  },
+  {
+    "id": "req-00153",
+    "timestamp": "2026-09-09T21:33:51Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 15,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00153"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 153
+    }
+  },
+  {
+    "id": "req-00154",
+    "timestamp": "2026-09-09T21:34:58Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 16,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00154"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 154
+    }
+  },
+  {
+    "id": "req-00155",
+    "timestamp": "2026-09-09T21:35:05Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 17,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00155"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 155
+    }
+  },
+  {
+    "id": "req-00156",
+    "timestamp": "2026-09-09T21:36:12Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 18,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00156"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 156
+    }
+  },
+  {
+    "id": "req-00157",
+    "timestamp": "2026-09-09T21:37:19Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 19,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00157"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 157
+    }
+  },
+  {
+    "id": "req-00158",
+    "timestamp": "2026-09-09T21:38:26Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 20,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00158"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 158
+    }
+  },
+  {
+    "id": "req-00159",
+    "timestamp": "2026-09-09T21:39:33Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 21,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00159"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 159
+    }
+  },
+  {
+    "id": "req-00160",
+    "timestamp": "2026-09-09T21:40:40Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 22,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00160"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 160
+    }
+  },
+  {
+    "id": "req-00161",
+    "timestamp": "2026-09-09T21:41:47Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 23,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00161"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 161
+    }
+  },
+  {
+    "id": "req-00162",
+    "timestamp": "2026-09-09T21:42:54Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 24,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00162"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 162
+    }
+  },
+  {
+    "id": "req-00163",
+    "timestamp": "2026-09-09T21:43:01Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 25,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00163"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 163
+    }
+  },
+  {
+    "id": "req-00164",
+    "timestamp": "2026-09-09T21:44:08Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 26,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00164"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 164
+    }
+  },
+  {
+    "id": "req-00165",
+    "timestamp": "2026-09-09T21:45:15Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 27,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00165"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 165
+    }
+  },
+  {
+    "id": "req-00166",
+    "timestamp": "2026-09-09T21:46:22Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 28,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00166"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 166
+    }
+  },
+  {
+    "id": "req-00167",
+    "timestamp": "2026-09-09T21:47:29Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 29,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00167"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 167
+    }
+  },
+  {
+    "id": "req-00168",
+    "timestamp": "2026-09-09T21:48:36Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 30,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00168"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 168
+    }
+  },
+  {
+    "id": "req-00169",
+    "timestamp": "2026-09-09T21:49:43Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 31,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00169"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 169
+    }
+  },
+  {
+    "id": "req-00170",
+    "timestamp": "2026-09-09T21:50:50Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 32,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00170"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 170
+    }
+  },
+  {
+    "id": "req-00171",
+    "timestamp": "2026-09-09T21:51:57Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 33,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00171"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 171
+    }
+  },
+  {
+    "id": "req-00172",
+    "timestamp": "2026-09-09T21:52:04Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 34,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00172"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 172
+    }
+  },
+  {
+    "id": "req-00173",
+    "timestamp": "2026-09-09T21:53:11Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 35,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00173"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 173
+    }
+  },
+  {
+    "id": "req-00174",
+    "timestamp": "2026-09-09T21:54:18Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 36,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00174"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 174
+    }
+  },
+  {
+    "id": "req-00175",
+    "timestamp": "2026-09-09T21:55:25Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 37,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00175"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 175
+    }
+  },
+  {
+    "id": "req-00176",
+    "timestamp": "2026-09-09T21:56:32Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 38,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00176"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 176
+    }
+  },
+  {
+    "id": "req-00177",
+    "timestamp": "2026-09-09T21:57:39Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 39,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00177"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 177
+    }
+  },
+  {
+    "id": "req-00178",
+    "timestamp": "2026-09-09T21:58:46Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 40,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00178"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 178
+    }
+  },
+  {
+    "id": "req-00179",
+    "timestamp": "2026-09-09T21:59:53Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 41,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00179"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 179
+    }
+  },
+  {
+    "id": "req-00180",
+    "timestamp": "2026-09-09T21:00:00Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 12,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00180"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 180
+    }
+  },
+  {
+    "id": "req-00181",
+    "timestamp": "2026-09-09T21:01:07Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 13,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00181"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 181
+    }
+  },
+  {
+    "id": "req-00182",
+    "timestamp": "2026-09-09T21:02:14Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 14,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00182"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 182
+    }
+  },
+  {
+    "id": "req-00183",
+    "timestamp": "2026-09-09T21:03:21Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 15,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00183"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 183
+    }
+  },
+  {
+    "id": "req-00184",
+    "timestamp": "2026-09-09T21:04:28Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 16,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00184"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 184
+    }
+  },
+  {
+    "id": "req-00185",
+    "timestamp": "2026-09-09T21:05:35Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 17,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00185"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 185
+    }
+  },
+  {
+    "id": "req-00186",
+    "timestamp": "2026-09-09T21:06:42Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 18,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00186"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 186
+    }
+  },
+  {
+    "id": "req-00187",
+    "timestamp": "2026-09-09T21:07:49Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 19,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00187"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 187
+    }
+  },
+  {
+    "id": "req-00188",
+    "timestamp": "2026-09-09T21:08:56Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 20,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00188"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 188
+    }
+  },
+  {
+    "id": "req-00189",
+    "timestamp": "2026-09-09T21:09:03Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 21,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00189"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 189
+    }
+  },
+  {
+    "id": "req-00190",
+    "timestamp": "2026-09-09T21:10:10Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 22,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00190"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 190
+    }
+  },
+  {
+    "id": "req-00191",
+    "timestamp": "2026-09-09T21:11:17Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 23,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00191"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 191
+    }
+  },
+  {
+    "id": "req-00192",
+    "timestamp": "2026-09-09T21:12:24Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 24,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00192"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 192
+    }
+  },
+  {
+    "id": "req-00193",
+    "timestamp": "2026-09-09T21:13:31Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 25,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00193"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 193
+    }
+  },
+  {
+    "id": "req-00194",
+    "timestamp": "2026-09-09T21:14:38Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 26,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00194"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 194
+    }
+  },
+  {
+    "id": "req-00195",
+    "timestamp": "2026-09-09T21:15:45Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 27,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00195"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 195
+    }
+  },
+  {
+    "id": "req-00196",
+    "timestamp": "2026-09-09T21:16:52Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 28,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00196"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 196
+    }
+  },
+  {
+    "id": "req-00197",
+    "timestamp": "2026-09-09T21:17:59Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 29,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00197"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 197
+    }
+  },
+  {
+    "id": "req-00198",
+    "timestamp": "2026-09-09T21:18:06Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 30,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00198"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 198
+    }
+  },
+  {
+    "id": "req-00199",
+    "timestamp": "2026-09-09T21:19:13Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 31,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00199"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 199
+    }
+  },
+  {
+    "id": "req-00200",
+    "timestamp": "2026-09-09T21:20:20Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 32,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00200"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 200
+    }
+  },
+  {
+    "id": "req-00201",
+    "timestamp": "2026-09-09T21:21:27Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 33,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00201"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 201
+    }
+  },
+  {
+    "id": "req-00202",
+    "timestamp": "2026-09-09T21:22:34Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 34,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00202"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 202
+    }
+  },
+  {
+    "id": "req-00203",
+    "timestamp": "2026-09-09T21:23:41Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 35,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00203"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 203
+    }
+  },
+  {
+    "id": "req-00204",
+    "timestamp": "2026-09-09T21:24:48Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 36,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00204"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 204
+    }
+  },
+  {
+    "id": "req-00205",
+    "timestamp": "2026-09-09T21:25:55Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 37,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00205"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 205
+    }
+  },
+  {
+    "id": "req-00206",
+    "timestamp": "2026-09-09T21:26:02Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 38,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00206"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 206
+    }
+  },
+  {
+    "id": "req-00207",
+    "timestamp": "2026-09-09T21:27:09Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 39,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00207"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 207
+    }
+  },
+  {
+    "id": "req-00208",
+    "timestamp": "2026-09-09T21:28:16Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 40,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00208"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 208
+    }
+  },
+  {
+    "id": "req-00209",
+    "timestamp": "2026-09-09T21:29:23Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 41,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00209"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 209
+    }
+  },
+  {
+    "id": "req-00210",
+    "timestamp": "2026-09-09T21:30:30Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 12,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00210"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 210
+    }
+  },
+  {
+    "id": "req-00211",
+    "timestamp": "2026-09-09T21:31:37Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 13,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00211"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 211
+    }
+  },
+  {
+    "id": "req-00212",
+    "timestamp": "2026-09-09T21:32:44Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 14,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00212"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 212
+    }
+  },
+  {
+    "id": "req-00213",
+    "timestamp": "2026-09-09T21:33:51Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 15,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00213"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 213
+    }
+  },
+  {
+    "id": "req-00214",
+    "timestamp": "2026-09-09T21:34:58Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 16,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00214"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 214
+    }
+  },
+  {
+    "id": "req-00215",
+    "timestamp": "2026-09-09T21:35:05Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 17,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00215"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 215
+    }
+  },
+  {
+    "id": "req-00216",
+    "timestamp": "2026-09-09T21:36:12Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 18,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00216"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 216
+    }
+  },
+  {
+    "id": "req-00217",
+    "timestamp": "2026-09-09T21:37:19Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 19,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00217"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 217
+    }
+  },
+  {
+    "id": "req-00218",
+    "timestamp": "2026-09-09T21:38:26Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 20,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00218"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 218
+    }
+  },
+  {
+    "id": "req-00219",
+    "timestamp": "2026-09-09T21:39:33Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 21,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00219"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 219
+    }
+  },
+  {
+    "id": "req-00220",
+    "timestamp": "2026-09-09T21:40:40Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 22,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00220"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 220
+    }
+  },
+  {
+    "id": "req-00221",
+    "timestamp": "2026-09-09T21:41:47Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 23,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00221"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 221
+    }
+  },
+  {
+    "id": "req-00222",
+    "timestamp": "2026-09-09T21:42:54Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 24,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00222"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 222
+    }
+  },
+  {
+    "id": "req-00223",
+    "timestamp": "2026-09-09T21:43:01Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 25,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00223"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 223
+    }
+  },
+  {
+    "id": "req-00224",
+    "timestamp": "2026-09-09T21:44:08Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 26,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00224"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 224
+    }
+  },
+  {
+    "id": "req-00225",
+    "timestamp": "2026-09-09T21:45:15Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 27,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00225"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 225
+    }
+  },
+  {
+    "id": "req-00226",
+    "timestamp": "2026-09-09T21:46:22Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 28,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00226"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 226
+    }
+  },
+  {
+    "id": "req-00227",
+    "timestamp": "2026-09-09T21:47:29Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 29,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00227"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 227
+    }
+  },
+  {
+    "id": "req-00228",
+    "timestamp": "2026-09-09T21:48:36Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 30,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00228"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 228
+    }
+  },
+  {
+    "id": "req-00229",
+    "timestamp": "2026-09-09T21:49:43Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 31,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00229"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 229
+    }
+  },
+  {
+    "id": "req-00230",
+    "timestamp": "2026-09-09T21:50:50Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 32,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00230"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 230
+    }
+  },
+  {
+    "id": "req-00231",
+    "timestamp": "2026-09-09T21:51:57Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 33,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00231"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 231
+    }
+  },
+  {
+    "id": "req-00232",
+    "timestamp": "2026-09-09T21:52:04Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 34,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00232"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 232
+    }
+  },
+  {
+    "id": "req-00233",
+    "timestamp": "2026-09-09T21:53:11Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 35,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00233"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 233
+    }
+  },
+  {
+    "id": "req-00234",
+    "timestamp": "2026-09-09T21:54:18Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 36,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00234"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 234
+    }
+  },
+  {
+    "id": "req-00235",
+    "timestamp": "2026-09-09T21:55:25Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 37,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00235"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 235
+    }
+  },
+  {
+    "id": "req-00236",
+    "timestamp": "2026-09-09T21:56:32Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 38,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00236"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 236
+    }
+  },
+  {
+    "id": "req-00237",
+    "timestamp": "2026-09-09T21:57:39Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 39,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00237"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 237
+    }
+  },
+  {
+    "id": "req-00238",
+    "timestamp": "2026-09-09T21:58:46Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 40,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00238"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 238
+    }
+  },
+  {
+    "id": "req-00239",
+    "timestamp": "2026-09-09T21:59:53Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 41,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00239"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 239
+    }
+  },
+  {
+    "id": "req-00240",
+    "timestamp": "2026-09-09T21:00:00Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 12,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00240"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 240
+    }
+  },
+  {
+    "id": "req-00241",
+    "timestamp": "2026-09-09T21:01:07Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 13,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00241"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 241
+    }
+  },
+  {
+    "id": "req-00242",
+    "timestamp": "2026-09-09T21:02:14Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 14,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00242"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 242
+    }
+  },
+  {
+    "id": "req-00243",
+    "timestamp": "2026-09-09T21:03:21Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 15,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00243"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 243
+    }
+  },
+  {
+    "id": "req-00244",
+    "timestamp": "2026-09-09T21:04:28Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 16,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00244"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 244
+    }
+  },
+  {
+    "id": "req-00245",
+    "timestamp": "2026-09-09T21:05:35Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 17,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00245"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 245
+    }
+  },
+  {
+    "id": "req-00246",
+    "timestamp": "2026-09-09T21:06:42Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 18,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00246"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 246
+    }
+  },
+  {
+    "id": "req-00247",
+    "timestamp": "2026-09-09T21:07:49Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 19,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00247"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 247
+    }
+  },
+  {
+    "id": "req-00248",
+    "timestamp": "2026-09-09T21:08:56Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 20,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00248"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 248
+    }
+  },
+  {
+    "id": "req-00249",
+    "timestamp": "2026-09-09T21:09:03Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 21,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00249"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 249
+    }
+  },
+  {
+    "id": "req-00250",
+    "timestamp": "2026-09-09T21:10:10Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 22,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00250"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 250
+    }
+  },
+  {
+    "id": "req-00251",
+    "timestamp": "2026-09-09T21:11:17Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 23,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00251"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 251
+    }
+  },
+  {
+    "id": "req-00252",
+    "timestamp": "2026-09-09T21:12:24Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 24,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00252"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 252
+    }
+  },
+  {
+    "id": "req-00253",
+    "timestamp": "2026-09-09T21:13:31Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 25,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00253"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 253
+    }
+  },
+  {
+    "id": "req-00254",
+    "timestamp": "2026-09-09T21:14:38Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 26,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00254"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 254
+    }
+  },
+  {
+    "id": "req-00255",
+    "timestamp": "2026-09-09T21:15:45Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 27,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00255"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 255
+    }
+  },
+  {
+    "id": "req-00256",
+    "timestamp": "2026-09-09T21:16:52Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 28,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00256"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 256
+    }
+  },
+  {
+    "id": "req-00257",
+    "timestamp": "2026-09-09T21:17:59Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 29,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00257"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 257
+    }
+  },
+  {
+    "id": "req-00258",
+    "timestamp": "2026-09-09T21:18:06Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 30,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00258"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 258
+    }
+  },
+  {
+    "id": "req-00259",
+    "timestamp": "2026-09-09T21:19:13Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 31,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00259"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 259
+    }
+  },
+  {
+    "id": "req-00260",
+    "timestamp": "2026-09-09T21:20:20Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 32,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00260"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 260
+    }
+  },
+  {
+    "id": "req-00261",
+    "timestamp": "2026-09-09T21:21:27Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 33,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00261"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 261
+    }
+  },
+  {
+    "id": "req-00262",
+    "timestamp": "2026-09-09T21:22:34Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 34,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00262"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 262
+    }
+  },
+  {
+    "id": "req-00263",
+    "timestamp": "2026-09-09T21:23:41Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 35,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00263"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 263
+    }
+  },
+  {
+    "id": "req-00264",
+    "timestamp": "2026-09-09T21:24:48Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 36,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00264"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 264
+    }
+  },
+  {
+    "id": "req-00265",
+    "timestamp": "2026-09-09T21:25:55Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 37,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00265"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 265
+    }
+  },
+  {
+    "id": "req-00266",
+    "timestamp": "2026-09-09T21:26:02Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 38,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00266"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 266
+    }
+  },
+  {
+    "id": "req-00267",
+    "timestamp": "2026-09-09T21:27:09Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 39,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00267"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 267
+    }
+  },
+  {
+    "id": "req-00268",
+    "timestamp": "2026-09-09T21:28:16Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 40,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00268"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 268
+    }
+  },
+  {
+    "id": "req-00269",
+    "timestamp": "2026-09-09T21:29:23Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 41,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00269"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 269
+    }
+  },
+  {
+    "id": "req-00270",
+    "timestamp": "2026-09-09T21:30:30Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 12,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00270"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 270
+    }
+  },
+  {
+    "id": "req-00271",
+    "timestamp": "2026-09-09T21:31:37Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 13,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00271"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 271
+    }
+  },
+  {
+    "id": "req-00272",
+    "timestamp": "2026-09-09T21:32:44Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 14,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00272"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 272
+    }
+  },
+  {
+    "id": "req-00273",
+    "timestamp": "2026-09-09T21:33:51Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 15,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00273"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 273
+    }
+  },
+  {
+    "id": "req-00274",
+    "timestamp": "2026-09-09T21:34:58Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 16,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00274"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 274
+    }
+  },
+  {
+    "id": "req-00275",
+    "timestamp": "2026-09-09T21:35:05Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 17,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00275"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 275
+    }
+  },
+  {
+    "id": "req-00276",
+    "timestamp": "2026-09-09T21:36:12Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 18,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00276"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 276
+    }
+  },
+  {
+    "id": "req-00277",
+    "timestamp": "2026-09-09T21:37:19Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 19,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00277"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 277
+    }
+  },
+  {
+    "id": "req-00278",
+    "timestamp": "2026-09-09T21:38:26Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 20,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00278"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 278
+    }
+  },
+  {
+    "id": "req-00279",
+    "timestamp": "2026-09-09T21:39:33Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 21,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00279"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 279
+    }
+  },
+  {
+    "id": "req-00280",
+    "timestamp": "2026-09-09T21:40:40Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 22,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00280"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 280
+    }
+  },
+  {
+    "id": "req-00281",
+    "timestamp": "2026-09-09T21:41:47Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 23,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00281"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 281
+    }
+  },
+  {
+    "id": "req-00282",
+    "timestamp": "2026-09-09T21:42:54Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 24,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00282"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 282
+    }
+  },
+  {
+    "id": "req-00283",
+    "timestamp": "2026-09-09T21:43:01Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 25,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00283"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 283
+    }
+  },
+  {
+    "id": "req-00284",
+    "timestamp": "2026-09-09T21:44:08Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 26,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00284"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 284
+    }
+  },
+  {
+    "id": "req-00285",
+    "timestamp": "2026-09-09T21:45:15Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 27,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00285"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 285
+    }
+  },
+  {
+    "id": "req-00286",
+    "timestamp": "2026-09-09T21:46:22Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 28,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00286"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 286
+    }
+  },
+  {
+    "id": "req-00287",
+    "timestamp": "2026-09-09T21:47:29Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 29,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00287"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 287
+    }
+  },
+  {
+    "id": "req-00288",
+    "timestamp": "2026-09-09T21:48:36Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 30,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00288"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 288
+    }
+  },
+  {
+    "id": "req-00289",
+    "timestamp": "2026-09-09T21:49:43Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 31,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00289"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 289
+    }
+  },
+  {
+    "id": "req-00290",
+    "timestamp": "2026-09-09T21:50:50Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 32,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00290"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 290
+    }
+  },
+  {
+    "id": "req-00291",
+    "timestamp": "2026-09-09T21:51:57Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 33,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00291"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 291
+    }
+  },
+  {
+    "id": "req-00292",
+    "timestamp": "2026-09-09T21:52:04Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 34,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00292"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 292
+    }
+  },
+  {
+    "id": "req-00293",
+    "timestamp": "2026-09-09T21:53:11Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 35,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00293"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 293
+    }
+  },
+  {
+    "id": "req-00294",
+    "timestamp": "2026-09-09T21:54:18Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 36,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00294"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 294
+    }
+  },
+  {
+    "id": "req-00295",
+    "timestamp": "2026-09-09T21:55:25Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 37,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00295"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 295
+    }
+  },
+  {
+    "id": "req-00296",
+    "timestamp": "2026-09-09T21:56:32Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 38,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00296"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 296
+    }
+  },
+  {
+    "id": "req-00297",
+    "timestamp": "2026-09-09T21:57:39Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 39,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00297"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 297
+    }
+  },
+  {
+    "id": "req-00298",
+    "timestamp": "2026-09-09T21:58:46Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 40,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00298"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 298
+    }
+  },
+  {
+    "id": "req-00299",
+    "timestamp": "2026-09-09T21:59:53Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 41,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00299"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 299
+    }
+  },
+  {
+    "id": "req-00300",
+    "timestamp": "2026-09-09T21:00:00Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 12,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00300"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 300
+    }
+  },
+  {
+    "id": "req-00301",
+    "timestamp": "2026-09-09T21:01:07Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 13,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00301"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 301
+    }
+  },
+  {
+    "id": "req-00302",
+    "timestamp": "2026-09-09T21:02:14Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 14,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00302"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 302
+    }
+  },
+  {
+    "id": "req-00303",
+    "timestamp": "2026-09-09T21:03:21Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 15,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00303"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 303
+    }
+  },
+  {
+    "id": "req-00304",
+    "timestamp": "2026-09-09T21:04:28Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 16,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00304"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 304
+    }
+  },
+  {
+    "id": "req-00305",
+    "timestamp": "2026-09-09T21:05:35Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 17,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00305"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 305
+    }
+  },
+  {
+    "id": "req-00306",
+    "timestamp": "2026-09-09T21:06:42Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 18,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00306"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 306
+    }
+  },
+  {
+    "id": "req-00307",
+    "timestamp": "2026-09-09T21:07:49Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 19,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00307"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 307
+    }
+  },
+  {
+    "id": "req-00308",
+    "timestamp": "2026-09-09T21:08:56Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 20,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00308"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 308
+    }
+  },
+  {
+    "id": "req-00309",
+    "timestamp": "2026-09-09T21:09:03Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 21,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00309"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 309
+    }
+  },
+  {
+    "id": "req-00310",
+    "timestamp": "2026-09-09T21:10:10Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 22,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00310"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 310
+    }
+  },
+  {
+    "id": "req-00311",
+    "timestamp": "2026-09-09T21:11:17Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 23,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00311"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 311
+    }
+  },
+  {
+    "id": "req-00312",
+    "timestamp": "2026-09-09T21:12:24Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 24,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00312"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 312
+    }
+  },
+  {
+    "id": "req-00313",
+    "timestamp": "2026-09-09T21:13:31Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 25,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00313"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 313
+    }
+  },
+  {
+    "id": "req-00314",
+    "timestamp": "2026-09-09T21:14:38Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 26,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00314"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 314
+    }
+  },
+  {
+    "id": "req-00315",
+    "timestamp": "2026-09-09T21:15:45Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 27,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00315"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 315
+    }
+  },
+  {
+    "id": "req-00316",
+    "timestamp": "2026-09-09T21:16:52Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 28,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00316"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 316
+    }
+  },
+  {
+    "id": "req-00317",
+    "timestamp": "2026-09-09T21:17:59Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 29,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00317"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 317
+    }
+  },
+  {
+    "id": "req-00318",
+    "timestamp": "2026-09-09T21:18:06Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 30,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00318"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 318
+    }
+  },
+  {
+    "id": "req-00319",
+    "timestamp": "2026-09-09T21:19:13Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 31,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00319"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 319
+    }
+  },
+  {
+    "id": "req-00320",
+    "timestamp": "2026-09-09T21:20:20Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 32,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00320"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 320
+    }
+  },
+  {
+    "id": "req-00321",
+    "timestamp": "2026-09-09T21:21:27Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 33,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00321"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 321
+    }
+  },
+  {
+    "id": "req-00322",
+    "timestamp": "2026-09-09T21:22:34Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 34,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00322"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 322
+    }
+  },
+  {
+    "id": "req-00323",
+    "timestamp": "2026-09-09T21:23:41Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 35,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00323"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 323
+    }
+  },
+  {
+    "id": "req-00324",
+    "timestamp": "2026-09-09T21:24:48Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 36,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00324"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 324
+    }
+  },
+  {
+    "id": "req-00325",
+    "timestamp": "2026-09-09T21:25:55Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 37,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00325"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 325
+    }
+  },
+  {
+    "id": "req-00326",
+    "timestamp": "2026-09-09T21:26:02Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 38,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00326"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 326
+    }
+  },
+  {
+    "id": "req-00327",
+    "timestamp": "2026-09-09T21:27:09Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 39,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00327"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 327
+    }
+  },
+  {
+    "id": "req-00328",
+    "timestamp": "2026-09-09T21:28:16Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 40,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00328"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 328
+    }
+  },
+  {
+    "id": "req-00329",
+    "timestamp": "2026-09-09T21:29:23Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 41,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00329"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 329
+    }
+  },
+  {
+    "id": "req-00330",
+    "timestamp": "2026-09-09T21:30:30Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 12,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00330"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 330
+    }
+  },
+  {
+    "id": "req-00331",
+    "timestamp": "2026-09-09T21:31:37Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 13,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00331"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 331
+    }
+  },
+  {
+    "id": "req-00332",
+    "timestamp": "2026-09-09T21:32:44Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 14,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00332"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 332
+    }
+  },
+  {
+    "id": "req-00333",
+    "timestamp": "2026-09-09T21:33:51Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 15,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00333"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 333
+    }
+  },
+  {
+    "id": "req-00334",
+    "timestamp": "2026-09-09T21:34:58Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 16,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00334"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 334
+    }
+  },
+  {
+    "id": "req-00335",
+    "timestamp": "2026-09-09T21:35:05Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 17,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00335"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 335
+    }
+  },
+  {
+    "id": "req-00336",
+    "timestamp": "2026-09-09T21:36:12Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 18,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00336"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 336
+    }
+  },
+  {
+    "id": "req-00337",
+    "timestamp": "2026-09-09T21:37:19Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 19,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00337"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 337
+    }
+  },
+  {
+    "id": "req-00338",
+    "timestamp": "2026-09-09T21:38:26Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 20,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00338"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 338
+    }
+  },
+  {
+    "id": "req-00339",
+    "timestamp": "2026-09-09T21:39:33Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 21,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00339"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 339
+    }
+  },
+  {
+    "id": "req-00340",
+    "timestamp": "2026-09-09T21:40:40Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 22,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00340"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 340
+    }
+  },
+  {
+    "id": "req-00341",
+    "timestamp": "2026-09-09T21:41:47Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 23,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00341"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 341
+    }
+  },
+  {
+    "id": "req-00342",
+    "timestamp": "2026-09-09T21:42:54Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 24,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00342"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 342
+    }
+  },
+  {
+    "id": "req-00343",
+    "timestamp": "2026-09-09T21:43:01Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 25,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00343"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 343
+    }
+  },
+  {
+    "id": "req-00344",
+    "timestamp": "2026-09-09T21:44:08Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 26,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00344"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 344
+    }
+  },
+  {
+    "id": "req-00345",
+    "timestamp": "2026-09-09T21:45:15Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 27,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00345"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 345
+    }
+  },
+  {
+    "id": "req-00346",
+    "timestamp": "2026-09-09T21:46:22Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 28,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00346"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 346
+    }
+  },
+  {
+    "id": "req-00347",
+    "timestamp": "2026-09-09T21:47:29Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 29,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00347"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 347
+    }
+  },
+  {
+    "id": "req-00348",
+    "timestamp": "2026-09-09T21:48:36Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 30,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00348"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 348
+    }
+  },
+  {
+    "id": "req-00349",
+    "timestamp": "2026-09-09T21:49:43Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 31,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00349"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 349
+    }
+  },
+  {
+    "id": "req-00350",
+    "timestamp": "2026-09-09T21:50:50Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 32,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00350"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 350
+    }
+  },
+  {
+    "id": "req-00351",
+    "timestamp": "2026-09-09T21:51:57Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 33,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00351"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 351
+    }
+  },
+  {
+    "id": "req-00352",
+    "timestamp": "2026-09-09T21:52:04Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 34,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00352"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 352
+    }
+  },
+  {
+    "id": "req-00353",
+    "timestamp": "2026-09-09T21:53:11Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 35,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00353"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 353
+    }
+  },
+  {
+    "id": "req-00354",
+    "timestamp": "2026-09-09T21:54:18Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 36,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00354"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 354
+    }
+  },
+  {
+    "id": "req-00355",
+    "timestamp": "2026-09-09T21:55:25Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 37,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00355"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 355
+    }
+  },
+  {
+    "id": "req-00356",
+    "timestamp": "2026-09-09T21:56:32Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 38,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00356"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 356
+    }
+  },
+  {
+    "id": "req-00357",
+    "timestamp": "2026-09-09T21:57:39Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 39,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00357"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 357
+    }
+  },
+  {
+    "id": "req-00358",
+    "timestamp": "2026-09-09T21:58:46Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 40,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00358"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 358
+    }
+  },
+  {
+    "id": "req-00359",
+    "timestamp": "2026-09-09T21:59:53Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 41,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00359"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 359
+    }
+  },
+  {
+    "id": "req-00360",
+    "timestamp": "2026-09-09T21:00:00Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 12,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00360"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 360
+    }
+  },
+  {
+    "id": "req-00361",
+    "timestamp": "2026-09-09T21:01:07Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 13,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00361"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 361
+    }
+  },
+  {
+    "id": "req-00362",
+    "timestamp": "2026-09-09T21:02:14Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 14,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00362"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 362
+    }
+  },
+  {
+    "id": "req-00363",
+    "timestamp": "2026-09-09T21:03:21Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 15,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00363"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 363
+    }
+  },
+  {
+    "id": "req-00364",
+    "timestamp": "2026-09-09T21:04:28Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 16,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00364"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 364
+    }
+  },
+  {
+    "id": "req-00365",
+    "timestamp": "2026-09-09T21:05:35Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 17,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00365"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 365
+    }
+  },
+  {
+    "id": "req-00366",
+    "timestamp": "2026-09-09T21:06:42Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 18,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00366"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 366
+    }
+  },
+  {
+    "id": "req-00367",
+    "timestamp": "2026-09-09T21:07:49Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 19,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00367"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 367
+    }
+  },
+  {
+    "id": "req-00368",
+    "timestamp": "2026-09-09T21:08:56Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 20,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00368"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 368
+    }
+  },
+  {
+    "id": "req-00369",
+    "timestamp": "2026-09-09T21:09:03Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 21,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00369"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 369
+    }
+  },
+  {
+    "id": "req-00370",
+    "timestamp": "2026-09-09T21:10:10Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 22,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00370"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 370
+    }
+  },
+  {
+    "id": "req-00371",
+    "timestamp": "2026-09-09T21:11:17Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 23,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00371"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 371
+    }
+  },
+  {
+    "id": "req-00372",
+    "timestamp": "2026-09-09T21:12:24Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 24,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00372"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 372
+    }
+  },
+  {
+    "id": "req-00373",
+    "timestamp": "2026-09-09T21:13:31Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 25,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00373"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 373
+    }
+  },
+  {
+    "id": "req-00374",
+    "timestamp": "2026-09-09T21:14:38Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 26,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00374"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 374
+    }
+  },
+  {
+    "id": "req-00375",
+    "timestamp": "2026-09-09T21:15:45Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 27,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00375"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 375
+    }
+  },
+  {
+    "id": "req-00376",
+    "timestamp": "2026-09-09T21:16:52Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 28,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00376"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 376
+    }
+  },
+  {
+    "id": "req-00377",
+    "timestamp": "2026-09-09T21:17:59Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 29,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00377"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 377
+    }
+  },
+  {
+    "id": "req-00378",
+    "timestamp": "2026-09-09T21:18:06Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 30,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00378"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 378
+    }
+  },
+  {
+    "id": "req-00379",
+    "timestamp": "2026-09-09T21:19:13Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 31,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00379"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 379
+    }
+  },
+  {
+    "id": "req-00380",
+    "timestamp": "2026-09-09T21:20:20Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 32,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00380"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 380
+    }
+  },
+  {
+    "id": "req-00381",
+    "timestamp": "2026-09-09T21:21:27Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 33,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00381"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 381
+    }
+  },
+  {
+    "id": "req-00382",
+    "timestamp": "2026-09-09T21:22:34Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 34,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00382"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 382
+    }
+  },
+  {
+    "id": "req-00383",
+    "timestamp": "2026-09-09T21:23:41Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 35,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00383"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 383
+    }
+  },
+  {
+    "id": "req-00384",
+    "timestamp": "2026-09-09T21:24:48Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 36,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00384"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 384
+    }
+  },
+  {
+    "id": "req-00385",
+    "timestamp": "2026-09-09T21:25:55Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 37,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00385"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 385
+    }
+  },
+  {
+    "id": "req-00386",
+    "timestamp": "2026-09-09T21:26:02Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 38,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00386"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 386
+    }
+  },
+  {
+    "id": "req-00387",
+    "timestamp": "2026-09-09T21:27:09Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 39,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00387"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 387
+    }
+  },
+  {
+    "id": "req-00388",
+    "timestamp": "2026-09-09T21:28:16Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 40,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00388"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 388
+    }
+  },
+  {
+    "id": "req-00389",
+    "timestamp": "2026-09-09T21:29:23Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 41,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00389"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 389
+    }
+  },
+  {
+    "id": "req-00390",
+    "timestamp": "2026-09-09T21:30:30Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 12,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00390"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 390
+    }
+  },
+  {
+    "id": "req-00391",
+    "timestamp": "2026-09-09T21:31:37Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 13,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00391"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 391
+    }
+  },
+  {
+    "id": "req-00392",
+    "timestamp": "2026-09-09T21:32:44Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 14,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00392"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 392
+    }
+  },
+  {
+    "id": "req-00393",
+    "timestamp": "2026-09-09T21:33:51Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 15,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00393"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 393
+    }
+  },
+  {
+    "id": "req-00394",
+    "timestamp": "2026-09-09T21:34:58Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 16,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00394"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 394
+    }
+  },
+  {
+    "id": "req-00395",
+    "timestamp": "2026-09-09T21:35:05Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 17,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00395"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 395
+    }
+  },
+  {
+    "id": "req-00396",
+    "timestamp": "2026-09-09T21:36:12Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 18,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00396"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 396
+    }
+  },
+  {
+    "id": "req-00397",
+    "timestamp": "2026-09-09T21:37:19Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 19,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00397"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 397
+    }
+  },
+  {
+    "id": "req-00398",
+    "timestamp": "2026-09-09T21:38:26Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 20,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00398"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 398
+    }
+  },
+  {
+    "id": "req-00399",
+    "timestamp": "2026-09-09T21:39:33Z",
+    "method": "GET",
+    "path": "/api/v1/search",
+    "status": 200,
+    "duration_ms": 21,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "x-request-id": "trace-00399"
+    },
+    "query": {
+      "q": "test query",
+      "limit": 20,
+      "offset": 399
+    }
+  }
+]
