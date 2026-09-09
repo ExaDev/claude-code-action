@@ -1,3 +1,5 @@
+## [1.4.1](https://github.com/ExaDev/claude-code-action/compare/v1.4.0...v1.4.1) (2026-09-09)
+
 ## [1.4.0](https://github.com/ExaDev/claude-code-action/compare/v1.3.0...v1.4.0) (2026-09-09)
 
 ### Bug Fixes
