@@ -319,9 +319,11 @@ inputs:
       directly, bypassing ANTHROPIC_BASE_URL and the proxy silently. Setting headroom_enabled alongside
       any of them fails validation rather than starting a proxy that compresses nothing.
 
-      Compatibility with claude_code_oauth_token is unverified as of this input's introduction -- this
-      run checks the proxy's own request count afterwards and reports headroom_proxied accordingly,
-      rather than assuming it worked either way.
+      claude_code_oauth_token compatibility is confirmed: a live run authenticated purely by that
+      credential reached the proxy and reached Anthropic's real API through it, confirmed by a genuine
+      subscription-tier 429 response coming back through the proxy. This run still checks the proxy's
+      own request count afterwards and reports headroom_proxied accordingly, as a standing regression
+      check against a future upstream change, not because the question itself remains open.
     required: false
     default: "false"
   headroom_image:
@@ -373,7 +375,7 @@ outputs:
     description: "Review mode only. 'true' if the automatic fix pass (fix_ci_failures / fix_diff_findings) committed and successfully pushed a fix to the pull request's branch this run, 'false' otherwise -- including when the pass is off, found nothing to fix, or could not push. Lets a caller gate a follow-on step on whether a fix actually landed, without parsing comments."
     value: ${{ steps.push-fixes.outputs.pushed }}
   headroom_proxied:
-    description: "'true' if headroom_enabled was set and the proxy recorded at least one proxied request by the time this run finished, 'false' otherwise -- including when the feature is off, the proxy never started, or an unverified auth path (see headroom_enabled's own description) bypassed it entirely. Lets a caller gate on real compression having happened, rather than trusting the input alone."
+    description: "'true' if headroom_enabled was set and the proxy recorded at least one proxied request by the time this run finished, 'false' otherwise -- including when the feature is off, the proxy never started, or an auth path bypassed it entirely (both anthropic_api_key and claude_code_oauth_token are confirmed compatible; see headroom_enabled's own description). Lets a caller gate on real compression having happened, rather than trusting the input alone."
     value: ${{ steps.headroom-verify.outputs.headroom_proxied }}
 
 runs:
@@ -1514,7 +1516,7 @@ runs:
         else
           echo "headroom_proxied=false" >> "$GITHUB_OUTPUT"
           if [ "$WINNING_CRED_TYPE" = "oauth" ]; then
-            echo "::warning::Headroom recorded zero proxied requests this run, authenticated with a claude_code_oauth_token credential -- the documented, unverified compatibility gap (see headroom_enabled's own description). Compression did not happen."
+            echo "::warning::Headroom recorded zero proxied requests this run, authenticated with a claude_code_oauth_token credential. This combination is confirmed to work (see headroom_enabled's own description), so this is a regression, not a known gap -- check the container logs below and this run's upstream anthropics/claude-code-action version."
           else
             echo "::warning::Headroom recorded zero proxied requests this run despite headroom_enabled: true. Compression did not happen -- check the container logs below."
           fi
