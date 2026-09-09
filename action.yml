@@ -377,6 +377,12 @@ outputs:
   headroom_proxied:
     description: "'true' if headroom_enabled was set and the proxy recorded at least one proxied request by the time this run finished, 'false' otherwise -- including when the feature is off, the proxy never started, or an auth path bypassed it entirely (both anthropic_api_key and claude_code_oauth_token are confirmed compatible; see headroom_enabled's own description). Lets a caller gate on real compression having happened, rather than trusting the input alone."
     value: ${{ steps.headroom-verify.outputs.headroom_proxied }}
+  headroom_tokens_saved:
+    description: "Total tokens Headroom's compression removed this run (its own /stats summary.compression.total_tokens_removed), or '0' when headroom_enabled is false or nothing was proxied. Also written to the job's Step Summary as a human-readable line, so this isn't only reachable by a caller reading the output -- it's visible on the run itself."
+    value: ${{ steps.headroom-verify.outputs.headroom_tokens_saved }}
+  headroom_compression_percent:
+    description: "Headroom's own average compression percentage this run (summary.compression.avg_compression_pct), or '0' when headroom_enabled is false or nothing was proxied."
+    value: ${{ steps.headroom-verify.outputs.headroom_compression_percent }}
 
 runs:
   using: "composite"
@@ -1506,13 +1512,30 @@ runs:
         WINNING_CRED_TYPE: ${{ steps.claude.outputs.winning_cred_type }}
       run: |
         set -euo pipefail
-        # requests.total counts every request Headroom actually forwarded to https://api.anthropic.com, incrementing even on a response the real API itself rejects (confirmed: a deliberately invalid key still increments it, since the proxy did genuinely forward the request) -- so it distinguishes "the proxy handled a real Claude Code call" from "nothing ever reached it," which is exactly what this check needs.
+        # requests.total counts every request Headroom actually forwarded to https://api.anthropic.com, incrementing even on a response the real API itself rejects (confirmed: a deliberately invalid key still increments it, since the proxy did genuinely forward the request) -- so it distinguishes "the proxy handled a real Claude Code call" from "nothing ever reached it," which is exactly what this check needs. summary.compression's own total_tokens_removed/avg_compression_pct are the fields Headroom's own docs label specifically as compression savings, distinct from cache-read or output-shaping savings elsewhere in the same response.
         STATS="$(curl -fsS "http://127.0.0.1:${HEADROOM_PORT}/stats" 2>/dev/null || echo '{}')"
-        PROXIED_COUNT="$(node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{console.log(JSON.parse(d).requests?.total ?? 0)}catch{console.log(0)}})' <<< "$STATS" 2>/dev/null || echo 0)"
+        read -r PROXIED_COUNT TOKENS_SAVED COMPRESSION_PCT <<<"$(node -e '
+          let d="";
+          process.stdin.on("data",c=>d+=c);
+          process.stdin.on("end",()=>{
+            try {
+              const j = JSON.parse(d);
+              const c = j.summary?.compression ?? {};
+              console.log([j.requests?.total ?? 0, c.total_tokens_removed ?? 0, c.avg_compression_pct ?? 0].join(" "));
+            } catch { console.log("0 0 0"); }
+          });
+        ' <<< "$STATS" 2>/dev/null || echo "0 0 0")"
+
+        echo "headroom_tokens_saved=${TOKENS_SAVED}" >> "$GITHUB_OUTPUT"
+        echo "headroom_compression_percent=${COMPRESSION_PCT}" >> "$GITHUB_OUTPUT"
 
         if [ "${PROXIED_COUNT:-0}" -gt 0 ] 2>/dev/null; then
           echo "headroom_proxied=true" >> "$GITHUB_OUTPUT"
-          echo "Headroom proxied ${PROXIED_COUNT} request(s) this run."
+          echo "Headroom proxied ${PROXIED_COUNT} request(s) this run, saving ${TOKENS_SAVED} tokens (${COMPRESSION_PCT}% average compression)."
+          {
+            echo "### Headroom context compression"
+            echo "Proxied **${PROXIED_COUNT}** request(s) this run — saved **${TOKENS_SAVED} tokens** (**${COMPRESSION_PCT}%** average compression)."
+          } >> "$GITHUB_STEP_SUMMARY"
         else
           echo "headroom_proxied=false" >> "$GITHUB_OUTPUT"
           if [ "$WINNING_CRED_TYPE" = "oauth" ]; then
@@ -1520,6 +1543,10 @@ runs:
           else
             echo "::warning::Headroom recorded zero proxied requests this run despite headroom_enabled: true. Compression did not happen -- check the container logs below."
           fi
+          {
+            echo "### Headroom context compression"
+            echo "⚠️ headroom_enabled was set, but zero requests were proxied this run -- no compression happened. See the workflow log for details."
+          } >> "$GITHUB_STEP_SUMMARY"
         fi
         echo "::group::Headroom container logs"
         docker logs headroom-proxy 2>&1 | tail -100 || true
