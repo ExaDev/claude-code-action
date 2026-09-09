@@ -1525,7 +1525,9 @@ runs:
         WINNING_CRED_TYPE: ${{ steps.claude.outputs.winning_cred_type }}
       run: |
         set -euo pipefail
-        # requests.total counts every request Headroom actually forwarded to https://api.anthropic.com, incrementing even on a response the real API itself rejects (confirmed: a deliberately invalid key still increments it, since the proxy did genuinely forward the request) -- so it distinguishes "the proxy handled a real Claude Code call" from "nothing ever reached it," which is exactly what this check needs. summary.compression's own total_tokens_removed/avg_compression_pct are the fields Headroom's own docs label specifically as compression savings, distinct from cache-read or output-shaping savings elsewhere in the same response.
+        # requests.total counts every request Headroom actually forwarded to https://api.anthropic.com, incrementing even on a response the real API itself rejects (confirmed: a deliberately invalid key still increments it, since the proxy did genuinely forward the request) -- so it distinguishes "the proxy handled a real Claude Code call" from "nothing ever reached it," which is exactly what this check needs.
+        #
+        # summary.compression.total_tokens_removed/avg_compression_pct are NOT documented anywhere in Headroom's own public docs (only /health's differently-shaped stats and /metrics' Prometheus counters are) -- these were confirmed empirically, by inspecting a live /stats response from the exact digest this action pins (headroom_image's default). Given a mismatch would fail silently (the ?? 0 fallback reports a plausible-looking "0 tokens saved" forever, not an error), the risk is bounded specifically because headroom_image is digest-pinned: the response shape cannot change under this action's feet on its own the way a floating :latest tag could. It only changes when a maintainer deliberately bumps the pinned digest (action.yml's own default, tracked via docker/headroom.Dockerfile's Dependabot entry) -- which is exactly the moment to re-verify these field paths against the new digest's real /stats response, the same way this action always re-verifies a maintainer's own claims before trusting them (see verify_prior_findings). Confirmed against the currently-pinned digest twice before merge -- a synthetic local test and a real CI run against a genuine multi-hundred-line diff -- both producing plausible non-zero values, never the "always 0" failure mode this note exists to flag.
         STATS="$(curl -fsS "http://127.0.0.1:${HEADROOM_PORT}/stats" 2>/dev/null || echo '{}')"
         read -r PROXIED_COUNT TOKENS_SAVED COMPRESSION_PCT <<<"$(node -e '
           let d="";
@@ -1593,7 +1595,15 @@ runs:
           exit 0
         fi
 
-        BODY=$(printf '🗜️ **Headroom** compressed this run'"'"'s context: proxied %s request(s), saving %s tokens (%s%% average compression).' "$REQUESTS_PROXIED" "$TOKENS_SAVED" "$COMPRESSION_PERCENT")
+        # One comment per pull request/issue, not one per run: delete this bot's own prior Headroom savings comment(s) (identified by this marker, same delete-then-recreate pattern "Post progress comment" above uses for its own stale FAILED comments) before posting a fresh one, so repeated pushes to a long-lived PR don't accumulate a near-duplicate comment per push.
+        MARKER="<!-- claude-headroom-savings-comment -->"
+        JQ_STALE_FILTER='map(select(.user.type == "Bot" and (.body | contains("'"$MARKER"'")))) | .[].id'
+        STALE_IDS=$(gh api "repos/${REPOSITORY}/issues/${ENTITY_NUMBER}/comments" --paginate -q "$JQ_STALE_FILTER" 2>/dev/null || echo "")
+        for id in $STALE_IDS; do
+          gh api -X DELETE "repos/${REPOSITORY}/issues/comments/${id}" >/dev/null 2>&1 || true
+        done
+
+        BODY=$(printf '🗜️ **Headroom** compressed this run'"'"'s context: proxied %s request(s), saving %s tokens (%s%% average compression).\n\n%s' "$REQUESTS_PROXIED" "$TOKENS_SAVED" "$COMPRESSION_PERCENT" "$MARKER")
         for attempt in 1 2 3; do
           if gh api "repos/${REPOSITORY}/issues/${ENTITY_NUMBER}/comments" -f body="$BODY" >/dev/null; then
             echo "Posted Headroom savings comment."
