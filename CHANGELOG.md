@@ -1,3 +1,14 @@
+## [1.5.0](https://github.com/ExaDev/claude-code-action/compare/v1.4.1...v1.5.0) (2026-09-09)
+
+### Bug Fixes
+
+- **headroom:** dedupe the savings comment and document field provenance ([d1167c6](https://github.com/ExaDev/claude-code-action/commit/d1167c6aa182bdbd5e1b903466a1982d5dfb8c91))
+
+### Features
+
+- **headroom:** add headroom_show_savings to post stats on the PR ([4c687e1](https://github.com/ExaDev/claude-code-action/commit/4c687e1351ee6e72f48b5ecedcd309dedef54f25))
+- **headroom:** surface token savings on the run, not just as an output ([cbad87d](https://github.com/ExaDev/claude-code-action/commit/cbad87d0a0b31df09696c136e989b6eae2e06dfa))
+
 ## [1.4.1](https://github.com/ExaDev/claude-code-action/compare/v1.4.0...v1.4.1) (2026-09-09)
 
 ## [1.4.0](https://github.com/ExaDev/claude-code-action/compare/v1.3.0...v1.4.0) (2026-09-09)
