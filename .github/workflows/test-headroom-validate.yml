@@ -1,0 +1,36 @@
+# TEMPORARY. Validates the Headroom feature (headroom_enabled, shipped in #40) actually works end to end with fresh, non-rate-limited credentials: a real mode: review run against this PR's own diff, so there is genuine repetitive content (this file itself, plus whatever review mode reads) for Headroom to compress, rather than mode: generic's trivial single-line prompt used in the earlier plumbing-only smoke test. Removed once a full successful run with headroom_proxied=true and a non-zero compression ratio is confirmed.
+name: Test Headroom Live Validation (temporary)
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  test:
+    if: github.event.pull_request.head.ref == 'test/validate-headroom-live'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: ./
+        id: claude
+        with:
+          mode: review
+          pr_number: ${{ github.event.pull_request.number }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          headroom_enabled: true
+          allowed_review_states: "comment"
+      - name: Report result
+        if: always()
+        run: |
+          {
+            echo "### Headroom live validation"
+            echo "conclusion: ${{ steps.claude.outputs.conclusion }}"
+            echo "headroom_proxied: ${{ steps.claude.outputs.headroom_proxied }}"
+          } >> "$GITHUB_STEP_SUMMARY"
