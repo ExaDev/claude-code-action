@@ -2,6 +2,8 @@
 #
 # Claude reviews every pull request when it is opened, when new commits are pushed to it, and when a draft is marked ready for review. It submits a formal review -- inline comments plus a summary body -- requesting changes when it finds a blocker and never approving.
 #
+# A gate decides whether the triggering event changed anything worth reviewing, and the review runs only if it did. It does no checkout and makes at most three API calls, so a skip costs seconds instead of a review of the whole diff. It skips a commit this reviewer has already reviewed -- two triggers landing together, or a re-run -- and it skips the merge commit GitHub's "Update branch" button creates, which introduces none of the author's own changes. It fails open: anything unexpected falls through to a review.
+#
 # Set the ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN secret (organisation or repository level) first. Either works; wire through whichever you set.
 
 name: Claude Review
@@ -16,7 +18,93 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A separate job here, unlike the direct form's single gate step, because the review job below is a bare `uses:` and a reusable-workflow call cannot have steps of its own.
+  gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      should_review: ${{ steps.decide.outputs.should_review }}
+    steps:
+      - name: Decide whether this event changed anything worth reviewing
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ACTION: ${{ github.event.action }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # Non-empty only when an `edited` event actually retargeted the base branch, rather than editing the title or body.
+          BASE_CHANGED: ${{ toJSON(github.event.changes.base) }}
+          REVIEWER: "github-actions[bot]" # The reusable form submits its review with the default GITHUB_TOKEN, so prior reviews are attributed to this login. The direct form runs as the Claude Code App instead and sets claude[bot] here.
+        run: |
+          set -euo pipefail
+
+          skip() { echo "should_review=false" >> "$GITHUB_OUTPUT"; echo "SKIP: $1"; exit 0; }
+          review() { echo "should_review=true" >> "$GITHUB_OUTPUT"; echo "REVIEW: $1"; exit 0; }
+
+          # Any unexpected failure -- an API hiccup, an unreadable payload -- must fall through to a review. A gate that failed closed would silently stop reviewing the repository altogether, which is a far worse outcome than one wasted run.
+          trap 'review "gate errored; failing open"' ERR
+
+          # `edited` is not in this workflow's own trigger list, but it is the usual first addition: it fires when a pull request's base branch is retargeted, and without it a review stays pinned to a diff nobody is merging. It also fires on every title and body edit, so adding the trigger without this branch means editing a description costs a full review. Handled here so the trigger is safe to add.
+          if [ "$ACTION" = "edited" ]; then
+            if [ "$BASE_CHANGED" = "null" ]; then
+              skip "pull request metadata edited, base branch unchanged"
+            fi
+            # A retarget keeps the same head sha but changes the diff, so this must reach a review even though the already-reviewed check below would otherwise match it. Hence its position above that check rather than below.
+            review "base branch retargeted"
+          fi
+
+          # A review already submitted against this exact commit has said everything there is to say about it. Catches two triggers landing together, a manual re-run of an earlier run, and `ready_for_review` on a draft whose current commit was already reviewed.
+          #
+          # --paginate without --jq in the same call: the reviews endpoint is array-shaped, so gh merges every page into one array before jq sees it. Combining the two would instead run the filter once per page and concatenate the per-page booleans, so any match past the first page would be missed.
+          ALREADY=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" --paginate \
+            | jq --arg sha "$HEAD_SHA" --arg who "$REVIEWER" \
+                 '[.[] | select(.user.login == $who and .commit_id == $sha)] | length > 0')
+          if [ "$ALREADY" = "true" ]; then
+            skip "$REVIEWER has already reviewed $HEAD_SHA"
+          fi
+
+          # Everything that is not a new push (opened / reopened / ready_for_review) is review-worthy from here.
+          if [ "$ACTION" != "synchronize" ]; then
+            review "action=$ACTION"
+          fi
+
+          # From here it is a push, and the case worth skipping is GitHub's "Update branch" button, which merges the base branch into the pull request and introduces none of the author's own changes.
+          PARENTS=$(gh api "repos/$REPO/commits/$AFTER" --jq '.parents[].sha' | tr '\n' ' ')
+          read -r P1 P2 EXTRA <<< "$PARENTS"
+
+          if [ -z "${P2:-}" ] || [ -n "${EXTRA:-}" ]; then
+            review "head commit is not a two-parent merge"
+          fi
+
+          # A base merge keeps the previous head as its first parent. A force-push, rebase or squash does not, and any of those can change the author's own work.
+          if [ "$P1" != "$BEFORE" ]; then
+            review "first parent is not the previous head (force-push or rebase)"
+          fi
+
+          # The second parent must already be contained in the base branch, or this merged something other than the base.
+          STATUS=$(gh api "repos/$REPO/compare/$P2...$BASE_REF" --jq '.status' 2>/dev/null || echo "unknown")
+          case "$STATUS" in
+            identical|ahead) ;;
+            *) review "second parent is not an ancestor of $BASE_REF (status=$STATUS)" ;;
+          esac
+
+          # The "Update branch" button is only offered for a conflict-free merge, and GitHub commits the result itself. A merge pushed from a workstation looks identical in shape but can carry conflict resolutions -- real code, never reviewed -- so it is deliberately still reviewed.
+          COMMITTER=$(gh api "repos/$REPO/commits/$AFTER" --jq '.commit.committer.name')
+          if [ "$COMMITTER" != "GitHub" ]; then
+            review "merge was committed by '$COMMITTER', not the Update branch button"
+          fi
+
+          skip "base branch merged in via the Update branch button; no new author changes"
+
   review:
+    needs: gate
+    if: needs.gate.outputs.should_review == 'true'
     # Matches review.yml@v1's own permissions: block exactly -- see the README's step 3. A job calling a reusable workflow, in this repository or a different one, can declare its own permissions: to grant more than the repository's default workflow permissions provide; declaring it explicitly here means this example works regardless of what that default happens to be, rather than depending on it. If this repository's own default already covers contents: read and pull-requests: write, this block is redundant but harmless -- leave it in for the same reason: it stops working silently the moment that default is ever tightened.
     permissions:
       contents: read
