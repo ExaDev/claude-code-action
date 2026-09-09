@@ -1,3 +1,14 @@
+## [1.4.0](https://github.com/ExaDev/claude-code-action/compare/v1.3.0...v1.4.0) (2026-09-09)
+
+### Bug Fixes
+
+- unblock the headroom smoke test's own OIDC and comment permissions ([ec134b0](https://github.com/ExaDev/claude-code-action/commit/ec134b0c923be530665970276589e6e0dd4f34f6))
+- use a single redirect block in the headroom smoke test summary ([9a00437](https://github.com/ExaDev/claude-code-action/commit/9a004378a08112e816db5bd2536a1f6d67c103b1))
+
+### Features
+
+- **headroom:** run a local Headroom proxy in front of the Anthropic API ([5e54d9e](https://github.com/ExaDev/claude-code-action/commit/5e54d9e494047e79cfab21bf1f4f66bf9448c3d4))
+
 ## [1.3.0](https://github.com/ExaDev/claude-code-action/compare/v1.2.0...v1.3.0) (2026-09-09)
 
 ### Features
