@@ -30,6 +30,8 @@ jobs:
       - name: Report result
         if: always()
         run: |
-          echo "### Headroom smoke test (${{ inputs.credential }})" >> "$GITHUB_STEP_SUMMARY"
-          echo "conclusion: ${{ steps.claude.outputs.conclusion }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "headroom_proxied: ${{ steps.claude.outputs.headroom_proxied }}" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### Headroom smoke test (${{ inputs.credential }})"
+            echo "conclusion: ${{ steps.claude.outputs.conclusion }}"
+            echo "headroom_proxied: ${{ steps.claude.outputs.headroom_proxied }}"
+          } >> "$GITHUB_STEP_SUMMARY"
