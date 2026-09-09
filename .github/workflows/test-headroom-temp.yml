@@ -1,16 +1,16 @@
-# TEMPORARY. Live smoke test for headroom_enabled (PR #40) -- proves the actual anthropics/claude-code-action invocation honours ANTHROPIC_BASE_URL end to end, against a real credential, which nothing short of a real Actions run can verify. mode: generic is used deliberately: it makes no GitHub API calls and posts nothing, so this is purely a "did the request reach the model through the proxy" check. push, not workflow_dispatch: a workflow_dispatch trigger only registers for dispatch once merged to the default branch, which this file never will be. This repository has no ANTHROPIC_API_KEY secret at all -- only CLAUDE_CODE_OAUTH_TOKEN -- so claude_code_oauth_token is the credential that actually needs proving here. Removed once verified.
+# TEMPORARY. Live smoke test for headroom_enabled (PR #40) -- proves the actual anthropics/claude-code-action invocation honours ANTHROPIC_BASE_URL end to end, against a real credential, which nothing short of a real Actions run can verify. mode: generic is used deliberately: it makes no GitHub API calls and posts nothing, so this is purely a "did the request reach the model through the proxy" check. pull_request, not push or workflow_dispatch: upstream anthropics/claude-code-action rejects a raw push event outright ("Unsupported event type: push", confirmed live on the first attempt of this file), and workflow_dispatch only registers for dispatch once merged to the default branch, which this file never will be. PR #40 already exists for this branch, so a synchronize push fires this correctly. This repository has no ANTHROPIC_API_KEY secret at all -- only CLAUDE_CODE_OAUTH_TOKEN -- so claude_code_oauth_token is the credential that actually needs proving here. Removed once verified.
 name: Test Headroom (temporary)
 
 on:
-  push:
-    branches: [feat/headroom-context-compression]
-    paths: [.github/workflows/test-headroom-temp.yml]
+  pull_request:
+    types: [synchronize]
 
 permissions:
   contents: read
 
 jobs:
   test:
+    if: github.event.pull_request.number == 40
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
