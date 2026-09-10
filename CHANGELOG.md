@@ -1,3 +1,9 @@
+## [1.10.1](https://github.com/ExaDev/claude-code-action/compare/v1.10.0...v1.10.1) (2026-09-10)
+
+### Bug Fixes
+
+- **action:** fail loudly when the OIDC workflow-file check silently skips a run ([5dd712b](https://github.com/ExaDev/claude-code-action/commit/5dd712bfb7020eb265bce8c835ccc524a35c7128))
+
 ## [1.10.0](https://github.com/ExaDev/claude-code-action/compare/v1.9.1...v1.10.0) (2026-09-10)
 
 ### Bug Fixes
