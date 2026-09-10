@@ -311,13 +311,17 @@ inputs:
   headroom_enabled:
     description: |
       Run a local Headroom context-compression proxy in front of the Anthropic API for this job, and
-      point every anthropics/claude-code-action call in it at that proxy via ANTHROPIC_BASE_URL. Off
+      point every anthropics/claude-code-action call in it at that proxy via ANTHROPIC_BASE_URL. On
       by default. See the README's "Context compression (Headroom)" section.
 
       Mutually exclusive with use_bedrock, use_vertex, use_foundry, and workload identity federation
       (anthropic_federation_rule_id) -- each of those routes Claude Code's requests to its own provider
       directly, bypassing ANTHROPIC_BASE_URL and the proxy silently. Setting headroom_enabled alongside
-      any of them fails validation rather than starting a proxy that compresses nothing.
+      any of them fails validation rather than starting a proxy that compresses nothing -- since this
+      now defaults to true, a job that sets one of those four inputs must also set headroom_enabled:
+      false explicitly, or validation fails before any provider call is attempted. The same applies to
+      a self-hosted runner with neither a usable Python nor Docker: set headroom_enabled: false there
+      too, since neither install method has anywhere to run.
 
       claude_code_oauth_token compatibility is confirmed: a live run authenticated purely by that
       credential reached the proxy and reached Anthropic's real API through it, confirmed by a genuine
@@ -325,7 +329,7 @@ inputs:
       own request count afterwards and reports headroom_proxied accordingly, as a standing regression
       check against a future upstream change, not because the question itself remains open.
     required: false
-    default: "false"
+    default: "true"
   headroom_install_method:
     description: |
       How to run the Headroom proxy: 'pip' (default) or 'docker'. pip installs headroom-ai[proxy] --

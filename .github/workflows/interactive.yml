@@ -155,6 +155,36 @@ on:
         type: string
         required: false
         default: ""
+      headroom_enabled:
+        description: "Run a local Headroom context-compression proxy in front of the Anthropic API for this job. On by default. Mutually exclusive with use_bedrock/use_vertex/use_foundry/anthropic_federation_rule_id -- set false explicitly alongside any of those, or on a self-hosted runner with neither a usable Python nor Docker. See action.yml and the README's 'Context compression (Headroom)' section."
+        type: boolean
+        required: false
+        default: true
+      headroom_install_method:
+        description: "How to run the Headroom proxy: 'pip' (default) or 'docker'. See action.yml and the README's 'Context compression (Headroom)' section."
+        type: string
+        required: false
+        default: "pip"
+      headroom_version:
+        description: "pip install method only. Exact headroom-ai version to pin. Ignored when headroom_install_method is docker."
+        type: string
+        required: false
+        default: "0.37.0"
+      headroom_image:
+        description: "docker install method only. Docker image for the Headroom proxy, pinned by digest. Ignored when headroom_install_method is pip."
+        type: string
+        required: false
+        default: "ghcr.io/headroomlabs-ai/headroom@sha256:35b799e94eef4644cb15a2e695b4b99698fe7668614623e9338cb10c10ececf9"
+      headroom_port:
+        description: "Loopback port the Headroom proxy listens on. Change only to avoid a collision with another localhost service already running in the same job."
+        type: number
+        required: false
+        default: 8787
+      headroom_show_savings:
+        description: "On by default. Post a short comment on the pull request or issue reporting Headroom's compression stats for this run, in addition to the Step Summary. Ignored when headroom_enabled is false."
+        type: boolean
+        required: false
+        default: true
       display_report:
         description: "Display the Claude Code report in the GitHub Step Summary. Only for trusted-input repositories — see action.yml's own warning."
         type: boolean
@@ -256,6 +286,12 @@ jobs:
           anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
           anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
           anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+          headroom_enabled: ${{ inputs.headroom_enabled }}
+          headroom_install_method: ${{ inputs.headroom_install_method }}
+          headroom_version: ${{ inputs.headroom_version }}
+          headroom_image: ${{ inputs.headroom_image }}
+          headroom_port: ${{ inputs.headroom_port }}
+          headroom_show_savings: ${{ inputs.headroom_show_savings }}
           display_report: ${{ inputs.display_report }}
           show_full_output: ${{ inputs.show_full_output }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
