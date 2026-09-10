@@ -1811,25 +1811,6 @@ runs:
         echo "Giving up on posting the Headroom savings comment after 3 attempts."
         exit 1
 
-    - name: Stop Headroom proxy
-      if: ${{ always() && inputs.headroom_enabled == 'true' }}
-      continue-on-error: true
-      shell: bash
-      env:
-        HEADROOM_INSTALL_METHOD: ${{ inputs.headroom_install_method }}
-      run: |
-        if [ "$HEADROOM_INSTALL_METHOD" = "docker" ]; then
-          docker stop headroom-proxy >/dev/null 2>&1 || true
-        else
-          # A plain kill only sends SIGTERM once, with no wait and no SIGKILL fallback -- harmless on an ephemeral GitHub-hosted runner (destroyed regardless), but the pip path exists specifically for a self-hosted runner with Python but no Docker, where the runner persists across jobs and a lingering process would hold the port for the next job's own headroom_enabled run. Escalating to SIGKILL after a short grace period matches what docker stop already does above.
-          if [ -f /tmp/headroom-proxy.pid ]; then
-            PID="$(cat /tmp/headroom-proxy.pid)"
-            kill "$PID" >/dev/null 2>&1 || true
-            sleep 2
-            kill -0 "$PID" >/dev/null 2>&1 && kill -9 "$PID" >/dev/null 2>&1 || true
-          fi
-        fi
-
     # --- Wrap-up on turn limit --- When the primary run hits --max-turns, Claude Code exits mid-task with no closing reply. This detects that and fires a short follow-on (3 turns) that resumes the session with a summarise-what-you-found prompt, so the work is captured rather than lost. Modelled on Exie's wrap-up pattern: short follow-on, full prior context via --resume, a nudge forcing a closing answer.
     - name: Detect turn-limit hit
       id: detect-turn-limit
@@ -2092,6 +2073,26 @@ runs:
         github_token: ${{ inputs.github_token }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
+
+    # Stopped here, after every anthropics/claude-code-action call site in the job (the wrap-up follow-on, the automatic-fix pass, the structured summary), not right after the main review -- ANTHROPIC_BASE_URL stays exported to $GITHUB_ENV for the rest of the job regardless of where this runs, so stopping the proxy any earlier than its last real user leaves that env var pointing at a dead process for whichever of those three calls happens to run afterward. Confirmed live: a turn-limit wrap-up call failed with is_error:true, num_turns:1, total_cost_usd:0 (no request ever reached the model) after roughly three minutes, reproducible across two separate pull requests, until this step was moved to its current position after the last call that can still need the proxy.
+    - name: Stop Headroom proxy
+      if: ${{ always() && inputs.headroom_enabled == 'true' }}
+      continue-on-error: true
+      shell: bash
+      env:
+        HEADROOM_INSTALL_METHOD: ${{ inputs.headroom_install_method }}
+      run: |
+        if [ "$HEADROOM_INSTALL_METHOD" = "docker" ]; then
+          docker stop headroom-proxy >/dev/null 2>&1 || true
+        else
+          # A plain kill only sends SIGTERM once, with no wait and no SIGKILL fallback -- harmless on an ephemeral GitHub-hosted runner (destroyed regardless), but the pip path exists specifically for a self-hosted runner with Python but no Docker, where the runner persists across jobs and a lingering process would hold the port for the next job's own headroom_enabled run. Escalating to SIGKILL after a short grace period matches what docker stop already does above.
+          if [ -f /tmp/headroom-proxy.pid ]; then
+            PID="$(cat /tmp/headroom-proxy.pid)"
+            kill "$PID" >/dev/null 2>&1 || true
+            sleep 2
+            kill -0 "$PID" >/dev/null 2>&1 && kill -9 "$PID" >/dev/null 2>&1 || true
+          fi
+        fi
 
     - name: Save Claude Code session
       if: ${{ inputs.resume_sessions == 'true' && steps.claude.outputs.session_id != '' }}
