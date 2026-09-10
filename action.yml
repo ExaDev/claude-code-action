@@ -326,8 +326,24 @@ inputs:
       check against a future upstream change, not because the question itself remains open.
     required: false
     default: "false"
+  headroom_install_method:
+    description: |
+      How to run the Headroom proxy: 'pip' (default) or 'docker'. pip installs headroom-ai[proxy] --
+      the minimal extra for running just the proxy, without the AST-aware code-compression or Bedrock
+      backend support the docker image bundles unconditionally -- and runs it as a background process;
+      ubuntu-latest ships Python 3 already, so no separate runtime install is needed. docker instead
+      pulls and runs headroom_image as a container, which is heavier but is the only option on a
+      self-hosted runner that has Docker but not a usable Python (or the reverse situation flipped:
+      pip is the only option on a self-hosted runner with Python but no Docker). See the README's
+      "Context compression (Headroom)" section.
+    required: false
+    default: "pip"
+  headroom_version:
+    description: "pip install method only. Exact headroom-ai version to pin (no leading 'v', matches PyPI's own version string). Ignored when headroom_install_method is docker. See the README for how this pin is tracked and bumped."
+    required: false
+    default: "0.37.0"
   headroom_image:
-    description: "Docker image for the Headroom proxy, pinned by digest. Ignored when headroom_enabled is false. See the README's 'Context compression (Headroom)' section for how this pin is tracked and bumped."
+    description: "docker install method only. Docker image for the Headroom proxy, pinned by digest. Ignored when headroom_install_method is pip. See the README's 'Context compression (Headroom)' section for how this pin is tracked and bumped."
     required: false
     default: "ghcr.io/headroomlabs-ai/headroom@sha256:35b799e94eef4644cb15a2e695b4b99698fe7668614623e9338cb10c10ececf9"
   headroom_port:
@@ -414,6 +430,7 @@ runs:
         PROMPT_FILE: ${{ inputs.prompt_file }}
         HEADROOM_ENABLED: ${{ inputs.headroom_enabled }}
         HEADROOM_SHOW_SAVINGS: ${{ inputs.headroom_show_savings }}
+        HEADROOM_INSTALL_METHOD: ${{ inputs.headroom_install_method }}
         USE_BEDROCK: ${{ inputs.use_bedrock }}
         USE_VERTEX: ${{ inputs.use_vertex }}
         USE_FOUNDRY: ${{ inputs.use_foundry }}
@@ -591,7 +608,15 @@ runs:
             ;;
         esac
 
-        # Bedrock, Vertex, Foundry, and workload identity federation each make Claude Code call its own provider directly, bypassing ANTHROPIC_BASE_URL entirely and silently. Left unchecked, headroom_enabled alongside any of these would start the proxy, pay the Docker pull and startup cost, and compress nothing, with no error at all.
+        case "$HEADROOM_INSTALL_METHOD" in
+          pip|docker) ;;
+          *)
+            echo "::error::headroom_install_method must be pip or docker. Got '${HEADROOM_INSTALL_METHOD}'."
+            exit 1
+            ;;
+        esac
+
+        # Bedrock, Vertex, Foundry, and workload identity federation each make Claude Code call its own provider directly, bypassing ANTHROPIC_BASE_URL entirely and silently. Left unchecked, headroom_enabled alongside any of these would start the proxy, pay its install and startup cost (a pip install or a Docker pull, depending on headroom_install_method), and compress nothing, with no error at all.
         if [ "$HEADROOM_ENABLED" = "true" ]; then
           if [ "$USE_BEDROCK" = "true" ] || [ "$USE_VERTEX" = "true" ] || [ "$USE_FOUNDRY" = "true" ]; then
             echo "::error::headroom_enabled cannot be combined with use_bedrock, use_vertex, or use_foundry. Each of those routes Claude Code's requests to its own provider directly, bypassing the Headroom proxy (and ANTHROPIC_BASE_URL) entirely. Set headroom_enabled: false, or drop the alternative-provider input."
@@ -1163,13 +1188,23 @@ runs:
       if: ${{ inputs.headroom_enabled == 'true' }}
       shell: bash
       env:
+        HEADROOM_INSTALL_METHOD: ${{ inputs.headroom_install_method }}
+        HEADROOM_VERSION: ${{ inputs.headroom_version }}
         HEADROOM_IMAGE: ${{ inputs.headroom_image }}
         HEADROOM_PORT: ${{ inputs.headroom_port }}
       run: |
         set -euo pipefail
 
-        # The image's own ENTRYPOINT/CMD already runs `headroom proxy --host 0.0.0.0 --port 8787` -- no command override needed. The container listens on 0.0.0.0 internally (required for Docker's own port mapping to reach it); binding the published port to 127.0.0.1 below is what actually confines it to this runner.
-        docker run -d --rm --name headroom-proxy -p "127.0.0.1:${HEADROOM_PORT}:8787" "${HEADROOM_IMAGE}"
+        if [ "$HEADROOM_INSTALL_METHOD" = "docker" ]; then
+          # The image's own ENTRYPOINT/CMD already runs `headroom proxy --host 0.0.0.0 --port 8787` -- no command override needed. The container listens on 0.0.0.0 internally (required for Docker's own port mapping to reach it); binding the published port to 127.0.0.1 below is what actually confines it to this runner.
+          docker run -d --rm --name headroom-proxy -p "127.0.0.1:${HEADROOM_PORT}:8787" "${HEADROOM_IMAGE}"
+        else
+          # pip (the default): headroom-ai[proxy] is the minimal extra for running just the proxy -- it skips the AST-aware code-compression and Bedrock backend support the docker image bundles unconditionally via HEADROOM_EXTRAS=proxy,code,bedrock. ubuntu-latest ships Python 3 already, so no separate runtime setup is needed. Installed into a dedicated venv, not the system Python directly: modern Ubuntu runner images enforce PEP 668 (externally-managed-environment) and refuse a bare `pip install` outright, and a venv is the cleaner fix regardless -- no risk of colliding with whatever else in the job already uses the system Python. Binds 127.0.0.1 directly -- there is no container networking layer here, so unlike the docker branch above there is no need to bind 0.0.0.0 anywhere first and confine it via a published-port mapping.
+          python3 -m venv /tmp/headroom-venv
+          /tmp/headroom-venv/bin/pip install --quiet --disable-pip-version-check "headroom-ai[proxy]==${HEADROOM_VERSION}"
+          nohup /tmp/headroom-venv/bin/headroom proxy --host 127.0.0.1 --port "${HEADROOM_PORT}" > /tmp/headroom-proxy.log 2>&1 &
+          echo "$!" > /tmp/headroom-proxy.pid
+        fi
 
         ready=false
         for _ in $(seq 1 30); do
@@ -1181,15 +1216,19 @@ runs:
         done
 
         if [ "$ready" != "true" ]; then
-          echo "::group::Headroom container logs"
-          docker logs headroom-proxy || true
+          echo "::group::Headroom logs"
+          if [ "$HEADROOM_INSTALL_METHOD" = "docker" ]; then
+            docker logs headroom-proxy || true
+          else
+            cat /tmp/headroom-proxy.log 2>/dev/null || true
+          fi
           echo "::endgroup::"
           echo "::error::Headroom proxy never became ready at http://127.0.0.1:${HEADROOM_PORT}/readyz after 60s. Refusing to proceed with headroom_enabled: true against a dead proxy."
           exit 1
         fi
 
         echo "ANTHROPIC_BASE_URL=http://127.0.0.1:${HEADROOM_PORT}" >> "$GITHUB_ENV"
-        echo "Headroom proxy healthy; ANTHROPIC_BASE_URL exported for every following step in this job."
+        echo "Headroom proxy healthy (${HEADROOM_INSTALL_METHOD}); ANTHROPIC_BASE_URL exported for every following step in this job."
 
     # Pinned to the commit that anthropics/claude-code-action's v1 tag resolved to on 2026-08-08 (v1.0.189). Update the pin deliberately, never by moving to @v1: see the Versioning section of README.md.
     #
@@ -1522,12 +1561,13 @@ runs:
       shell: bash
       env:
         HEADROOM_PORT: ${{ inputs.headroom_port }}
+        HEADROOM_INSTALL_METHOD: ${{ inputs.headroom_install_method }}
         WINNING_CRED_TYPE: ${{ steps.claude.outputs.winning_cred_type }}
       run: |
         set -euo pipefail
         # requests.total counts every request Headroom actually forwarded to https://api.anthropic.com, incrementing even on a response the real API itself rejects (confirmed: a deliberately invalid key still increments it, since the proxy did genuinely forward the request) -- so it distinguishes "the proxy handled a real Claude Code call" from "nothing ever reached it," which is exactly what this check needs.
         #
-        # summary.compression.total_tokens_removed/avg_compression_pct are NOT documented anywhere in Headroom's own public docs (only /health's differently-shaped stats and /metrics' Prometheus counters are) -- these were confirmed empirically, by inspecting a live /stats response from the exact digest this action pins (headroom_image's default). Given a mismatch would fail silently (the ?? 0 fallback reports a plausible-looking "0 tokens saved" forever, not an error), the risk is bounded specifically because headroom_image is digest-pinned: the response shape cannot change under this action's feet on its own the way a floating :latest tag could. It only changes when a maintainer deliberately bumps the pinned digest (action.yml's own default, tracked via docker/headroom.Dockerfile's Dependabot entry) -- which is exactly the moment to re-verify these field paths against the new digest's real /stats response, the same way this action always re-verifies a maintainer's own claims before trusting them (see verify_prior_findings). Confirmed against the currently-pinned digest twice before merge -- a synthetic local test and a real CI run against a genuine multi-hundred-line diff -- both producing plausible non-zero values, never the "always 0" failure mode this note exists to flag.
+        # summary.compression.total_tokens_removed/avg_compression_pct are NOT documented anywhere in Headroom's own public docs (only /health's differently-shaped stats and /metrics' Prometheus counters are) -- these were confirmed empirically, by inspecting a live /stats response from the exact version this action pins (headroom_version for pip, headroom_image's digest for docker -- both pin the identical underlying release). Given a mismatch would fail silently (the ?? 0 fallback reports a plausible-looking "0 tokens saved" forever, not an error), the risk is bounded specifically because both pins are exact: a PyPI version number is immutable once published, just as a digest is, so the response shape cannot change under this action's feet on its own the way a floating :latest tag or unpinned version range could. It only changes when a maintainer deliberately bumps one of the pins (action.yml's own defaults, tracked via docker/headroom.Dockerfile's Dependabot entry for the digest) -- which is exactly the moment to re-verify these field paths against the new version's real /stats response, the same way this action always re-verifies a maintainer's own claims before trusting them (see verify_prior_findings). Confirmed against the currently-pinned version twice before merge -- a synthetic local test and a real CI run against a genuine multi-hundred-line diff -- both producing plausible non-zero values, never the "always 0" failure mode this note exists to flag.
         STATS="$(curl -fsS "http://127.0.0.1:${HEADROOM_PORT}/stats" 2>/dev/null || echo '{}')"
         read -r PROXIED_COUNT TOKENS_SAVED COMPRESSION_PCT <<<"$(node -e '
           let d="";
@@ -1566,8 +1606,12 @@ runs:
             echo "⚠️ headroom_enabled was set, but zero requests were proxied this run -- no compression happened. See the workflow log for details."
           } >> "$GITHUB_STEP_SUMMARY"
         fi
-        echo "::group::Headroom container logs"
-        docker logs headroom-proxy 2>&1 | tail -100 || true
+        echo "::group::Headroom logs"
+        if [ "${HEADROOM_INSTALL_METHOD:-pip}" = "docker" ]; then
+          docker logs headroom-proxy 2>&1 | tail -100 || true
+        else
+          tail -100 /tmp/headroom-proxy.log 2>/dev/null || true
+        fi
         echo "::endgroup::"
 
     # The Step Summary above is only visible to someone who opens this run in the Actions tab. This posts the same numbers where a PR/issue author actually looks -- a short, dedicated comment, never the progress comment above, which is deleted outright on a successful run (see "Update progress comment" below) precisely when there would be real savings to show. Skipped in generic mode, which posts nothing to GitHub by design, and skipped entirely when nothing was proxied -- a comment reporting zero savings on every run would be noise, and the Step Summary's own warning already covers that case for whoever is looking at the log.
@@ -1619,7 +1663,14 @@ runs:
       if: ${{ always() && inputs.headroom_enabled == 'true' }}
       continue-on-error: true
       shell: bash
-      run: docker stop headroom-proxy >/dev/null 2>&1 || true
+      env:
+        HEADROOM_INSTALL_METHOD: ${{ inputs.headroom_install_method }}
+      run: |
+        if [ "$HEADROOM_INSTALL_METHOD" = "docker" ]; then
+          docker stop headroom-proxy >/dev/null 2>&1 || true
+        else
+          [ -f /tmp/headroom-proxy.pid ] && kill "$(cat /tmp/headroom-proxy.pid)" >/dev/null 2>&1 || true
+        fi
 
     # --- Wrap-up on turn limit --- When the primary run hits --max-turns, Claude Code exits mid-task with no closing reply. This detects that and fires a short follow-on (3 turns) that resumes the session with a summarise-what-you-found prompt, so the work is captured rather than lost. Modelled on Exie's wrap-up pattern: short follow-on, full prior context via --resume, a nudge forcing a closing answer.
     - name: Detect turn-limit hit
