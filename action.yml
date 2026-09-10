@@ -1669,7 +1669,13 @@ runs:
         if [ "$HEADROOM_INSTALL_METHOD" = "docker" ]; then
           docker stop headroom-proxy >/dev/null 2>&1 || true
         else
-          [ -f /tmp/headroom-proxy.pid ] && kill "$(cat /tmp/headroom-proxy.pid)" >/dev/null 2>&1 || true
+          # A plain kill only sends SIGTERM once, with no wait and no SIGKILL fallback -- harmless on an ephemeral GitHub-hosted runner (destroyed regardless), but the pip path exists specifically for a self-hosted runner with Python but no Docker, where the runner persists across jobs and a lingering process would hold the port for the next job's own headroom_enabled run. Escalating to SIGKILL after a short grace period matches what docker stop already does above.
+          if [ -f /tmp/headroom-proxy.pid ]; then
+            PID="$(cat /tmp/headroom-proxy.pid)"
+            kill "$PID" >/dev/null 2>&1 || true
+            sleep 2
+            kill -0 "$PID" >/dev/null 2>&1 && kill -9 "$PID" >/dev/null 2>&1 || true
+          fi
         fi
 
     # --- Wrap-up on turn limit --- When the primary run hits --max-turns, Claude Code exits mid-task with no closing reply. This detects that and fires a short follow-on (3 turns) that resumes the session with a summarise-what-you-found prompt, so the work is captured rather than lost. Modelled on Exie's wrap-up pattern: short follow-on, full prior context via --resume, a nudge forcing a closing answer.
