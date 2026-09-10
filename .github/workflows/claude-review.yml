@@ -31,6 +31,8 @@ jobs:
           pr_number: ${{ github.event.pull_request.number }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           allowed_bots: "claude[bot]"
+          # Dogfooding Headroom on this repo's own reviews -- pip is the default install method, already confirmed to work with this repo's OAuth-token-only credential. Posts a "Headroom compressed this run's context" comment on the PR when it actually proxies something; see the README's "Context compression (Headroom)" section.
+          headroom_enabled: true
           # Optional: Enable progress tracking with checkboxes
           # track_progress: true
           # Optional: Include "Fix this" links (default: true)
