@@ -1200,6 +1200,42 @@ runs:
           docker run -d --rm --name headroom-proxy -p "127.0.0.1:${HEADROOM_PORT}:8787" "${HEADROOM_IMAGE}"
         else
           # pip (the default): headroom-ai[proxy] is the minimal extra for running just the proxy -- it skips the AST-aware code-compression and Bedrock backend support the docker image bundles unconditionally via HEADROOM_EXTRAS=proxy,code,bedrock. ubuntu-latest ships Python 3 already, so no separate runtime setup is needed. Installed into a dedicated venv, not the system Python directly: modern Ubuntu runner images enforce PEP 668 (externally-managed-environment) and refuse a bare `pip install` outright, and a venv is the cleaner fix regardless -- no risk of colliding with whatever else in the job already uses the system Python. Binds 127.0.0.1 directly -- there is no container networking layer here, so unlike the docker branch above there is no need to bind 0.0.0.0 anywhere first and confine it via a published-port mapping.
+          #
+          # Fixed at 7 days, matching this organisation's own npm/pnpm min-release-age policy exactly -- that policy is a global constant too, not a per-project setting, so this mirrors it rather than adding a new configurable input nobody has asked to tune. Reads HEADROOM_VERSION from the process environment (os.environ), not interpolated into the script's own source text -- a fetched value substituted directly into a Python literal is exactly the fragile pattern that broke silently once already in this file's own development. Only stdlib (urllib.request) is used: no extra dependency needed just to check a date before the real install below. The heredoc body below is written at this step's own run: | base indentation (8 spaces), not the deeper level the surrounding bash if/else is nested at -- YAML's literal block scalar strips exactly the base amount uniformly from every line, so writing the Python body any deeper here would leave it with stray leading whitespace once YAML hands the string to bash, breaking both Python's own indentation rules and the plain (non-dash) heredoc terminator's required exact match.
+          python3 - <<'HEADROOM_AGE_CHECK_EOF'
+        import json
+        import os
+        import sys
+        import urllib.request
+        from datetime import datetime, timezone
+
+        MIN_AGE_DAYS = 7  # matches this organisation's npm/pnpm min-release-age policy
+
+        version = os.environ["HEADROOM_VERSION"]
+
+        url = f"https://pypi.org/pypi/headroom-ai/{version}/json"
+        try:
+            with urllib.request.urlopen(url, timeout=10) as response:
+                data = json.load(response)
+        except Exception as e:
+            print(f"::error::Could not fetch PyPI metadata for headroom-ai=={version}: {e}")
+            sys.exit(1)
+
+        upload_times = [u["upload_time_iso_8601"] for u in data.get("urls", [])]
+        if not upload_times:
+            print(f"::error::PyPI has no published files for headroom-ai=={version}. Check headroom_version is correct.")
+            sys.exit(1)
+
+        uploaded = datetime.fromisoformat(min(upload_times))
+        age_days = (datetime.now(timezone.utc) - uploaded).days
+
+        if age_days < MIN_AGE_DAYS:
+            print(f"::error::headroom-ai=={version} was published {age_days} day(s) ago, under the {MIN_AGE_DAYS}-day minimum this organisation enforces for freshly-published packages. This guards against a compromised release before the community has had time to notice. Wait for it to age past {MIN_AGE_DAYS} days, or pin an older version via headroom_version.")
+            sys.exit(1)
+
+        print(f"headroom-ai=={version} published {age_days} day(s) ago, at or past the {MIN_AGE_DAYS}-day minimum.")
+        HEADROOM_AGE_CHECK_EOF
+
           python3 -m venv /tmp/headroom-venv
           /tmp/headroom-venv/bin/pip install --quiet --disable-pip-version-check "headroom-ai[proxy]==${HEADROOM_VERSION}"
           nohup /tmp/headroom-venv/bin/headroom proxy --host 127.0.0.1 --port "${HEADROOM_PORT}" > /tmp/headroom-proxy.log 2>&1 &
