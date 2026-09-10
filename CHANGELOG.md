@@ -1,3 +1,13 @@
+## [1.8.0](https://github.com/ExaDev/claude-code-action/compare/v1.7.0...v1.8.0) (2026-09-10)
+
+### Bug Fixes
+
+- **headroom:** discover the docker registry's real token realm ([98aedae](https://github.com/ExaDev/claude-code-action/commit/98aedaecd21b5b27344c70b62643dc34a16122ec))
+
+### Features
+
+- **headroom:** enforce the same 7-day minimum release age for docker ([1b79aa5](https://github.com/ExaDev/claude-code-action/commit/1b79aa55859715d0ad881f7c861165c5fd98580f))
+
 ## [1.7.0](https://github.com/ExaDev/claude-code-action/compare/v1.6.0...v1.7.0) (2026-09-10)
 
 ### Bug Fixes
