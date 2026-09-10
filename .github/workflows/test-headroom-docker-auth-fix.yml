@@ -1,0 +1,38 @@
+# TEMPORARY. Validates the WWW-Authenticate discovery fix in real CI. Removed once confirmed.
+name: Test Headroom Docker Auth Fix (temporary)
+
+on:
+  pull_request:
+    types: [synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  test:
+    if: github.event.pull_request.head.ref == 'feat/headroom-docker-min-release-age'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: ./
+        id: claude
+        with:
+          mode: generic
+          prompt_file: .github/test-headroom-docker-auth-prompt.md
+          github_token: ${{ github.token }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          headroom_enabled: true
+          headroom_install_method: docker
+          model: haiku
+      - name: Report result
+        if: always()
+        run: |
+          {
+            echo "### Headroom docker auth-discovery fix validation"
+            echo "conclusion: ${{ steps.claude.outputs.conclusion }}"
+            echo "headroom_proxied: ${{ steps.claude.outputs.headroom_proxied }}"
+          } >> "$GITHUB_STEP_SUMMARY"
