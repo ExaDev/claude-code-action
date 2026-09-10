@@ -2110,6 +2110,33 @@ runs:
         path: ~/.claude/projects
         key: ${{ steps.cache-scope.outputs.cache_key }}
 
+    # Closes a real, observed gap: "Resolve Claude Code result" above only confirms Claude Code itself ran (a real conclusion was produced), not that triage's own promised output -- a new issue comment, or a body edit carrying the `claude-triage:start` marker (prompts/triage/base.md's own "append a short triage summary to the issue's own description" section) -- actually landed on GitHub. Both are ordinary tool calls the model makes from its own prompt, not something this composite action enforces; a run that legitimately completes without ever calling either still reports steps.claude.outcome == 'success', which "Update progress comment" below already treats as "real output now exists elsewhere" and deletes the one visible trace (the progress comment itself) on that basis -- and, worse, that success also becomes this composite action's own overall conclusion, so even the Actions tab shows green. Confirmed happening for real, not just theoretically: three separate triage runs (novus-power/hive#1490, #1657, #1661) reported success and left zero comments and no marker, with the progress comment deleted and nothing to show for the run at all. This step re-checks GitHub's own state rather than trusting the model's self-report, the same principle "Structured review summary" above already applies to review mode by re-fetching what was actually submitted. Placed after every optional post-run step (Headroom reporting, turn-limit wrap-up, session save) rather than right after "Resolve Claude Code result", so a real failure here -- deliberately with no continue-on-error, for the same reason "Wrap up on turn limit" has none -- never starves an unrelated step of the implicit success() every unadorned `if:` in this file still carries; "Update progress comment" below is the one step built to run regardless (`if: always()`), which is exactly why this sits immediately before it.
+    - name: Verify triage output landed
+      id: verify-triage-output
+      if: ${{ inputs.mode == 'triage' && steps.claude.outcome == 'success' && steps.progress-comment.outputs.comment_id != '' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token || github.token }}
+        REPOSITORY: ${{ github.repository }}
+        ISSUE_NUMBER: ${{ inputs.issue_number || github.event.issue.number }}
+        PROGRESS_COMMENT_ID: ${{ steps.progress-comment.outputs.comment_id }}
+      run: |
+        set -euo pipefail
+
+        # A genuine new comment posted after this run's own progress comment is real output -- the progress comment's own id is this run's "before" marker, since it was the most recent comment on the issue at the moment this run started.
+        NEWER_COMMENTS=$(gh api "repos/${REPOSITORY}/issues/${ISSUE_NUMBER}/comments" --paginate -q "[.[] | select(.id > ${PROGRESS_COMMENT_ID})] | length")
+
+        # The marker's mere presence is enough: a re-triage run that replaces an existing block still counts as real output, and there is no cheap way to tell "replaced" from "left untouched" without a pre-run body snapshot this step does not have.
+        HAS_MARKER=$(gh api "repos/${REPOSITORY}/issues/${ISSUE_NUMBER}" --jq '.body // "" | contains("<!-- claude-triage:start -->")')
+
+        if [ "$NEWER_COMMENTS" -gt 0 ] || [ "$HAS_MARKER" = "true" ]; then
+          echo "Verified: triage left real output (new comments: ${NEWER_COMMENTS}, marker present: ${HAS_MARKER})."
+          exit 0
+        fi
+
+        echo "::error::Claude Code reported success, but triage left no new comment and no <!-- claude-triage:start --> marker on issue #${ISSUE_NUMBER}. Treating this run as failed rather than deleting the progress comment on an unverified success." >&2
+        exit 1
+
     # Counterpart to "Post progress comment" above -- resolves the SAME comment (by its captured id) once the whole run has finished, including any optional wrap-up/fix/summary pass above. if: always() so it still fires when Run Claude Code itself failed outright -- exactly when a plain visible status marker matters most, since nothing else in this composite action guarantees any comment lands when a mode's own model-driven output (a review, a triage comment, an interactive reply) never got produced.
     - name: Update progress comment
       if: ${{ always() && inputs.post_progress_comment == 'true' && steps.progress-comment.outputs.comment_id != '' }}
@@ -2124,6 +2151,8 @@ runs:
         CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
         # "Wrap up on turn limit" is the one later step with no continue-on-error and no prior id (unlike the fix pass / structured-summary steps, which are all continue-on-error: true and so can never make an already-successful primary run look failed here) -- if it runs and itself fails, the job outcome is failure even though steps.claude.outcome is still the earlier, successful "success". Folded in below rather than trusted on its own, since it reports "skipped" (not "success") whenever detect-turn-limit didn't fire, which must not be read as a failure.
         WRAP_UP_OUTCOME: ${{ steps.wrap-up.outcome }}
+        # "Verify triage output landed" is the other step with no continue-on-error -- same reasoning, folded in the same way. It only ever runs (rather than reporting "skipped") for triage mode, so the "skipped" exemption below applies identically for every other mode.
+        VERIFY_TRIAGE_OUTCOME: ${{ steps.verify-triage-output.outcome }}
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       run: |
         set -euo pipefail
@@ -2131,8 +2160,11 @@ runs:
         if [ "$OUTCOME" = "success" ] && [ -n "${WRAP_UP_OUTCOME:-}" ] && [ "$WRAP_UP_OUTCOME" != "success" ] && [ "$WRAP_UP_OUTCOME" != "skipped" ]; then
           OUTCOME="$WRAP_UP_OUTCOME"
         fi
+        if [ "$OUTCOME" = "success" ] && [ -n "${VERIFY_TRIAGE_OUTCOME:-}" ] && [ "$VERIFY_TRIAGE_OUTCOME" != "success" ] && [ "$VERIFY_TRIAGE_OUTCOME" != "skipped" ]; then
+          OUTCOME="$VERIFY_TRIAGE_OUTCOME"
+        fi
 
-        # Real output now exists elsewhere (a submitted review, a triage comment, an interactive reply -- every mode always leaves one on success, per each mode's own prompt), so this placeholder has nothing left to say. Deleting it outright, rather than editing it to a "finished" message, is what stops repeat runs on the same pull request/issue from leaving a trail of near-identical status pings behind.
+        # Real output now exists elsewhere (a submitted review, a triage comment, an interactive reply -- every mode always leaves one on success, per each mode's own prompt), so this placeholder has nothing left to say. Deleting it outright, rather than editing it to a "finished" message, is what stops repeat runs on the same pull request/issue from leaving a trail of near-identical status pings behind. For triage specifically this is no longer a bare assumption -- "Verify triage output landed" above already re-checked it, and OUTCOME above already reflects the real answer.
         if [ "$OUTCOME" = "success" ]; then
           for attempt in 1 2 3; do
             if gh api -X DELETE "repos/${REPOSITORY}/issues/comments/${COMMENT_ID}"; then
