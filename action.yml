@@ -1329,8 +1329,10 @@ runs:
             print(f"::error::PyPI has no published files for headroom-ai=={version}. Check headroom_version is correct.")
             sys.exit(1)
 
+        # max(), not min(): PyPI allows additional files (a new platform wheel, a replacement build) to be uploaded under an already-published version well after its initial release -- a version's files are not necessarily all published together. Using min() would measure only the oldest file's age, so a compromised maintainer account could add a fresh malicious wheel under this already-old version and still pass the age gate, since pip is free to select whichever file matches the current platform. max() measures the newest file under this version instead, so the whole version stays blocked for MIN_AGE_DAYS from whenever it was LAST touched, not just when it was first published -- closing that gap the same way a single simultaneous release already passes either way.
+        #
         # datetime.fromisoformat() only accepts a trailing "Z" (as PyPI's upload_time_iso_8601 returns) from Python 3.11 onward -- on an older Python it raises ValueError instead. Replacing it with the equivalent +00:00 offset parses correctly on every Python 3 version, not just the one this was tested against.
-        uploaded = datetime.fromisoformat(min(upload_times).replace("Z", "+00:00"))
+        uploaded = datetime.fromisoformat(max(upload_times).replace("Z", "+00:00"))
         age_days = (datetime.now(timezone.utc) - uploaded).days
 
         if age_days < MIN_AGE_DAYS:
