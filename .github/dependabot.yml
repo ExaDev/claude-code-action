@@ -39,9 +39,21 @@ updates:
         exclude-patterns:
           - "@anthropic-ai/claude-code"
 
-  # A third, independent ecosystem entry, tracking the Headroom proxy image the context-compression feature (headroom_enabled) runs. A bare `docker run` inside action.yml's own shell steps is invisible to Dependabot's docker ecosystem, which needs a Dockerfile/compose FROM line or a workflow's `uses: docker://...` -- docker/headroom.Dockerfile exists purely as that anchor, never built. Not routed through the "Investigate and adapt" workflow below: that automation answers "does the interface contract need a matching change," which has no content for a bare digest bump. When this bumps, action.yml's headroom_image default needs a matching hand-update in the same PR -- see README.md's "Context compression (Headroom)" section.
+  # A third, independent ecosystem entry, tracking the Headroom proxy image the context-compression feature (headroom_enabled) runs when headroom_install_method is docker. A bare `docker run` inside action.yml's own shell steps is invisible to Dependabot's docker ecosystem, which needs a Dockerfile/compose FROM line or a workflow's `uses: docker://...` -- docker/headroom.Dockerfile exists purely as that anchor, never built. Not routed through the "Investigate and adapt" workflow below: that automation answers "does the interface contract need a matching change," which has no content for a bare digest bump. When this bumps, action.yml's headroom_image default needs a matching hand-update in the same PR -- see README.md's "Context compression (Headroom)" section.
   - package-ecosystem: "docker"
     directory: "/docker"
+    schedule:
+      interval: "daily"
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "build"
+      include: "scope"
+    open-pull-requests-limit: 10
+
+  # A fourth, independent ecosystem entry, tracking the Headroom pip package version the context-compression feature runs when headroom_install_method is pip (the default). Unlike the docker entry above, pip is a real Dependabot ecosystem that genuinely parses requirements.txt syntax -- python/requirements-headroom.txt is still an anchor never installed from directly (action.yml pip-installs into its own throwaway venv at runtime instead), but the version constraint itself is real, not a workaround. When this bumps, action.yml's headroom_version default needs a matching hand-update in the same PR -- see README.md's "Context compression (Headroom)" section.
+  - package-ecosystem: "pip"
+    directory: "/python"
     schedule:
       interval: "daily"
     cooldown:

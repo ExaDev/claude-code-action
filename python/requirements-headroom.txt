@@ -1,0 +1,6 @@
+# Anchor file only -- never installed from directly by action.yml, which pip-installs into its own
+# throwaway venv at runtime instead. Exists so Dependabot's pip ecosystem can track this pin. The
+# version this action actually installs lives in action.yml's headroom_version input default -- keep
+# the two in sync by hand (see README.md's "Context compression (Headroom)" section): when this file's
+# version bumps, update action.yml's default to match in the same PR.
+headroom-ai[proxy]==0.37.0
