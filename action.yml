@@ -1196,6 +1196,82 @@ runs:
         set -euo pipefail
 
         if [ "$HEADROOM_INSTALL_METHOD" = "docker" ]; then
+          #
+          # Fixed at 7 days, matching the pip branch's own policy below and this organisation's npm/pnpm min-release-age policy. Uses the raw OCI Distribution API (anonymous pull token, manifest, config blob), not GitHub's own package-version API -- that one needs authentication a consuming repository's ambient token will not generally have against a third-party org's package (confirmed: an unauthenticated request returns 401), whereas the registry protocol itself supports fully anonymous access for a public image, the same way `docker pull` itself works with no login. The heredoc body below is at this step's own run: | base indentation (8 spaces), same reasoning as the pip branch's own heredoc further down.
+          python3 - <<'HEADROOM_DOCKER_AGE_CHECK_EOF'
+        import json
+        import os
+        import re
+        import sys
+        import urllib.request
+        from datetime import datetime, timezone
+
+        MIN_AGE_DAYS = 7  # matches this organisation's npm/pnpm min-release-age policy
+
+        image = os.environ["HEADROOM_IMAGE"]
+        m = re.match(r"^([^/]+)/(.+)@(sha256:[0-9a-f]+)$", image)
+        if not m:
+            print(f"::error::Could not parse headroom_image '{image}' as registry/repo@digest.")
+            sys.exit(1)
+        registry, repo, digest = m.groups()
+
+
+        def get_json(url, token=None, accept=None):
+            headers = {}
+            if token:
+                headers["Authorization"] = f"Bearer {token}"
+            if accept:
+                headers["Accept"] = accept
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as response:
+                return json.load(response)
+
+
+        try:
+            token = get_json(f"https://{registry}/token?service={registry}&scope=repository:{repo}:pull")["token"]
+
+            manifest = get_json(
+                f"https://{registry}/v2/{repo}/manifests/{digest}",
+                token=token,
+                accept="application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json",
+            )
+
+            if "manifests" in manifest:
+                # A multi-platform index: pick the platform GitHub-hosted runners actually use.
+                platform_digest = next(
+                    (m["digest"] for m in manifest["manifests"] if m.get("platform", {}).get("architecture") == "amd64" and m.get("platform", {}).get("os") == "linux"),
+                    None,
+                )
+                if not platform_digest:
+                    print(f"::error::headroom_image's manifest index has no linux/amd64 platform entry.")
+                    sys.exit(1)
+                manifest = get_json(
+                    f"https://{registry}/v2/{repo}/manifests/{platform_digest}",
+                    token=token,
+                    accept="application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json",
+                )
+
+            config_digest = manifest["config"]["digest"]
+            config = get_json(f"https://{registry}/v2/{repo}/blobs/{config_digest}", token=token)
+        except Exception as e:
+            print(f"::error::Could not fetch registry metadata for headroom_image '{image}': {e}")
+            sys.exit(1)
+
+        created = config.get("created")
+        if not created:
+            print(f"::error::headroom_image's config blob has no 'created' timestamp. Cannot verify its release age.")
+            sys.exit(1)
+
+        built = datetime.fromisoformat(created.replace("Z", "+00:00"))
+        age_days = (datetime.now(timezone.utc) - built).days
+
+        if age_days < MIN_AGE_DAYS:
+            print(f"::error::{image} was built {age_days} day(s) ago, under the {MIN_AGE_DAYS}-day minimum this organisation enforces for freshly-published packages. This guards against a compromised release before the community has had time to notice. Wait for it to age past {MIN_AGE_DAYS} days, or pin an older digest via headroom_image.")
+            sys.exit(1)
+
+        print(f"{image} built {age_days} day(s) ago, at or past the {MIN_AGE_DAYS}-day minimum.")
+        HEADROOM_DOCKER_AGE_CHECK_EOF
+
           # The image's own ENTRYPOINT/CMD already runs `headroom proxy --host 0.0.0.0 --port 8787` -- no command override needed. The container listens on 0.0.0.0 internally (required for Docker's own port mapping to reach it); binding the published port to 127.0.0.1 below is what actually confines it to this runner.
           docker run -d --rm --name headroom-proxy -p "127.0.0.1:${HEADROOM_PORT}:8787" "${HEADROOM_IMAGE}"
         else
