@@ -743,20 +743,22 @@ runs:
         BODY=$(printf '🔄 Claude is %s… [View job run](%s)' "$VERB" "$RUN_URL")
 
         # Three attempts with a short backoff before falling back on continue-on-error above -- a transient rate limit or network blip shouldn't cost the comment even though a sustained failure (bad permissions, a real outage) still must not fail the job.
-        COMMENT_ID=""
+        COMMENT_JSON=""
         for attempt in 1 2 3; do
-          if COMMENT_ID=$(gh api "repos/${REPOSITORY}/issues/${ENTITY_NUMBER}/comments" -f body="$BODY" -q .id); then
+          if COMMENT_JSON=$(gh api "repos/${REPOSITORY}/issues/${ENTITY_NUMBER}/comments" -f body="$BODY"); then
             break
           fi
-          COMMENT_ID=""
+          COMMENT_JSON=""
           echo "Failed to post progress comment (attempt ${attempt}/3)."
           [ "$attempt" -lt 3 ] && sleep 2
         done
-        if [ -z "$COMMENT_ID" ]; then
+        if [ -z "$COMMENT_JSON" ]; then
           echo "Giving up on posting a progress comment after 3 attempts."
           exit 1
         fi
-        echo "comment_id=${COMMENT_ID}" >> "$GITHUB_OUTPUT"
+        echo "comment_id=$(jq -r '.id' <<<"$COMMENT_JSON")" >> "$GITHUB_OUTPUT"
+        # The actual identity GH_TOKEN just posted as, read straight from this real API response rather than assumed -- "Verify triage output landed" further down uses this (when it exists) as the authoritative answer to "which comments are this run's own output", since it's the one point in the job that observes the true poster identity firsthand.
+        echo "actor_login=$(jq -r '.user.login' <<<"$COMMENT_JSON")" >> "$GITHUB_OUTPUT"
         # Threaded through to "Update progress comment" below as the single source of truth for the marker text, rather than a second hardcoded literal that has to be kept in sync by hand.
         echo "marker_failed=${MARKER_FAILED}" >> "$GITHUB_OUTPUT"
         echo "Posted progress comment ${COMMENT_ID}."
@@ -2127,6 +2129,8 @@ runs:
         ISSUE_NUMBER: ${{ inputs.issue_number || github.event.issue.number }}
         START_TIME: ${{ steps.run-start.outputs.started_at }}
         PROGRESS_COMMENT_ID: ${{ steps.progress-comment.outputs.comment_id }}
+        PROGRESS_ACTOR_LOGIN: ${{ steps.progress-comment.outputs.actor_login }}
+        CUSTOM_GITHUB_TOKEN: ${{ inputs.github_token }}
       run: |
         set -euo pipefail
 
@@ -2134,10 +2138,20 @@ runs:
         # 0 never matches a real comment id -- the fallback for when post_progress_comment is false and no progress comment (and therefore no id to exclude) exists at all.
         PROGRESS_COMMENT_ID_ARG="${PROGRESS_COMMENT_ID:-0}"
 
-        # A genuine new comment created at or after this run's own start time is real output. `created_at` compares correctly as a plain string here because GitHub always renders it in the same fixed-width ISO 8601 UTC form ("2026-09-10T20:17:02Z") this step's own START_TIME is captured in, so lexical and chronological order agree. Excludes two comments that would otherwise be miscounted as "new" even on a run that produced nothing real: the progress comment itself (posted, if post_progress_comment is enabled, after START_TIME but before Claude Code even runs) by id, and "Post Headroom savings comment"'s own comment (posted unconditionally -- if: always(), regardless of steps.claude.outcome -- whenever Headroom actually proxied anything, which is the shipped default) by its own marker. Two things a naive `--paginate -q` gets wrong here, independent of the filter itself: `-q` filters PER PAGE, not across the combined result (confirmed empirically -- a paginated endpoint with `-q '. | length'` returns one count per page, not a single total), so an issue with more prior comments than fit on one page would leave NEWER_COMMENTS as a multi-line value. `--slurp` combines every page into one array first; it can't be passed to `-q`/`--jq` directly (confirmed: gh api rejects the combination), so the result is piped into a separate jq call instead, flattening the array-of-pages with `.[][]`. Retried like every other gh api call in this composite action that isn't already guarded by an outer continue-on-error (see "Post progress comment", "Update progress comment") -- this step's whole purpose is avoiding a mis-reported outcome, so a single transient API hiccup must not itself become one.
+        # Every comment this composite action's own steps post (the progress comment, the Headroom savings comment) and every comment Claude Code itself posts via its own gh tool calls authenticate as whatever identity GH_TOKEN resolves to -- so that identity, not a hardcoded name, is the one whose comments actually count as "this run's own output". Without this, ANY comment landing in the run's time window -- a human reply, a different bot, another automation entirely -- would satisfy the check and mask a run that produced no real triage output of its own. Resolved from real observed evidence, not guessed: "Post progress comment" already captured the true poster login straight from the API response that created it, which is authoritative whenever it exists (post_progress_comment enabled, the default). When it doesn't (post_progress_comment disabled) and no custom github_token was supplied, the ambient default GITHUB_TOKEN's authored identity is a documented GitHub platform constant, not something that needs discovering at runtime. The one combination this can't resolve -- post_progress_comment disabled AND a custom github_token supplied -- has no comment response to read and no documented default to fall back on; rather than guess (or hard-fail a valid, if rare, input combination), the author filter is simply omitted for that one case, falling back to the same start-time/id/marker filtering the previous revision of this fix already used.
+        if [ -n "$PROGRESS_ACTOR_LOGIN" ]; then
+          ACTOR_LOGIN="$PROGRESS_ACTOR_LOGIN"
+        elif [ -z "$CUSTOM_GITHUB_TOKEN" ]; then
+          ACTOR_LOGIN="github-actions[bot]"
+        else
+          ACTOR_LOGIN=""
+          echo "No progress comment to read an actor identity from, and a custom github_token is set -- verifying by timestamp/id/marker only, without an author filter."
+        fi
+
+        # A genuine new comment created at or after this run's own start time, authored by this run's own identity (when known -- see above), is real output. `created_at` compares correctly as a plain string here because GitHub always renders it in the same fixed-width ISO 8601 UTC form ("2026-09-10T20:17:02Z") this step's own START_TIME is captured in, so lexical and chronological order agree. Excludes two comments that would otherwise be miscounted as "new" even on a run that produced nothing real: the progress comment itself (posted, if post_progress_comment is enabled, after START_TIME but before Claude Code even runs) by id, and "Post Headroom savings comment"'s own comment (posted unconditionally -- if: always(), regardless of steps.claude.outcome -- whenever Headroom actually proxied anything, which is the shipped default) by its own marker -- both belt-and-braces on top of the author filter, since either could in principle share this run's own identity. Two things a naive `--paginate -q` gets wrong here, independent of the filter itself: `-q` filters PER PAGE, not across the combined result (confirmed empirically -- a paginated endpoint with `-q '. | length'` returns one count per page, not a single total), so an issue with more prior comments than fit on one page would leave NEWER_COMMENTS as a multi-line value. `--slurp` combines every page into one array first; it can't be passed to `-q`/`--jq` directly (confirmed: gh api rejects the combination), so the result is piped into a separate jq call instead, flattening the array-of-pages with `.[][]`. Retried like every other gh api call in this composite action that isn't already guarded by an outer continue-on-error (see "Post progress comment", "Update progress comment") -- this step's whole purpose is avoiding a mis-reported outcome, so a single transient API hiccup must not itself become one.
         NEWER_COMMENTS=""
         for attempt in 1 2 3; do
-          if NEWER_COMMENTS=$(gh api "repos/${REPOSITORY}/issues/${ISSUE_NUMBER}/comments" --paginate --slurp | jq --arg start "$START_TIME" --argjson pcid "$PROGRESS_COMMENT_ID_ARG" --arg marker "$MARKER_HEADROOM" '[.[][] | select(.created_at >= $start and .id != $pcid and ((.body // "") | contains($marker) | not))] | length'); then
+          if NEWER_COMMENTS=$(gh api "repos/${REPOSITORY}/issues/${ISSUE_NUMBER}/comments" --paginate --slurp | jq --arg start "$START_TIME" --arg actor "$ACTOR_LOGIN" --argjson pcid "$PROGRESS_COMMENT_ID_ARG" --arg marker "$MARKER_HEADROOM" '[.[][] | select(.created_at >= $start and ($actor == "" or .user.login == $actor) and .id != $pcid and ((.body // "") | contains($marker) | not))] | length'); then
             break
           fi
           NEWER_COMMENTS=""
