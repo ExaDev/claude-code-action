@@ -1,3 +1,14 @@
+## [1.10.2](https://github.com/ExaDev/claude-code-action/compare/v1.10.1...v1.10.2) (2026-09-10)
+
+### Bug Fixes
+
+- **examples:** grant id-token: write in the direct-form triage example ([d2705fa](https://github.com/ExaDev/claude-code-action/commit/d2705fa5af1a89674440f3ae55d0f62b95799d06))
+- **triage:** count real comments across pages and exclude Headroom's own comment ([f2f279b](https://github.com/ExaDev/claude-code-action/commit/f2f279b109986778df0bbc53bf23ed1e314c11a0))
+- **triage:** filter counted comments by this run's own actor identity ([e93cb45](https://github.com/ExaDev/claude-code-action/commit/e93cb45b9523d476a0d9a2e535e7d110c0bb5f2b))
+- **triage:** use claude[bot] as the expected identity when github_token is empty ([ac3dd87](https://github.com/ExaDev/claude-code-action/commit/ac3dd875be7839f0ebf02c84603489d150bc6437))
+- **triage:** verify a comment or body marker landed before calling a run successful ([fd8fd7d](https://github.com/ExaDev/claude-code-action/commit/fd8fd7dfa9a93a4470ed3e9801ef65c178562e54)), closes [novus-power/hive#1490](https://github.com/novus-power/hive/issues/1490) [#1657](https://github.com/ExaDev/claude-code-action/issues/1657) [#1661](https://github.com/ExaDev/claude-code-action/issues/1661)
+- **triage:** verify against a run-start timestamp, not the progress comment's id ([4e9e82c](https://github.com/ExaDev/claude-code-action/commit/4e9e82c0c1fb9b73304f36695c05213933eda646))
+
 ## [1.10.1](https://github.com/ExaDev/claude-code-action/compare/v1.10.0...v1.10.1) (2026-09-10)
 
 ### Bug Fixes
