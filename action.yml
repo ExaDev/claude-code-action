@@ -2123,11 +2123,37 @@ runs:
       run: |
         set -euo pipefail
 
-        # A genuine new comment posted after this run's own progress comment is real output -- the progress comment's own id is this run's "before" marker, since it was the most recent comment on the issue at the moment this run started.
-        NEWER_COMMENTS=$(gh api "repos/${REPOSITORY}/issues/${ISSUE_NUMBER}/comments" --paginate -q "[.[] | select(.id > ${PROGRESS_COMMENT_ID})] | length")
+        MARKER_HEADROOM="<!-- claude-headroom-savings-comment -->"
+
+        # A genuine new comment posted after this run's own progress comment is real output -- the progress comment's own id is this run's "before" marker, since it was the most recent comment on the issue at the moment this run started. Two things a naive `--paginate -q` gets wrong here: `-q` filters PER PAGE, not across the combined result (confirmed empirically -- a paginated endpoint with `-q '. | length'` returns one count per page, not a single total), so an issue with more prior comments than fit on one page would leave NEWER_COMMENTS as a multi-line value; and "Post Headroom savings comment" above posts its own comment unconditionally (if: always(), regardless of steps.claude.outcome) whenever Headroom actually proxied anything, which is the shipped default (headroom_enabled/headroom_show_savings both default "true") -- its comment id is always greater than PROGRESS_COMMENT_ID, so counting it here would report "verified" even when triage itself produced nothing. `--slurp` combines every page into one array first, fixing the first problem; it can't be passed to `-q`/`--jq` directly (confirmed: gh api rejects the combination), so the result is piped into a separate jq call instead, flattening the array-of-pages with `.[][]` and excluding the Headroom marker explicitly, fixing the second. Retried like every other gh api call in this composite action that isn't already guarded by an outer continue-on-error (see "Post progress comment", "Update progress comment") -- this step's whole purpose is avoiding a mis-reported outcome, so a single transient API hiccup must not itself become one.
+        NEWER_COMMENTS=""
+        for attempt in 1 2 3; do
+          if NEWER_COMMENTS=$(gh api "repos/${REPOSITORY}/issues/${ISSUE_NUMBER}/comments" --paginate --slurp | jq "[.[][] | select(.id > ${PROGRESS_COMMENT_ID} and ((.body // \"\") | contains(\"${MARKER_HEADROOM}\") | not))] | length"); then
+            break
+          fi
+          NEWER_COMMENTS=""
+          echo "Failed to list issue comments (attempt ${attempt}/3)."
+          [ "$attempt" -lt 3 ] && sleep 2
+        done
+        if [ -z "$NEWER_COMMENTS" ]; then
+          echo "::error::Could not list issue comments after 3 attempts; cannot verify triage output." >&2
+          exit 1
+        fi
 
         # The marker's mere presence is enough: a re-triage run that replaces an existing block still counts as real output, and there is no cheap way to tell "replaced" from "left untouched" without a pre-run body snapshot this step does not have.
-        HAS_MARKER=$(gh api "repos/${REPOSITORY}/issues/${ISSUE_NUMBER}" --jq '.body // "" | contains("<!-- claude-triage:start -->")')
+        HAS_MARKER=""
+        for attempt in 1 2 3; do
+          if HAS_MARKER=$(gh api "repos/${REPOSITORY}/issues/${ISSUE_NUMBER}" --jq '.body // "" | contains("<!-- claude-triage:start -->")'); then
+            break
+          fi
+          HAS_MARKER=""
+          echo "Failed to fetch issue body (attempt ${attempt}/3)."
+          [ "$attempt" -lt 3 ] && sleep 2
+        done
+        if [ -z "$HAS_MARKER" ]; then
+          echo "::error::Could not fetch issue body after 3 attempts; cannot verify triage output." >&2
+          exit 1
+        fi
 
         if [ "$NEWER_COMMENTS" -gt 0 ] || [ "$HAS_MARKER" = "true" ]; then
           echo "Verified: triage left real output (new comments: ${NEWER_COMMENTS}, marker present: ${HAS_MARKER})."
