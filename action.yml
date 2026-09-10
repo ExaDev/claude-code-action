@@ -1733,7 +1733,13 @@ runs:
           echo "Headroom proxied ${PROXIED_COUNT} request(s) this run, saving ${TOKENS_SAVED} tokens (${TOTAL_PERCENT_SAVED}% of all tokens sent; ${COMPRESSION_PCT}% average per-request compression)."
           {
             echo "### Headroom context compression"
-            echo "Proxied **${PROXIED_COUNT}** request(s) this run — saved **${TOKENS_SAVED} tokens**, **${TOTAL_PERCENT_SAVED}%** of all tokens sent this run (${COMPRESSION_PCT}% average per-request compression)."
+            echo ""
+            echo "| Metric | Value |"
+            echo "| --- | --- |"
+            echo "| Requests proxied | ${PROXIED_COUNT} |"
+            echo "| Tokens saved | ${TOKENS_SAVED} |"
+            echo "| Aggregate savings | ${TOTAL_PERCENT_SAVED}% of all tokens sent |"
+            echo "| Average per-request compression | ${COMPRESSION_PCT}% |"
           } >> "$GITHUB_STEP_SUMMARY"
         else
           echo "headroom_proxied=false" >> "$GITHUB_OUTPUT"
@@ -1789,7 +1795,7 @@ runs:
           gh api -X DELETE "repos/${REPOSITORY}/issues/comments/${id}" >/dev/null 2>&1 || true
         done
 
-        BODY=$(printf '🗜️ **Headroom** compressed this run'"'"'s context: proxied %s request(s), saving %s tokens, %s%% of all tokens sent this run (%s%% average per-request compression).\n\n%s' "$REQUESTS_PROXIED" "$TOKENS_SAVED" "$TOTAL_PERCENT_SAVED" "$COMPRESSION_PERCENT" "$MARKER")
+        BODY=$(printf '🗜️ **Headroom context compression**\n\n| Metric | Value |\n| --- | --- |\n| Requests proxied | %s |\n| Tokens saved | %s |\n| Aggregate savings | %s%% of all tokens sent |\n| Average per-request compression | %s%% |\n\n%s' "$REQUESTS_PROXIED" "$TOKENS_SAVED" "$TOTAL_PERCENT_SAVED" "$COMPRESSION_PERCENT" "$MARKER")
         for attempt in 1 2 3; do
           if gh api "repos/${REPOSITORY}/issues/${ENTITY_NUMBER}/comments" -f body="$BODY" >/dev/null; then
             echo "Posted Headroom savings comment."
