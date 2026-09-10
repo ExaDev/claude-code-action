@@ -1,3 +1,9 @@
+## [1.9.1](https://github.com/ExaDev/claude-code-action/compare/v1.9.0...v1.9.1) (2026-09-10)
+
+### Bug Fixes
+
+- **headroom:** render savings as a markdown table instead of a dense sentence ([2ce3f6b](https://github.com/ExaDev/claude-code-action/commit/2ce3f6bba71c009f69c6e7429921684c3a5e8ec1))
+
 ## [1.9.0](https://github.com/ExaDev/claude-code-action/compare/v1.8.2...v1.9.0) (2026-09-10)
 
 ### Features
