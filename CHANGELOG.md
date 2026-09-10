@@ -1,3 +1,13 @@
+## [1.7.0](https://github.com/ExaDev/claude-code-action/compare/v1.6.0...v1.7.0) (2026-09-10)
+
+### Bug Fixes
+
+- **headroom:** parse PyPI's Z-suffixed timestamp on Python <3.11 ([a51b120](https://github.com/ExaDev/claude-code-action/commit/a51b12015c2bf82399f5a8e55cafb31a4fc502f9))
+
+### Features
+
+- **headroom:** enforce a 7-day minimum release age for the pip install ([c342222](https://github.com/ExaDev/claude-code-action/commit/c34222241916b7252889a4fbc915dbaf683a0c74))
+
 ## [1.6.0](https://github.com/ExaDev/claude-code-action/compare/v1.5.0...v1.6.0) (2026-09-10)
 
 ### Bug Fixes
