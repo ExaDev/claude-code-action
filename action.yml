@@ -1226,7 +1226,8 @@ runs:
             print(f"::error::PyPI has no published files for headroom-ai=={version}. Check headroom_version is correct.")
             sys.exit(1)
 
-        uploaded = datetime.fromisoformat(min(upload_times))
+        # datetime.fromisoformat() only accepts a trailing "Z" (as PyPI's upload_time_iso_8601 returns) from Python 3.11 onward -- on an older Python it raises ValueError instead. Replacing it with the equivalent +00:00 offset parses correctly on every Python 3 version, not just the one this was tested against.
+        uploaded = datetime.fromisoformat(min(upload_times).replace("Z", "+00:00"))
         age_days = (datetime.now(timezone.utc) - uploaded).days
 
         if age_days < MIN_AGE_DAYS:
