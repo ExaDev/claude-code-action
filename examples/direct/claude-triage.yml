@@ -15,6 +15,7 @@ on:
 permissions:
   contents: read
   issues: write
+  id-token: write # the OIDC exchange that mints the Claude Code App token needs this -- without it, an empty github_token (below, left unset deliberately) makes every run fail outright at setupGitHubToken() with "Could not fetch an OIDC token"
 
 jobs:
   triage:
