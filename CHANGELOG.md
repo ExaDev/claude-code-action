@@ -1,3 +1,14 @@
+## [1.10.0](https://github.com/ExaDev/claude-code-action/compare/v1.9.1...v1.10.0) (2026-09-10)
+
+### Bug Fixes
+
+- **headroom:** stop the proxy after every call site that can still need it ([31ca969](https://github.com/ExaDev/claude-code-action/commit/31ca969793dc3bb7ea16b3275689ee743e6f5989))
+- **headroom:** use the newest, not oldest, PyPI file upload time for the age gate ([49562cf](https://github.com/ExaDev/claude-code-action/commit/49562cf5eec85d320179d8c538a975952e46bbac))
+
+### Features
+
+- **headroom:** enable context compression by default ([7f9f908](https://github.com/ExaDev/claude-code-action/commit/7f9f908f1019fad4cea6b7e5b7dd0338407a8d0c))
+
 ## [1.9.1](https://github.com/ExaDev/claude-code-action/compare/v1.9.0...v1.9.1) (2026-09-10)
 
 ### Bug Fixes
