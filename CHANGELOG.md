@@ -1,3 +1,13 @@
+## [1.6.0](https://github.com/ExaDev/claude-code-action/compare/v1.5.0...v1.6.0) (2026-09-10)
+
+### Bug Fixes
+
+- **headroom:** escalate to SIGKILL when stopping the pip-installed proxy ([d3c15ac](https://github.com/ExaDev/claude-code-action/commit/d3c15acdc6259e3fd5b796d29dc478ca354b3b07))
+
+### Features
+
+- **headroom:** default to pip instead of Docker, with a toggle ([aaa7a93](https://github.com/ExaDev/claude-code-action/commit/aaa7a9391f9b37a5f101fe85f30e7c7b207f3149))
+
 ## [1.5.0](https://github.com/ExaDev/claude-code-action/compare/v1.4.1...v1.5.0) (2026-09-09)
 
 ### Bug Fixes
