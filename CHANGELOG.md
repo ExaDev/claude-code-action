@@ -1,3 +1,9 @@
+## [1.9.0](https://github.com/ExaDev/claude-code-action/compare/v1.8.2...v1.9.0) (2026-09-10)
+
+### Features
+
+- **headroom:** report an aggregate token-volume-weighted compression percentage ([9e1d8db](https://github.com/ExaDev/claude-code-action/commit/9e1d8dbb092ae1c9cd0eed46b7f2a04208f7336d))
+
 ## [1.8.2](https://github.com/ExaDev/claude-code-action/compare/v1.8.1...v1.8.2) (2026-09-10)
 
 ## [1.8.1](https://github.com/ExaDev/claude-code-action/compare/v1.8.0...v1.8.1) (2026-09-10)
