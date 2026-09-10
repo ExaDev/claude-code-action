@@ -1203,6 +1203,7 @@ runs:
         import os
         import re
         import sys
+        import urllib.error
         import urllib.request
         from datetime import datetime, timezone
 
@@ -1214,6 +1215,8 @@ runs:
             print(f"::error::Could not parse headroom_image '{image}' as registry/repo@digest.")
             sys.exit(1)
         registry, repo, digest = m.groups()
+
+        MANIFEST_ACCEPT = "application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json"
 
 
         def get_json(url, token=None, accept=None):
@@ -1227,14 +1230,31 @@ runs:
                 return json.load(response)
 
 
-        try:
-            token = get_json(f"https://{registry}/token?service={registry}&scope=repository:{repo}:pull")["token"]
+        def discover_token(url, accept):
+            # A hardcoded {registry}/token endpoint is a GHCR-only assumption, not something the OCI/Docker Registry v2 spec guarantees -- Docker Hub and Quay.io both use a different host and service name for their own token realm. headroom_image is documented as settable to any digest-pinned image, so this discovers the real realm/service/scope from the registry's own 401 challenge instead of assuming ghcr.io's shape, the standard mechanism every spec-compliant registry (including ghcr.io itself) implements identically.
+            req = urllib.request.Request(url, headers={"Accept": accept})
+            try:
+                urllib.request.urlopen(req, timeout=10)
+                return None  # already anonymously accessible, no token needed
+            except urllib.error.HTTPError as e:
+                if e.code != 401:
+                    raise
+                challenge = e.headers.get("WWW-Authenticate", "")
+                params = dict(re.findall(r'(\w+)="([^"]*)"', challenge))
+                if "realm" not in params:
+                    raise RuntimeError(f"No usable WWW-Authenticate challenge from {url}: {challenge!r}")
+                return params
 
-            manifest = get_json(
-                f"https://{registry}/v2/{repo}/manifests/{digest}",
-                token=token,
-                accept="application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json",
-            )
+
+        try:
+            manifest_url = f"https://{registry}/v2/{repo}/manifests/{digest}"
+            auth = discover_token(manifest_url, MANIFEST_ACCEPT)
+            token = None
+            if auth:
+                token_url = f"{auth['realm']}?service={auth.get('service', registry)}&scope={auth.get('scope', f'repository:{repo}:pull')}"
+                token = get_json(token_url)["token"]
+
+            manifest = get_json(manifest_url, token=token, accept=MANIFEST_ACCEPT)
 
             if "manifests" in manifest:
                 # A multi-platform index: pick the platform GitHub-hosted runners actually use.
