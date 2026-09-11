@@ -756,7 +756,8 @@ runs:
           echo "Giving up on posting a progress comment after 3 attempts."
           exit 1
         fi
-        echo "comment_id=$(jq -r '.id' <<<"$COMMENT_JSON")" >> "$GITHUB_OUTPUT"
+        COMMENT_ID=$(jq -r '.id' <<<"$COMMENT_JSON")
+        echo "comment_id=${COMMENT_ID}" >> "$GITHUB_OUTPUT"
         # The actual identity GH_TOKEN just posted as, read straight from this real API response rather than assumed -- "Verify triage output landed" further down uses this (when it exists) as the authoritative answer to "which comments are this run's own output", since it's the one point in the job that observes the true poster identity firsthand.
         echo "actor_login=$(jq -r '.user.login' <<<"$COMMENT_JSON")" >> "$GITHUB_OUTPUT"
         # Threaded through to "Update progress comment" below as the single source of truth for the marker text, rather than a second hardcoded literal that has to be kept in sync by hand.
