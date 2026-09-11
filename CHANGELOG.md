@@ -1,3 +1,14 @@
+## [1.12.0](https://github.com/ExaDev/claude-code-action/compare/v1.11.0...v1.12.0) (2026-09-11)
+
+### Bug Fixes
+
+- **action:** define COMMENT_ID before referencing it in the progress-comment step ([cb438b7](https://github.com/ExaDev/claude-code-action/commit/cb438b7240de0899ff399050436ac8129c2d3a7e))
+
+### Features
+
+- **action:** retry the same credential once on a genuine short-lived rate limit ([985aa0e](https://github.com/ExaDev/claude-code-action/commit/985aa0e4d3e11d2cb18662178c3a85def96571d3))
+- **review:** let review mode convert a pull request to draft when it is genuinely unfinished ([1a47695](https://github.com/ExaDev/claude-code-action/commit/1a47695606ab2e942f84f365090abe1a675ce7f9))
+
 ## [1.11.0](https://github.com/ExaDev/claude-code-action/compare/v1.10.2...v1.11.0) (2026-09-11)
 
 ### Features
