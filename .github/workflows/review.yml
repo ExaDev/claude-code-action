@@ -42,6 +42,11 @@ on:
         type: boolean
         required: false
         default: true
+      mark_draft_if_unready:
+        description: "Convert the pull request to draft when it is genuinely unfinished (an explicit WIP/not-ready marker, or a self-evidently incomplete diff) -- never for ordinary review findings. Off by default, unlike fix_pr_metadata: it changes the PR's own visibility/review-request state, so leave it false on repos accepting untrusted fork PRs even if fix_pr_metadata is on."
+        type: boolean
+        required: false
+        default: false
       verify_prior_findings:
         description: "On a re-review, re-check a past finding's technical claims (does an API exist, how is it used, what version supports it) before trusting it again, rather than just checking whether the code changed. On by default; adds unrestricted WebFetch to the allowlist, so set false on repos accepting untrusted fork PRs."
         type: boolean
@@ -280,6 +285,7 @@ jobs:
           include_suggestions: ${{ inputs.include_suggestions }}
           resolve_stale_threads: ${{ inputs.resolve_stale_threads }}
           fix_pr_metadata: ${{ inputs.fix_pr_metadata }}
+          mark_draft_if_unready: ${{ inputs.mark_draft_if_unready }}
           verify_prior_findings: ${{ inputs.verify_prior_findings }}
           structured_review_summary: ${{ inputs.structured_review_summary }}
           fix_ci_failures: ${{ inputs.fix_ci_failures }}
