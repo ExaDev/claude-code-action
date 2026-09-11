@@ -203,6 +203,11 @@ inputs:
       All modes. When the primary run hits its turn limit (cut off mid-task rather than finishing cleanly), fire a short follow-on run (3 turns) that resumes the same session and asks Claude to summarise what it found and what remains, so the work is not lost. On by default; set to "false" to skip the follow-on entirely.
     required: false
     default: "true"
+  escalate_findings_to_issues:
+    description: |
+      Review mode only. Off by default. When the turn-limit wrap-up (above) runs and itself fails -- most often because its own closing reply tried to post somewhere (a PR comment, a review) and that write was blocked or the pull request had already merged or closed underneath it -- fire a further, tightly scoped follow-on that resumes the same session and asks Claude to judge, finding by finding, whether what it already found is severe enough (Blocker or Should-fix; never a Nit) to warrant a standing record even though its normal output channel was unavailable. For each finding that clears that bar, it searches open issues for one already carrying that finding's own stable marker and updates it, or opens a new issue if none exists -- one issue per distinct finding, never one bundled issue for the whole run. This call's allowlist holds only issue read/write tools (Bash(gh issue ...), mcp__github__*_issue, mcp__github__search_issues) -- no PR mutation, no gh api:*, nothing the wrap-up call itself could already do. Requires the calling job to hold issues: write, which review mode's reusable workflow does not request and cannot be made to via a caller-side permissions: block (see "What each mode is allowed to do") -- this only takes effect when you call ExaDev/claude-code-action@v1 directly with your own job permissions: including issues: write, the same constraint fix_ci_failures/fix_diff_findings already have for contents: write. Independent of this input, the wrap-up's own last reply is always additionally written to the job's Step Summary when the wrap-up step fails, at no permission cost -- see "Write wrap-up result to step summary".
+    required: false
+    default: "false"
   severity_ratings:
     description: |
       Review mode only. Whether findings also carry an emoji severity rating (🔴 Blocker, 🟠 Should fix, 🟡 Nit)
@@ -439,6 +444,7 @@ runs:
         ADD_REGRESSION_TESTS: ${{ inputs.add_regression_tests }}
         RESUME_SESSIONS: ${{ inputs.resume_sessions }}
         POST_PROGRESS_COMMENT: ${{ inputs.post_progress_comment }}
+        ESCALATE_FINDINGS_TO_ISSUES: ${{ inputs.escalate_findings_to_issues }}
         UPDATE_ISSUE_BODY: ${{ inputs.update_issue_body }}
         PROMPT_FILE: ${{ inputs.prompt_file }}
         HEADROOM_ENABLED: ${{ inputs.headroom_enabled }}
@@ -571,9 +577,9 @@ runs:
           exit 1
         fi
 
-        # These three default to false, unlike every other review toggle -- a true here can only be deliberate, so a non-review mode should be told rather than have it silently ignored.
+        # These four default to false, unlike every other review toggle -- a true here can only be deliberate, so a non-review mode should be told rather than have it silently ignored.
         if [ "$MODE" != "review" ]; then
-          for _flag_pair in "fix_ci_failures:${FIX_CI_FAILURES}" "fix_diff_findings:${FIX_DIFF_FINDINGS}" "add_regression_tests:${ADD_REGRESSION_TESTS}"; do
+          for _flag_pair in "fix_ci_failures:${FIX_CI_FAILURES}" "fix_diff_findings:${FIX_DIFF_FINDINGS}" "add_regression_tests:${ADD_REGRESSION_TESTS}" "escalate_findings_to_issues:${ESCALATE_FINDINGS_TO_ISSUES}"; do
             if [ "${_flag_pair#*:}" = "true" ]; then
               echo "::error::${_flag_pair%%:*} is a review-mode input and does nothing in '${MODE}' mode. It is off by default, so setting it can only be deliberate: remove it, or set mode: review."
               exit 1
@@ -593,6 +599,14 @@ runs:
           true|false) ;;
           *)
             echo "::error::post_progress_comment must be true or false. Got '${POST_PROGRESS_COMMENT}'."
+            exit 1
+            ;;
+        esac
+
+        case "$ESCALATE_FINDINGS_TO_ISSUES" in
+          true|false) ;;
+          *)
+            echo "::error::escalate_findings_to_issues must be true or false. Got '${ESCALATE_FINDINGS_TO_ISSUES}'."
             exit 1
             ;;
         esac
@@ -1863,6 +1877,62 @@ runs:
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
 
+    # --- Write wrap-up result to step summary --- The wrap-up call above can itself fail: its own closing reply is often an attempt to post somewhere (a PR comment, a review), and that write can be blocked (permission denial, a pull request that merged or closed underneath it) with nothing about the failure itself durable anywhere a human would think to look -- the wrap-up's own last reply, which is exactly the content that was supposed to be posted, otherwise exists only as raw JSON in a job log nobody reads by default. This costs no permission beyond what every job already has (writing to $GITHUB_STEP_SUMMARY needs no token scope at all), so it runs unconditionally on a wrap-up failure regardless of escalate_findings_to_issues.
+    - name: Write wrap-up result to step summary
+      id: wrap-up-summary
+      if: ${{ steps.wrap-up.outcome == 'failure' }}
+      continue-on-error: true
+      shell: bash
+      env:
+        EXEC_FILE: ${{ steps.wrap-up.outputs.execution_file }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        set -euo pipefail
+        if [ -z "$EXEC_FILE" ] || [ ! -f "$EXEC_FILE" ]; then
+          echo "No wrap-up execution file to summarise."
+          exit 0
+        fi
+
+        # The stream-json log carries one JSON object per line; the last "result"-typed one is the closing reply -- the same field the earlier "OAuth access token is invalid" case and the later "PR already merged, here is what I verified" case both actually populate, whether the call itself succeeded or errored.
+        LAST_RESULT=$(jq -rs '[.[] | select(.type == "result") | .result] | last // empty' "$EXEC_FILE" 2>/dev/null || echo "")
+        if [ -z "$LAST_RESULT" ]; then
+          echo "Wrap-up execution file had no result text to summarise."
+          exit 0
+        fi
+
+        {
+          echo "### Claude's wrap-up could not be posted"
+          echo
+          echo "The turn-limit wrap-up run itself failed after producing this closing reply -- most likely because its own attempt to post it was blocked, or the pull request/issue it was about had already changed underneath it. Recorded here since nothing else guarantees it reaches anywhere durable. [View job run]($RUN_URL)"
+          echo
+          echo "$LAST_RESULT"
+        } >> "$GITHUB_STEP_SUMMARY"
+        echo "Wrote wrap-up result to the job's Step Summary."
+
+    # --- Escalate blocked findings to issues --- Opt-in, off by default, review mode only: see escalate_findings_to_issues's own description for the permission constraint (issues: write, direct form only) and what this call is and is not allowed to do. Deliberately a separate, narrower-allowlisted follow-on rather than widening the wrap-up call's own allowlist: the wrap-up call above still cannot write anywhere by itself, so a subverted wrap-up reply gains nothing from this feature existing -- only this explicitly-scoped, explicitly-opted-into call can.
+    - name: Escalate blocked findings to issues
+      id: escalate
+      if: ${{ inputs.mode == 'review' && inputs.escalate_findings_to_issues == 'true' && steps.wrap-up.outcome == 'failure' }}
+      continue-on-error: true
+      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      with:
+        prompt: |
+          Your last reply in this session could not be posted where it was meant to go -- most likely because that write was blocked, or because the pull request had already merged or closed underneath you. This is a further, final pass: decide whether anything you already found is worth a standing record even though your normal output channel is unavailable.
+
+          For each distinct finding you already made that is a Blocker or Should-fix (never a Nit, and never anything you were only speculating about) and that has not already been recorded anywhere you can see (check for a prior formal review, comment, or issue first):
+
+          1. Search open issues in this repository for one already carrying the marker `<!-- claude-finding:<a short stable slug for this exact finding, e.g. the file path, a colon, and a few words of the defect> -->`. Use a slug you would produce identically if you analysed the same finding again -- not a random or timestamped one -- so a future run's search actually matches it.
+          2. If a matching issue exists and is still open, add a comment noting this run also encountered it, rather than opening a duplicate.
+          3. Otherwise, open a new issue: a title naming the actual defect, a body with the file/line, what is wrong, why it matters, and the marker from step 1, and a native issue type of Bug where this organisation has issue types configured.
+
+          One issue per distinct finding -- never bundle unrelated findings into a single issue. If nothing you found clears the Blocker/Should-fix bar, or everything is already recorded somewhere, do nothing and say so; do not create an issue just to have created one.
+        claude_args: '--resume ${{ steps.claude.outputs.session_id }} --max-turns 10 --allowedTools "Read,Grep,Glob,Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh issue create:*),Bash(gh issue comment:*),Bash(gh issue edit:*),mcp__github__search_issues,mcp__github__list_issues,mcp__github__get_issue,mcp__github__create_issue,mcp__github__update_issue,mcp__github__add_issue_comment" --disallowedTools "Write,Edit,NotebookEdit,Bash(git push:*),Bash(gh api:*),Bash(gh pr:*),Bash(gh issue close:*),Bash(gh issue delete:*)"'
+        anthropic_api_key: ${{ steps.claude.outputs.winning_cred_type == 'key' && steps.claude.outputs.winning_cred_token || '' }}
+        claude_code_oauth_token: ${{ steps.claude.outputs.winning_cred_type == 'oauth' && steps.claude.outputs.winning_cred_token || '' }}
+        github_token: ${{ inputs.github_token }}
+        path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
+        path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
+
     # --- Automatic fixes --- Opt-in, off by default: see fix_ci_failures/fix_diff_findings's own descriptions for why this is the largest widening of review's blast radius this action offers. The review call above is unchanged -- Write/Edit/NotebookEdit stay on its denylist -- so the thing that reads untrusted diff content and the thing that can write a file are different calls with different allowlists. This step is also the gate: it proves a real push is possible, with the credential a real push would use, before anything is paid for -- so the reusable-workflow form (contents: read, hardcoded, and a permissions block cannot branch on an input) and every fork pull request skip the whole feature for free, the same way resolve_stale_threads no-ops in the reusable form. Nothing the fix pass writes reaches GitHub unless "Publish applied fixes" below explicitly pushes it, from a fixed refspec no prompt can influence -- the model has no git push tool at all. See the README's "Automatic fixes" section.
     - name: Prepare fix pass
       id: fix-args
@@ -2200,6 +2270,8 @@ runs:
         CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
         # "Wrap up on turn limit" is the one later step with no continue-on-error and no prior id (unlike the fix pass / structured-summary steps, which are all continue-on-error: true and so can never make an already-successful primary run look failed here) -- if it runs and itself fails, the job outcome is failure even though steps.claude.outcome is still the earlier, successful "success". Folded in below rather than trusted on its own, since it reports "skipped" (not "success") whenever detect-turn-limit didn't fire, which must not be read as a failure.
         WRAP_UP_OUTCOME: ${{ steps.wrap-up.outcome }}
+        # A wrap-up failure that "Escalate blocked findings to issues" then actually recorded somewhere durable (a new or updated issue) is no longer an unseen failure -- it is a handled one, so it should not flip an otherwise-successful run to failure. escalate itself is continue-on-error: true and reports "skipped" whenever escalate_findings_to_issues is off or the wrap-up did not fail, both of which must not be read as "recovered" -- only a genuine "success" here counts.
+        ESCALATE_OUTCOME: ${{ steps.escalate.outcome }}
         # "Verify triage output landed" is the other step with no continue-on-error -- same reasoning, folded in the same way. It only ever runs (rather than reporting "skipped") for triage mode, so the "skipped" exemption below applies identically for every other mode.
         VERIFY_TRIAGE_OUTCOME: ${{ steps.verify-triage-output.outcome }}
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -2207,7 +2279,11 @@ runs:
         set -euo pipefail
         OUTCOME="$CLAUDE_OUTCOME"
         if [ "$OUTCOME" = "success" ] && [ -n "${WRAP_UP_OUTCOME:-}" ] && [ "$WRAP_UP_OUTCOME" != "success" ] && [ "$WRAP_UP_OUTCOME" != "skipped" ]; then
-          OUTCOME="$WRAP_UP_OUTCOME"
+          if [ "${ESCALATE_OUTCOME:-}" = "success" ]; then
+            echo "Wrap-up failed (outcome: ${WRAP_UP_OUTCOME}), but escalation recorded it as an issue -- not treating this run as failed."
+          else
+            OUTCOME="$WRAP_UP_OUTCOME"
+          fi
         fi
         if [ "$OUTCOME" = "success" ] && [ -n "${VERIFY_TRIAGE_OUTCOME:-}" ] && [ "$VERIFY_TRIAGE_OUTCOME" != "success" ] && [ "$VERIFY_TRIAGE_OUTCOME" != "skipped" ]; then
           OUTCOME="$VERIFY_TRIAGE_OUTCOME"
