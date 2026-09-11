@@ -58,6 +58,15 @@ inputs:
     description: "Claude Code OAuth token. Supply this or anthropic_api_key. One value, or several newline-separated values for fallback."
     required: false
     default: ""
+  retry_on_rate_limit:
+    description: |
+      When a credential attempt fails with a 429 that looks like a genuine short-lived rate limit rather than a hard quota exhaustion (its error message names a multi-day-scale reset such as a weekly or monthly limit, which retrying cannot fix within this job), wait rate_limit_retry_wait_seconds and retry that same credential once before falling through to the next configured credential (or giving up). This is distinct from the credential-fallback chain above: fallback moves to a different account immediately regardless of cause, which is the right response to a quota exhaustion (a different wait will not help this one) but wastes a perfectly good, momentarily-throttled credential on a transient rate limit that a short wait would have cleared. On by default. This is a bounded, single retry per credential slot -- like the fallback chain itself, a composite action has no native loop, so "retry the same credential N times" is not something a single input can scale arbitrarily; one extra attempt per slot is what the static step graph below actually provides. Set to "false" to restore the previous behaviour (fall through immediately on any failure, genuine rate limit or not).
+    required: false
+    default: "true"
+  rate_limit_retry_wait_seconds:
+    description: "Seconds to wait before retrying the same credential once, when retry_on_rate_limit judges a failure to be a genuine short-lived rate limit. Default 60. Ignored when retry_on_rate_limit is false."
+    required: false
+    default: "60"
 
   # Passthrough inputs. These keep the upstream anthropics/claude-code-action names so a caller who already knows the upstream action does not have to learn new ones.
   github_token:
@@ -436,6 +445,8 @@ runs:
         MODE: ${{ inputs.mode }}
         HAS_API_KEY: ${{ inputs.anthropic_api_key != '' }}
         HAS_OAUTH_TOKEN: ${{ inputs.claude_code_oauth_token != '' }}
+        RETRY_ON_RATE_LIMIT: ${{ inputs.retry_on_rate_limit }}
+        RATE_LIMIT_RETRY_WAIT_SECONDS: ${{ inputs.rate_limit_retry_wait_seconds }}
         SEVERITY_RATINGS: ${{ inputs.severity_ratings }}
         ALLOWED_REVIEW_STATES: ${{ inputs.allowed_review_states }}
         INCLUDE_SUGGESTIONS: ${{ inputs.include_suggestions }}
@@ -475,6 +486,22 @@ runs:
           echo "::error::mode: generic requires prompt_file to be set -- generic mode has no mode fragment or generated prompt of its own; it needs a caller-supplied prompt file to run at all."
           exit 1
         fi
+
+        case "$RETRY_ON_RATE_LIMIT" in
+          true|false) ;;
+          *)
+            echo "::error::retry_on_rate_limit must be true or false. Got '${RETRY_ON_RATE_LIMIT}'."
+            exit 1
+            ;;
+        esac
+
+        case "$RATE_LIMIT_RETRY_WAIT_SECONDS" in
+          ''|*[!0-9]*)
+            echo "::error::rate_limit_retry_wait_seconds must be a non-negative integer. Got '${RATE_LIMIT_RETRY_WAIT_SECONDS}'."
+            exit 1
+            ;;
+          *) ;;
+        esac
 
         case "$SEVERITY_RATINGS" in
           always|optional|never) ;;
@@ -1414,7 +1441,7 @@ runs:
 
     # Pinned to the commit that anthropics/claude-code-action's v1 tag resolved to on 2026-08-08 (v1.0.189). Update the pin deliberately, never by moving to @v1: see the Versioning section of README.md.
     #
-    # attempt_1 .. attempt_5 are one statically-unrolled step per position in the credential fallback chain "Parse credential fallback chain" built above -- a composite action has no native loop, so this is the fallback mechanism itself, not a stutter. attempt_N (N=2..5) only runs if there is a credential at that position AND the previous attempt genuinely failed (continue-on-error means downstream steps still run either way; .outcome, not .conclusion, is what actually reflects a real failure -- .conclusion is rewritten to success by continue-on-error even when the step failed). "Resolve Claude Code result" below picks whichever attempt actually succeeded and re-exposes its outputs under the stable id `claude` that every later step already reads, so nothing past this point needs to know fallback happened at all.
+    # attempt_1 .. attempt_5 are one statically-unrolled step per position in the credential fallback chain "Parse credential fallback chain" built above -- a composite action has no native loop, so this is the fallback mechanism itself, not a stutter. attempt_N (N=2..5) only runs if there is a credential at that position AND the previous credential's own effort (its retry, if one ran, else the attempt itself) genuinely failed (continue-on-error means downstream steps still run either way; .outcome, not .conclusion, is what actually reflects a real failure -- .conclusion is rewritten to success by continue-on-error even when the step failed). Each attempt_N is immediately followed by its own "Rate-limit retry gate" and, when that gate judges the failure a genuine short-lived rate limit rather than a hard quota exhaustion, an attempt_N_retry that reruns the exact same credential once -- see retry_on_rate_limit's own description in the inputs: block above for why this is a single bounded retry per slot rather than a configurable count. "Resolve Claude Code result" below picks whichever attempt (or retry) actually succeeded and re-exposes its outputs under the stable id `claude` that every later step already reads, so nothing past this point needs to know fallback or retry happened at all.
     - name: Run Claude Code (attempt 1)
       id: attempt_1
       continue-on-error: true
@@ -1460,14 +1487,171 @@ runs:
         display_report: ${{ inputs.display_report }}
         show_full_output: ${{ inputs.show_full_output }}
 
-    - name: Run Claude Code (attempt 2)
-      id: attempt_2
-      if: steps.credentials.outputs.cred_2_token != '' && steps.attempt_1.outcome == 'failure'
+    - name: Rate-limit retry gate (attempt 1)
+      id: retry_gate_1
+      if: steps.attempt_1.outcome == 'failure' && inputs.retry_on_rate_limit == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        EXECUTION_FILE: ${{ steps.attempt_1.outputs.execution_file }}
+        WAIT_SECONDS: ${{ inputs.rate_limit_retry_wait_seconds }}
+      run: |
+        set -euo pipefail
+
+        SHOULD_RETRY=false
+        if [ -n "${EXECUTION_FILE:-}" ] && [ -f "$EXECUTION_FILE" ]; then
+          API_ERROR_STATUS=$(jq -r '.api_error_status // empty' "$EXECUTION_FILE" 2>/dev/null) || true
+          RESULT_TEXT=$(jq -r '.result // empty' "$EXECUTION_FILE" 2>/dev/null) || true
+          # A 429 is the only status worth waiting out at all. Its own message decides whether the wait is
+          # worthwhile: one naming a multi-day-scale reset (a weekly or monthly account quota) cannot be fixed
+          # by retrying within this job, so only a 429 that does NOT look like that is treated as a genuine,
+          # short-lived rate limit worth retrying the same credential for.
+          if [ "${API_ERROR_STATUS:-}" = "429" ] && ! printf '%s' "${RESULT_TEXT:-}" | grep -qiE 'weekly|monthly|per week|per month'; then
+            SHOULD_RETRY=true
+          fi
+        fi
+        echo "should_retry=${SHOULD_RETRY}" >> "$GITHUB_OUTPUT"
+
+        if [ "$SHOULD_RETRY" = "true" ]; then
+          echo "Attempt 1 failed with a 429 that does not look like a hard quota exhaustion; waiting ${WAIT_SECONDS}s before retrying the same credential."
+          sleep "${WAIT_SECONDS}"
+        else
+          echo "Attempt 1's failure does not look like a retryable rate limit (or produced no execution file); not retrying the same credential."
+        fi
+
+    - name: Run Claude Code (attempt 1 retry)
+      id: attempt_1_retry
+      if: steps.retry_gate_1.outputs.should_retry == 'true'
       continue-on-error: true
       uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
       with:
         prompt: ${{ steps.prompt.outputs.text }}
-        # No steps.resume.outputs.claude_args here, unlike attempt_1: that output can carry --resume <id> for a session cached from an EARLIER JOB RUN, which is fine to resume -- but if attempt_1 failed mid-run rather than at auth time, it may have already appended turns to that same session file, and this attempt must not resume THAT. Always starting fresh here is what makes the README's "the next credential's attempt starts fresh" claim actually true.
+        # No steps.resume.outputs.claude_args here -- see attempt_2's own comment further up: a same-credential retry within this same job run must always start fresh, never resume a session the failed first try in this run may have already written to.
+        claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
+        additional_permissions: ${{ steps.args.outputs.additional_permissions }}
+        anthropic_api_key: ${{ steps.credentials.outputs.cred_1_type == 'key' && steps.credentials.outputs.cred_1_token || '' }}
+        claude_code_oauth_token: ${{ steps.credentials.outputs.cred_1_type == 'oauth' && steps.credentials.outputs.cred_1_token || '' }}
+        github_token: ${{ inputs.github_token }}
+        settings: ${{ inputs.settings }}
+        trigger_phrase: ${{ inputs.trigger_phrase }}
+        assignee_trigger: ${{ inputs.assignee_trigger }}
+        label_trigger: ${{ inputs.label_trigger }}
+        allowed_bots: ${{ inputs.allowed_bots }}
+        allowed_non_write_users: ${{ inputs.allowed_non_write_users }}
+        track_progress: ${{ inputs.track_progress }}
+        use_sticky_comment: ${{ inputs.use_sticky_comment }}
+        include_fix_links: ${{ inputs.include_fix_links }}
+        classify_inline_comments: ${{ inputs.classify_inline_comments }}
+        include_comments_by_actor: ${{ inputs.include_comments_by_actor }}
+        exclude_comments_by_actor: ${{ inputs.exclude_comments_by_actor }}
+        base_branch: ${{ inputs.base_branch }}
+        branch_prefix: ${{ inputs.branch_prefix }}
+        branch_name_template: ${{ inputs.branch_name_template }}
+        use_commit_signing: ${{ inputs.use_commit_signing }}
+        ssh_signing_key: ${{ inputs.ssh_signing_key }}
+        bot_id: ${{ inputs.bot_id }}
+        bot_name: ${{ inputs.bot_name }}
+        plugins: ${{ inputs.plugins }}
+        plugin_marketplaces: ${{ inputs.plugin_marketplaces }}
+        use_bedrock: ${{ inputs.use_bedrock }}
+        use_vertex: ${{ inputs.use_vertex }}
+        use_foundry: ${{ inputs.use_foundry }}
+        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
+        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
+        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
+        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
+        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
+        path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
+        display_report: ${{ inputs.display_report }}
+        show_full_output: ${{ inputs.show_full_output }}
+
+    - name: Run Claude Code (attempt 2)
+      id: attempt_2
+      if: steps.credentials.outputs.cred_2_token != '' && !(steps.attempt_1.outcome == 'success' || steps.attempt_1_retry.outcome == 'success')
+      continue-on-error: true
+      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      with:
+        prompt: ${{ steps.prompt.outputs.text }}
+        claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
+        additional_permissions: ${{ steps.args.outputs.additional_permissions }}
+        anthropic_api_key: ${{ steps.credentials.outputs.cred_2_type == 'key' && steps.credentials.outputs.cred_2_token || '' }}
+        claude_code_oauth_token: ${{ steps.credentials.outputs.cred_2_type == 'oauth' && steps.credentials.outputs.cred_2_token || '' }}
+        github_token: ${{ inputs.github_token }}
+        settings: ${{ inputs.settings }}
+        trigger_phrase: ${{ inputs.trigger_phrase }}
+        assignee_trigger: ${{ inputs.assignee_trigger }}
+        label_trigger: ${{ inputs.label_trigger }}
+        allowed_bots: ${{ inputs.allowed_bots }}
+        allowed_non_write_users: ${{ inputs.allowed_non_write_users }}
+        track_progress: ${{ inputs.track_progress }}
+        use_sticky_comment: ${{ inputs.use_sticky_comment }}
+        include_fix_links: ${{ inputs.include_fix_links }}
+        classify_inline_comments: ${{ inputs.classify_inline_comments }}
+        include_comments_by_actor: ${{ inputs.include_comments_by_actor }}
+        exclude_comments_by_actor: ${{ inputs.exclude_comments_by_actor }}
+        base_branch: ${{ inputs.base_branch }}
+        branch_prefix: ${{ inputs.branch_prefix }}
+        branch_name_template: ${{ inputs.branch_name_template }}
+        use_commit_signing: ${{ inputs.use_commit_signing }}
+        ssh_signing_key: ${{ inputs.ssh_signing_key }}
+        bot_id: ${{ inputs.bot_id }}
+        bot_name: ${{ inputs.bot_name }}
+        plugins: ${{ inputs.plugins }}
+        plugin_marketplaces: ${{ inputs.plugin_marketplaces }}
+        use_bedrock: ${{ inputs.use_bedrock }}
+        use_vertex: ${{ inputs.use_vertex }}
+        use_foundry: ${{ inputs.use_foundry }}
+        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
+        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
+        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
+        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
+        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
+        path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
+        display_report: ${{ inputs.display_report }}
+        show_full_output: ${{ inputs.show_full_output }}
+
+    - name: Rate-limit retry gate (attempt 2)
+      id: retry_gate_2
+      if: steps.attempt_2.outcome == 'failure' && inputs.retry_on_rate_limit == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        EXECUTION_FILE: ${{ steps.attempt_2.outputs.execution_file }}
+        WAIT_SECONDS: ${{ inputs.rate_limit_retry_wait_seconds }}
+      run: |
+        set -euo pipefail
+
+        SHOULD_RETRY=false
+        if [ -n "${EXECUTION_FILE:-}" ] && [ -f "$EXECUTION_FILE" ]; then
+          API_ERROR_STATUS=$(jq -r '.api_error_status // empty' "$EXECUTION_FILE" 2>/dev/null) || true
+          RESULT_TEXT=$(jq -r '.result // empty' "$EXECUTION_FILE" 2>/dev/null) || true
+          # A 429 is the only status worth waiting out at all. Its own message decides whether the wait is
+          # worthwhile: one naming a multi-day-scale reset (a weekly or monthly account quota) cannot be fixed
+          # by retrying within this job, so only a 429 that does NOT look like that is treated as a genuine,
+          # short-lived rate limit worth retrying the same credential for.
+          if [ "${API_ERROR_STATUS:-}" = "429" ] && ! printf '%s' "${RESULT_TEXT:-}" | grep -qiE 'weekly|monthly|per week|per month'; then
+            SHOULD_RETRY=true
+          fi
+        fi
+        echo "should_retry=${SHOULD_RETRY}" >> "$GITHUB_OUTPUT"
+
+        if [ "$SHOULD_RETRY" = "true" ]; then
+          echo "Attempt 2 failed with a 429 that does not look like a hard quota exhaustion; waiting ${WAIT_SECONDS}s before retrying the same credential."
+          sleep "${WAIT_SECONDS}"
+        else
+          echo "Attempt 2's failure does not look like a retryable rate limit (or produced no execution file); not retrying the same credential."
+        fi
+
+    - name: Run Claude Code (attempt 2 retry)
+      id: attempt_2_retry
+      if: steps.retry_gate_2.outputs.should_retry == 'true'
+      continue-on-error: true
+      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      with:
+        prompt: ${{ steps.prompt.outputs.text }}
+        # No steps.resume.outputs.claude_args here -- see attempt_2's own comment further up: a same-credential retry within this same job run must always start fresh, never resume a session the failed first try in this run may have already written to.
         claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_2_type == 'key' && steps.credentials.outputs.cred_2_token || '' }}
@@ -1509,12 +1693,90 @@ runs:
 
     - name: Run Claude Code (attempt 3)
       id: attempt_3
-      if: steps.credentials.outputs.cred_3_token != '' && steps.attempt_2.outcome == 'failure'
+      if: steps.credentials.outputs.cred_3_token != '' && !(steps.attempt_2.outcome == 'success' || steps.attempt_2_retry.outcome == 'success')
       continue-on-error: true
       uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
       with:
         prompt: ${{ steps.prompt.outputs.text }}
-        # No steps.resume.outputs.claude_args here -- see attempt_2's own comment: a fallback attempt within this same job run must always start fresh, never resume a session an earlier failed attempt in this run may have already written to.
+        claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
+        additional_permissions: ${{ steps.args.outputs.additional_permissions }}
+        anthropic_api_key: ${{ steps.credentials.outputs.cred_3_type == 'key' && steps.credentials.outputs.cred_3_token || '' }}
+        claude_code_oauth_token: ${{ steps.credentials.outputs.cred_3_type == 'oauth' && steps.credentials.outputs.cred_3_token || '' }}
+        github_token: ${{ inputs.github_token }}
+        settings: ${{ inputs.settings }}
+        trigger_phrase: ${{ inputs.trigger_phrase }}
+        assignee_trigger: ${{ inputs.assignee_trigger }}
+        label_trigger: ${{ inputs.label_trigger }}
+        allowed_bots: ${{ inputs.allowed_bots }}
+        allowed_non_write_users: ${{ inputs.allowed_non_write_users }}
+        track_progress: ${{ inputs.track_progress }}
+        use_sticky_comment: ${{ inputs.use_sticky_comment }}
+        include_fix_links: ${{ inputs.include_fix_links }}
+        classify_inline_comments: ${{ inputs.classify_inline_comments }}
+        include_comments_by_actor: ${{ inputs.include_comments_by_actor }}
+        exclude_comments_by_actor: ${{ inputs.exclude_comments_by_actor }}
+        base_branch: ${{ inputs.base_branch }}
+        branch_prefix: ${{ inputs.branch_prefix }}
+        branch_name_template: ${{ inputs.branch_name_template }}
+        use_commit_signing: ${{ inputs.use_commit_signing }}
+        ssh_signing_key: ${{ inputs.ssh_signing_key }}
+        bot_id: ${{ inputs.bot_id }}
+        bot_name: ${{ inputs.bot_name }}
+        plugins: ${{ inputs.plugins }}
+        plugin_marketplaces: ${{ inputs.plugin_marketplaces }}
+        use_bedrock: ${{ inputs.use_bedrock }}
+        use_vertex: ${{ inputs.use_vertex }}
+        use_foundry: ${{ inputs.use_foundry }}
+        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
+        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
+        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
+        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
+        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
+        path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
+        display_report: ${{ inputs.display_report }}
+        show_full_output: ${{ inputs.show_full_output }}
+
+    - name: Rate-limit retry gate (attempt 3)
+      id: retry_gate_3
+      if: steps.attempt_3.outcome == 'failure' && inputs.retry_on_rate_limit == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        EXECUTION_FILE: ${{ steps.attempt_3.outputs.execution_file }}
+        WAIT_SECONDS: ${{ inputs.rate_limit_retry_wait_seconds }}
+      run: |
+        set -euo pipefail
+
+        SHOULD_RETRY=false
+        if [ -n "${EXECUTION_FILE:-}" ] && [ -f "$EXECUTION_FILE" ]; then
+          API_ERROR_STATUS=$(jq -r '.api_error_status // empty' "$EXECUTION_FILE" 2>/dev/null) || true
+          RESULT_TEXT=$(jq -r '.result // empty' "$EXECUTION_FILE" 2>/dev/null) || true
+          # A 429 is the only status worth waiting out at all. Its own message decides whether the wait is
+          # worthwhile: one naming a multi-day-scale reset (a weekly or monthly account quota) cannot be fixed
+          # by retrying within this job, so only a 429 that does NOT look like that is treated as a genuine,
+          # short-lived rate limit worth retrying the same credential for.
+          if [ "${API_ERROR_STATUS:-}" = "429" ] && ! printf '%s' "${RESULT_TEXT:-}" | grep -qiE 'weekly|monthly|per week|per month'; then
+            SHOULD_RETRY=true
+          fi
+        fi
+        echo "should_retry=${SHOULD_RETRY}" >> "$GITHUB_OUTPUT"
+
+        if [ "$SHOULD_RETRY" = "true" ]; then
+          echo "Attempt 3 failed with a 429 that does not look like a hard quota exhaustion; waiting ${WAIT_SECONDS}s before retrying the same credential."
+          sleep "${WAIT_SECONDS}"
+        else
+          echo "Attempt 3's failure does not look like a retryable rate limit (or produced no execution file); not retrying the same credential."
+        fi
+
+    - name: Run Claude Code (attempt 3 retry)
+      id: attempt_3_retry
+      if: steps.retry_gate_3.outputs.should_retry == 'true'
+      continue-on-error: true
+      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      with:
+        prompt: ${{ steps.prompt.outputs.text }}
+        # No steps.resume.outputs.claude_args here -- see attempt_2's own comment further up: a same-credential retry within this same job run must always start fresh, never resume a session the failed first try in this run may have already written to.
         claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_3_type == 'key' && steps.credentials.outputs.cred_3_token || '' }}
@@ -1556,12 +1818,90 @@ runs:
 
     - name: Run Claude Code (attempt 4)
       id: attempt_4
-      if: steps.credentials.outputs.cred_4_token != '' && steps.attempt_3.outcome == 'failure'
+      if: steps.credentials.outputs.cred_4_token != '' && !(steps.attempt_3.outcome == 'success' || steps.attempt_3_retry.outcome == 'success')
       continue-on-error: true
       uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
       with:
         prompt: ${{ steps.prompt.outputs.text }}
-        # No steps.resume.outputs.claude_args here -- see attempt_2's own comment: a fallback attempt within this same job run must always start fresh, never resume a session an earlier failed attempt in this run may have already written to.
+        claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
+        additional_permissions: ${{ steps.args.outputs.additional_permissions }}
+        anthropic_api_key: ${{ steps.credentials.outputs.cred_4_type == 'key' && steps.credentials.outputs.cred_4_token || '' }}
+        claude_code_oauth_token: ${{ steps.credentials.outputs.cred_4_type == 'oauth' && steps.credentials.outputs.cred_4_token || '' }}
+        github_token: ${{ inputs.github_token }}
+        settings: ${{ inputs.settings }}
+        trigger_phrase: ${{ inputs.trigger_phrase }}
+        assignee_trigger: ${{ inputs.assignee_trigger }}
+        label_trigger: ${{ inputs.label_trigger }}
+        allowed_bots: ${{ inputs.allowed_bots }}
+        allowed_non_write_users: ${{ inputs.allowed_non_write_users }}
+        track_progress: ${{ inputs.track_progress }}
+        use_sticky_comment: ${{ inputs.use_sticky_comment }}
+        include_fix_links: ${{ inputs.include_fix_links }}
+        classify_inline_comments: ${{ inputs.classify_inline_comments }}
+        include_comments_by_actor: ${{ inputs.include_comments_by_actor }}
+        exclude_comments_by_actor: ${{ inputs.exclude_comments_by_actor }}
+        base_branch: ${{ inputs.base_branch }}
+        branch_prefix: ${{ inputs.branch_prefix }}
+        branch_name_template: ${{ inputs.branch_name_template }}
+        use_commit_signing: ${{ inputs.use_commit_signing }}
+        ssh_signing_key: ${{ inputs.ssh_signing_key }}
+        bot_id: ${{ inputs.bot_id }}
+        bot_name: ${{ inputs.bot_name }}
+        plugins: ${{ inputs.plugins }}
+        plugin_marketplaces: ${{ inputs.plugin_marketplaces }}
+        use_bedrock: ${{ inputs.use_bedrock }}
+        use_vertex: ${{ inputs.use_vertex }}
+        use_foundry: ${{ inputs.use_foundry }}
+        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
+        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
+        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
+        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
+        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
+        path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
+        display_report: ${{ inputs.display_report }}
+        show_full_output: ${{ inputs.show_full_output }}
+
+    - name: Rate-limit retry gate (attempt 4)
+      id: retry_gate_4
+      if: steps.attempt_4.outcome == 'failure' && inputs.retry_on_rate_limit == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        EXECUTION_FILE: ${{ steps.attempt_4.outputs.execution_file }}
+        WAIT_SECONDS: ${{ inputs.rate_limit_retry_wait_seconds }}
+      run: |
+        set -euo pipefail
+
+        SHOULD_RETRY=false
+        if [ -n "${EXECUTION_FILE:-}" ] && [ -f "$EXECUTION_FILE" ]; then
+          API_ERROR_STATUS=$(jq -r '.api_error_status // empty' "$EXECUTION_FILE" 2>/dev/null) || true
+          RESULT_TEXT=$(jq -r '.result // empty' "$EXECUTION_FILE" 2>/dev/null) || true
+          # A 429 is the only status worth waiting out at all. Its own message decides whether the wait is
+          # worthwhile: one naming a multi-day-scale reset (a weekly or monthly account quota) cannot be fixed
+          # by retrying within this job, so only a 429 that does NOT look like that is treated as a genuine,
+          # short-lived rate limit worth retrying the same credential for.
+          if [ "${API_ERROR_STATUS:-}" = "429" ] && ! printf '%s' "${RESULT_TEXT:-}" | grep -qiE 'weekly|monthly|per week|per month'; then
+            SHOULD_RETRY=true
+          fi
+        fi
+        echo "should_retry=${SHOULD_RETRY}" >> "$GITHUB_OUTPUT"
+
+        if [ "$SHOULD_RETRY" = "true" ]; then
+          echo "Attempt 4 failed with a 429 that does not look like a hard quota exhaustion; waiting ${WAIT_SECONDS}s before retrying the same credential."
+          sleep "${WAIT_SECONDS}"
+        else
+          echo "Attempt 4's failure does not look like a retryable rate limit (or produced no execution file); not retrying the same credential."
+        fi
+
+    - name: Run Claude Code (attempt 4 retry)
+      id: attempt_4_retry
+      if: steps.retry_gate_4.outputs.should_retry == 'true'
+      continue-on-error: true
+      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      with:
+        prompt: ${{ steps.prompt.outputs.text }}
+        # No steps.resume.outputs.claude_args here -- see attempt_2's own comment further up: a same-credential retry within this same job run must always start fresh, never resume a session the failed first try in this run may have already written to.
         claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_4_type == 'key' && steps.credentials.outputs.cred_4_token || '' }}
@@ -1603,12 +1943,90 @@ runs:
 
     - name: Run Claude Code (attempt 5)
       id: attempt_5
-      if: steps.credentials.outputs.cred_5_token != '' && steps.attempt_4.outcome == 'failure'
+      if: steps.credentials.outputs.cred_5_token != '' && !(steps.attempt_4.outcome == 'success' || steps.attempt_4_retry.outcome == 'success')
       continue-on-error: true
       uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
       with:
         prompt: ${{ steps.prompt.outputs.text }}
-        # No steps.resume.outputs.claude_args here -- see attempt_2's own comment: a fallback attempt within this same job run must always start fresh, never resume a session an earlier failed attempt in this run may have already written to.
+        claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
+        additional_permissions: ${{ steps.args.outputs.additional_permissions }}
+        anthropic_api_key: ${{ steps.credentials.outputs.cred_5_type == 'key' && steps.credentials.outputs.cred_5_token || '' }}
+        claude_code_oauth_token: ${{ steps.credentials.outputs.cred_5_type == 'oauth' && steps.credentials.outputs.cred_5_token || '' }}
+        github_token: ${{ inputs.github_token }}
+        settings: ${{ inputs.settings }}
+        trigger_phrase: ${{ inputs.trigger_phrase }}
+        assignee_trigger: ${{ inputs.assignee_trigger }}
+        label_trigger: ${{ inputs.label_trigger }}
+        allowed_bots: ${{ inputs.allowed_bots }}
+        allowed_non_write_users: ${{ inputs.allowed_non_write_users }}
+        track_progress: ${{ inputs.track_progress }}
+        use_sticky_comment: ${{ inputs.use_sticky_comment }}
+        include_fix_links: ${{ inputs.include_fix_links }}
+        classify_inline_comments: ${{ inputs.classify_inline_comments }}
+        include_comments_by_actor: ${{ inputs.include_comments_by_actor }}
+        exclude_comments_by_actor: ${{ inputs.exclude_comments_by_actor }}
+        base_branch: ${{ inputs.base_branch }}
+        branch_prefix: ${{ inputs.branch_prefix }}
+        branch_name_template: ${{ inputs.branch_name_template }}
+        use_commit_signing: ${{ inputs.use_commit_signing }}
+        ssh_signing_key: ${{ inputs.ssh_signing_key }}
+        bot_id: ${{ inputs.bot_id }}
+        bot_name: ${{ inputs.bot_name }}
+        plugins: ${{ inputs.plugins }}
+        plugin_marketplaces: ${{ inputs.plugin_marketplaces }}
+        use_bedrock: ${{ inputs.use_bedrock }}
+        use_vertex: ${{ inputs.use_vertex }}
+        use_foundry: ${{ inputs.use_foundry }}
+        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
+        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
+        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
+        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
+        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
+        path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
+        display_report: ${{ inputs.display_report }}
+        show_full_output: ${{ inputs.show_full_output }}
+
+    - name: Rate-limit retry gate (attempt 5)
+      id: retry_gate_5
+      if: steps.attempt_5.outcome == 'failure' && inputs.retry_on_rate_limit == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        EXECUTION_FILE: ${{ steps.attempt_5.outputs.execution_file }}
+        WAIT_SECONDS: ${{ inputs.rate_limit_retry_wait_seconds }}
+      run: |
+        set -euo pipefail
+
+        SHOULD_RETRY=false
+        if [ -n "${EXECUTION_FILE:-}" ] && [ -f "$EXECUTION_FILE" ]; then
+          API_ERROR_STATUS=$(jq -r '.api_error_status // empty' "$EXECUTION_FILE" 2>/dev/null) || true
+          RESULT_TEXT=$(jq -r '.result // empty' "$EXECUTION_FILE" 2>/dev/null) || true
+          # A 429 is the only status worth waiting out at all. Its own message decides whether the wait is
+          # worthwhile: one naming a multi-day-scale reset (a weekly or monthly account quota) cannot be fixed
+          # by retrying within this job, so only a 429 that does NOT look like that is treated as a genuine,
+          # short-lived rate limit worth retrying the same credential for.
+          if [ "${API_ERROR_STATUS:-}" = "429" ] && ! printf '%s' "${RESULT_TEXT:-}" | grep -qiE 'weekly|monthly|per week|per month'; then
+            SHOULD_RETRY=true
+          fi
+        fi
+        echo "should_retry=${SHOULD_RETRY}" >> "$GITHUB_OUTPUT"
+
+        if [ "$SHOULD_RETRY" = "true" ]; then
+          echo "Attempt 5 failed with a 429 that does not look like a hard quota exhaustion; waiting ${WAIT_SECONDS}s before retrying the same credential."
+          sleep "${WAIT_SECONDS}"
+        else
+          echo "Attempt 5's failure does not look like a retryable rate limit (or produced no execution file); not retrying the same credential."
+        fi
+
+    - name: Run Claude Code (attempt 5 retry)
+      id: attempt_5_retry
+      if: steps.retry_gate_5.outputs.should_retry == 'true'
+      continue-on-error: true
+      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      with:
+        prompt: ${{ steps.prompt.outputs.text }}
+        # No steps.resume.outputs.claude_args here -- see attempt_2's own comment further up: a same-credential retry within this same job run must always start fresh, never resume a session the failed first try in this run may have already written to.
         claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_5_type == 'key' && steps.credentials.outputs.cred_5_token || '' }}
@@ -1655,10 +2073,15 @@ runs:
       env:
         CREDENTIAL_COUNT: ${{ steps.credentials.outputs.credential_count }}
         OUTCOME_1: ${{ steps.attempt_1.outcome }}
+        OUTCOME_1R: ${{ steps.attempt_1_retry.outcome }}
         OUTCOME_2: ${{ steps.attempt_2.outcome }}
+        OUTCOME_2R: ${{ steps.attempt_2_retry.outcome }}
         OUTCOME_3: ${{ steps.attempt_3.outcome }}
+        OUTCOME_3R: ${{ steps.attempt_3_retry.outcome }}
         OUTCOME_4: ${{ steps.attempt_4.outcome }}
+        OUTCOME_4R: ${{ steps.attempt_4_retry.outcome }}
         OUTCOME_5: ${{ steps.attempt_5.outcome }}
+        OUTCOME_5R: ${{ steps.attempt_5_retry.outcome }}
         CRED_TYPE_1: ${{ steps.credentials.outputs.cred_1_type }}
         CRED_TYPE_2: ${{ steps.credentials.outputs.cred_2_type }}
         CRED_TYPE_3: ${{ steps.credentials.outputs.cred_3_type }}
@@ -1670,38 +2093,63 @@ runs:
         CRED_TOKEN_4: ${{ steps.credentials.outputs.cred_4_token }}
         CRED_TOKEN_5: ${{ steps.credentials.outputs.cred_5_token }}
         CONCLUSION_1: ${{ steps.attempt_1.outputs.conclusion }}
+        CONCLUSION_1R: ${{ steps.attempt_1_retry.outputs.conclusion }}
         CONCLUSION_2: ${{ steps.attempt_2.outputs.conclusion }}
+        CONCLUSION_2R: ${{ steps.attempt_2_retry.outputs.conclusion }}
         CONCLUSION_3: ${{ steps.attempt_3.outputs.conclusion }}
+        CONCLUSION_3R: ${{ steps.attempt_3_retry.outputs.conclusion }}
         CONCLUSION_4: ${{ steps.attempt_4.outputs.conclusion }}
+        CONCLUSION_4R: ${{ steps.attempt_4_retry.outputs.conclusion }}
         CONCLUSION_5: ${{ steps.attempt_5.outputs.conclusion }}
+        CONCLUSION_5R: ${{ steps.attempt_5_retry.outputs.conclusion }}
         EXECUTION_FILE_1: ${{ steps.attempt_1.outputs.execution_file }}
+        EXECUTION_FILE_1R: ${{ steps.attempt_1_retry.outputs.execution_file }}
         EXECUTION_FILE_2: ${{ steps.attempt_2.outputs.execution_file }}
+        EXECUTION_FILE_2R: ${{ steps.attempt_2_retry.outputs.execution_file }}
         EXECUTION_FILE_3: ${{ steps.attempt_3.outputs.execution_file }}
+        EXECUTION_FILE_3R: ${{ steps.attempt_3_retry.outputs.execution_file }}
         EXECUTION_FILE_4: ${{ steps.attempt_4.outputs.execution_file }}
+        EXECUTION_FILE_4R: ${{ steps.attempt_4_retry.outputs.execution_file }}
         EXECUTION_FILE_5: ${{ steps.attempt_5.outputs.execution_file }}
+        EXECUTION_FILE_5R: ${{ steps.attempt_5_retry.outputs.execution_file }}
         BRANCH_NAME_1: ${{ steps.attempt_1.outputs.branch_name }}
+        BRANCH_NAME_1R: ${{ steps.attempt_1_retry.outputs.branch_name }}
         BRANCH_NAME_2: ${{ steps.attempt_2.outputs.branch_name }}
+        BRANCH_NAME_2R: ${{ steps.attempt_2_retry.outputs.branch_name }}
         BRANCH_NAME_3: ${{ steps.attempt_3.outputs.branch_name }}
+        BRANCH_NAME_3R: ${{ steps.attempt_3_retry.outputs.branch_name }}
         BRANCH_NAME_4: ${{ steps.attempt_4.outputs.branch_name }}
+        BRANCH_NAME_4R: ${{ steps.attempt_4_retry.outputs.branch_name }}
         BRANCH_NAME_5: ${{ steps.attempt_5.outputs.branch_name }}
+        BRANCH_NAME_5R: ${{ steps.attempt_5_retry.outputs.branch_name }}
         SESSION_ID_1: ${{ steps.attempt_1.outputs.session_id }}
+        SESSION_ID_1R: ${{ steps.attempt_1_retry.outputs.session_id }}
         SESSION_ID_2: ${{ steps.attempt_2.outputs.session_id }}
+        SESSION_ID_2R: ${{ steps.attempt_2_retry.outputs.session_id }}
         SESSION_ID_3: ${{ steps.attempt_3.outputs.session_id }}
+        SESSION_ID_3R: ${{ steps.attempt_3_retry.outputs.session_id }}
         SESSION_ID_4: ${{ steps.attempt_4.outputs.session_id }}
+        SESSION_ID_4R: ${{ steps.attempt_4_retry.outputs.session_id }}
         SESSION_ID_5: ${{ steps.attempt_5.outputs.session_id }}
+        SESSION_ID_5R: ${{ steps.attempt_5_retry.outputs.session_id }}
         STRUCTURED_OUTPUT_1: ${{ steps.attempt_1.outputs.structured_output }}
+        STRUCTURED_OUTPUT_1R: ${{ steps.attempt_1_retry.outputs.structured_output }}
         STRUCTURED_OUTPUT_2: ${{ steps.attempt_2.outputs.structured_output }}
+        STRUCTURED_OUTPUT_2R: ${{ steps.attempt_2_retry.outputs.structured_output }}
         STRUCTURED_OUTPUT_3: ${{ steps.attempt_3.outputs.structured_output }}
+        STRUCTURED_OUTPUT_3R: ${{ steps.attempt_3_retry.outputs.structured_output }}
         STRUCTURED_OUTPUT_4: ${{ steps.attempt_4.outputs.structured_output }}
+        STRUCTURED_OUTPUT_4R: ${{ steps.attempt_4_retry.outputs.structured_output }}
         STRUCTURED_OUTPUT_5: ${{ steps.attempt_5.outputs.structured_output }}
+        STRUCTURED_OUTPUT_5R: ${{ steps.attempt_5_retry.outputs.structured_output }}
       run: |
         set -euo pipefail
 
         WINNER=""
-        for i in 1 2 3 4 5; do
-          var="OUTCOME_${i}"
+        for slot in 1 1R 2 2R 3 3R 4 4R 5 5R; do
+          var="OUTCOME_${slot}"
           if [ "${!var:-}" = "success" ]; then
-            WINNER="$i"
+            WINNER="$slot"
             break
           fi
         done
@@ -1710,7 +2158,7 @@ runs:
           if [ "${CREDENTIAL_COUNT:-0}" -eq 0 ]; then
             echo "::error::Claude Code failed to run and no explicit credential was supplied. Check use_bedrock/use_vertex/use_foundry's own configuration, or an org/repo-level ANTHROPIC_API_KEY/CLAUDE_CODE_OAUTH_TOKEN environment variable, in the calling job." >&2
           else
-            echo "::error::All ${CREDENTIAL_COUNT} attempted credential(s) failed to run Claude Code. See the individual 'Run Claude Code (attempt N)' step logs above for the underlying error from each." >&2
+            echo "::error::All ${CREDENTIAL_COUNT} attempted credential(s) (including same-credential rate-limit retries) failed to run Claude Code. See the individual 'Run Claude Code (attempt N)'/'Run Claude Code (attempt N retry)' step logs above for the underlying error from each." >&2
           fi
           exit 1
         fi
@@ -1724,6 +2172,9 @@ runs:
 
         echo "Credential attempt ${WINNER} succeeded."
 
+        # A retry slot (e.g. "3R") shares its base slot's own credential (attempt 3's retry used exactly attempt 3's own credential) -- CRED_TYPE_N/CRED_TOKEN_N are only ever indexed by the plain numeric slot, never by a retry slot, so strip a trailing R before looking those two up.
+        WINNER_CRED_INDEX="${WINNER%R}"
+
         for field in conclusion execution_file branch_name session_id structured_output winning_cred_type winning_cred_token; do
           case "$field" in
           conclusion) var="CONCLUSION_${WINNER}" ;;
@@ -1731,8 +2182,8 @@ runs:
           branch_name) var="BRANCH_NAME_${WINNER}" ;;
           session_id) var="SESSION_ID_${WINNER}" ;;
           structured_output) var="STRUCTURED_OUTPUT_${WINNER}" ;;
-          winning_cred_type) var="CRED_TYPE_${WINNER}" ;;
-          winning_cred_token) var="CRED_TOKEN_${WINNER}" ;;
+          winning_cred_type) var="CRED_TYPE_${WINNER_CRED_INDEX}" ;;
+          winning_cred_token) var="CRED_TOKEN_${WINNER_CRED_INDEX}" ;;
           esac
           value="${!var:-}"
           delim="RESULT_$(openssl rand -hex 16)"
