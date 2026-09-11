@@ -1,0 +1,43 @@
+# Composite-action-step (direct) form of claude-review.yml with escalate_findings_to_issues turned on. Copy this to .github/workflows/claude-review.yml in a repository in your organisation -- INSTEAD OF, not alongside, either of the other two review examples.
+#
+# What this adds over examples/direct/claude-review.yml: when the turn-limit wrap-up runs and itself fails -- typically because its own closing reply tried to post somewhere and that write was blocked, or the pull request it was about had already merged or closed underneath it -- a further, narrowly-scoped follow-on judges whether anything already found is severe enough (Blocker or Should-fix, never a Nit) to open or update a GitHub issue for, one issue per distinct finding. See the README's "Escalating blocked findings to issues" section for the full mechanism, what this call can and cannot do, and the always-on, no-permission-needed Step Summary fallback that records the same content regardless of whether this input is set.
+#
+# The only difference from examples/direct/claude-review.yml besides the flag itself: issues: write below. escalate_findings_to_issues needs it, review mode's reusable workflow does not request it, and a caller-side permissions: block cannot widen a reusable workflow's job beyond what that job's own permissions: block already requests -- so this only works through the direct form, exactly like fix_ci_failures/fix_diff_findings need contents: write via examples/direct/claude-review-with-fixes.yml.
+#
+# Requires the Claude Code GitHub App installed on the organisation (https://github.com/apps/claude) and a CLAUDE_CODE_OAUTH_TOKEN secret, exactly as examples/direct/claude-review.yml does.
+
+name: Claude Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write # escalate_findings_to_issues needs this; review mode does not request it otherwise
+  actions: read # only used when include_ci_logs is true; read-only, covers workflow-run metadata and logs
+  id-token: write # the OIDC exchange that mints the Claude Code App token needs this; the reusable-workflow form cannot grant it, which is why resolve_stale_threads only works here
+
+# Reviewing every push to a busy branch gets expensive. This cancels an in-flight review when the author pushes again.
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: review mode's local git diff/log/show tools compare against the base branch, which a shallow (depth-1) clone does not have.
+          fetch-depth: 0
+      - uses: ExaDev/claude-code-action@v1
+        with:
+          mode: review
+          # No github_token: leaving it unset is what makes the review run as the Claude Code App (claude[bot]). See examples/direct/claude-review.yml's header comment.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          escalate_findings_to_issues: true
+          # Every other input is optional with a sensible default -- see action.yml for the full list.
