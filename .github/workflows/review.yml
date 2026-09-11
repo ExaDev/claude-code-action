@@ -137,6 +137,16 @@ on:
         type: string
         required: false
         default: "claude[bot]"
+      retry_on_rate_limit:
+        description: "When a credential attempt fails with a 429 that looks like a genuine short-lived rate limit rather than a hard quota exhaustion, wait rate_limit_retry_wait_seconds and retry that same credential once before falling through to the next configured credential. On by default; set false to fall through immediately on any failure, as before this existed."
+        type: boolean
+        required: false
+        default: true
+      rate_limit_retry_wait_seconds:
+        description: "Seconds to wait before retrying the same credential once, when retry_on_rate_limit judges a failure to be a genuine short-lived rate limit. Default 60. Ignored when retry_on_rate_limit is false."
+        type: string
+        required: false
+        default: "60"
       plugins:
         description: "Newline-separated Claude Code plugin names to install before the review."
         type: string
@@ -299,6 +309,8 @@ jobs:
           exclude_comments_by_actor: ${{ inputs.exclude_comments_by_actor }}
           bot_id: ${{ inputs.bot_id }}
           bot_name: ${{ inputs.bot_name }}
+          retry_on_rate_limit: ${{ inputs.retry_on_rate_limit }}
+          rate_limit_retry_wait_seconds: ${{ inputs.rate_limit_retry_wait_seconds }}
           plugins: ${{ inputs.plugins }}
           plugin_marketplaces: ${{ inputs.plugin_marketplaces }}
           use_bedrock: ${{ inputs.use_bedrock }}
