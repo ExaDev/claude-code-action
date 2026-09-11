@@ -1,3 +1,9 @@
+## [1.11.0](https://github.com/ExaDev/claude-code-action/compare/v1.10.2...v1.11.0) (2026-09-11)
+
+### Features
+
+- escalate unposted findings to issues and record wrap-up failures in the step summary ([482937d](https://github.com/ExaDev/claude-code-action/commit/482937dc91045769a4176973a9c94ddf1eff485e))
+
 ## [1.10.2](https://github.com/ExaDev/claude-code-action/compare/v1.10.1...v1.10.2) (2026-09-10)
 
 ### Bug Fixes
