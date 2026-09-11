@@ -165,9 +165,14 @@ inputs:
     default: "true"
   fix_pr_metadata:
     description: |
-      Review mode only. Check whether the pull request's title and description accurately and completely describe the change and, if not, correct them directly with mcp__github__update_pull_request -- a vague title, an empty description, or an unfilled template gets rewritten from the diff; a title and description that already do the job are left untouched. On by default. Adds mcp__github__update_pull_request to the review allowlist when on -- the prompt restricts its own use of that tool to the title and body fields, but the tool itself also accepts state (can close the pull request), base, draft, maintainer_can_modify, and reviewers, and the allowlist grants the whole tool, not a title/body-only subset of it, so that restriction is enforced by the prompt alone, not by anything technical. Unlike resolve_stale_threads this needs no special token identity and works in both the reusable-workflow and direct forms, but treat it as at least as sensitive: set this to "false" on repositories that accept untrusted fork pull requests (see the README's security notes). Ignored in triage and interactive modes.
+      Review mode only. Check whether the pull request's title and description accurately and completely describe the change and, if not, correct them directly with mcp__github__update_pull_request -- a vague title, an empty description, or an unfilled template gets rewritten from the diff; a title and description that already do the job are left untouched. On by default. Adds mcp__github__update_pull_request to the review allowlist when on (mark_draft_if_unready, below, also grants this same tool, independently) -- the prompt restricts its own use of that tool to the title and body fields, but the tool itself also accepts state (can close the pull request), base, draft, maintainer_can_modify, and reviewers, and the allowlist grants the whole tool, not a title/body-only subset of it, so that restriction is enforced by the prompt alone, not by anything technical. Unlike resolve_stale_threads this needs no special token identity and works in both the reusable-workflow and direct forms, but treat it as at least as sensitive: set this to "false" on repositories that accept untrusted fork pull requests (see the README's security notes). Ignored in triage and interactive modes.
     required: false
     default: "true"
+  mark_draft_if_unready:
+    description: |
+      Review mode only. Off by default, unlike fix_pr_metadata above, even though it shares the same underlying tool: check whether the pull request itself is genuinely unfinished -- an explicit "WIP"/"do not merge"/"not ready for review" marker in the title, description, or commits, or a diff that is self-evidently incomplete (a stub body blocking the change's own stated purpose, unresolved merge-conflict markers, a checkpoint clearly mid-edit) -- and, only then, convert it to draft with mcp__github__update_pull_request, setting draft: true and nothing else. This is never triggered by ordinary review findings: a complete pull request with bugs, missing tests, or Should-fix/Blocker comments is reviewed normally and stays exactly as it was, not converted to draft -- draft is about the author evidently still being mid-work, not about code quality. It never sets draft: false; converting a draft back to ready stays a human decision. Off by default because, unlike a title/description correction, this changes the pull request's own review-request state and visibility, and on a repository that accepts untrusted fork pull requests a subverted review could abuse it to pull a pull request out of reviewers' visible queues -- leave this false there even if fix_pr_metadata is on. Adds mcp__github__update_pull_request to the review allowlist when on, independently of fix_pr_metadata (only one grant is added if both are on). Ignored in triage and interactive modes, and a no-op on a pull request that is already draft.
+    required: false
+    default: "false"
   verify_prior_findings:
     description: |
       Review mode only. On a re-review, before leaving one of your own prior threads open or repeating its finding, re-check any technical assertion that finding depends on (whether an API exists, how it is meant to be used, what a version supports) against the actual package, lockfile, or vendored source, and against current official documentation when that is not decisive on its own -- a stale review from an earlier commit is not just a question of whether the code changed, it can also simply have been wrong, and repeating a claim across another review cycle does not make it any more correct. On by default. Adds WebFetch to the review allowlist when on, unrestricted by domain -- this action's stack fragments span enough different package registries and documentation hosts (npm, pkg.go.dev, pub.dev, packagist.org, Terraform's registry, Apple's developer docs, and more, each often mirrored across several hosts) that a maintained per-domain allowlist would either lag behind real usage or need constant upkeep, so the prompt's own restriction -- fetch only a URL you reasoned your way to yourself, never one that appears in the diff, the pull request description, or a comment -- is the sole guard, enforced by the prompt alone, not by anything technical. WebFetch is a route to arbitrary network egress that nothing else in this action's review allowlist grants -- set this to "false" on repositories that accept untrusted fork pull requests (see the README's security notes). Ignored in triage and interactive modes.
@@ -436,6 +441,7 @@ runs:
         INCLUDE_SUGGESTIONS: ${{ inputs.include_suggestions }}
         RESOLVE_STALE_THREADS: ${{ inputs.resolve_stale_threads }}
         FIX_PR_METADATA: ${{ inputs.fix_pr_metadata }}
+        MARK_DRAFT_IF_UNREADY: ${{ inputs.mark_draft_if_unready }}
         VERIFY_PRIOR_FINDINGS: ${{ inputs.verify_prior_findings }}
         STRUCTURED_REVIEW_SUMMARY: ${{ inputs.structured_review_summary }}
         INCLUDE_CI_LOGS: ${{ inputs.include_ci_logs }}
@@ -517,6 +523,14 @@ runs:
             ;;
         esac
 
+        case "$MARK_DRAFT_IF_UNREADY" in
+          true|false) ;;
+          *)
+            echo "::error::mark_draft_if_unready must be true or false. Got '${MARK_DRAFT_IF_UNREADY}'."
+            exit 1
+            ;;
+        esac
+
         case "$VERIFY_PRIOR_FINDINGS" in
           true|false) ;;
           *)
@@ -577,9 +591,9 @@ runs:
           exit 1
         fi
 
-        # These four default to false, unlike every other review toggle -- a true here can only be deliberate, so a non-review mode should be told rather than have it silently ignored.
+        # These default to false, unlike most other review toggles -- a true here can only be deliberate, so a non-review mode should be told rather than have it silently ignored.
         if [ "$MODE" != "review" ]; then
-          for _flag_pair in "fix_ci_failures:${FIX_CI_FAILURES}" "fix_diff_findings:${FIX_DIFF_FINDINGS}" "add_regression_tests:${ADD_REGRESSION_TESTS}" "escalate_findings_to_issues:${ESCALATE_FINDINGS_TO_ISSUES}"; do
+          for _flag_pair in "fix_ci_failures:${FIX_CI_FAILURES}" "fix_diff_findings:${FIX_DIFF_FINDINGS}" "add_regression_tests:${ADD_REGRESSION_TESTS}" "escalate_findings_to_issues:${ESCALATE_FINDINGS_TO_ISSUES}" "mark_draft_if_unready:${MARK_DRAFT_IF_UNREADY}"; do
             if [ "${_flag_pair#*:}" = "true" ]; then
               echo "::error::${_flag_pair%%:*} is a review-mode input and does nothing in '${MODE}' mode. It is off by default, so setting it can only be deliberate: remove it, or set mode: review."
               exit 1
@@ -904,6 +918,7 @@ runs:
         INCLUDE_SUGGESTIONS: ${{ inputs.include_suggestions }}
         RESOLVE_STALE_THREADS: ${{ inputs.resolve_stale_threads }}
         FIX_PR_METADATA: ${{ inputs.fix_pr_metadata }}
+        MARK_DRAFT_IF_UNREADY: ${{ inputs.mark_draft_if_unready }}
         VERIFY_PRIOR_FINDINGS: ${{ inputs.verify_prior_findings }}
         FIX_CI_FAILURES: ${{ inputs.fix_ci_failures }}
         FIX_DIFF_FINDINGS: ${{ inputs.fix_diff_findings }}
@@ -1020,6 +1035,7 @@ runs:
             printf -- '- Suggestions: `%s`\n' "$([ "$INCLUDE_SUGGESTIONS" = "true" ] && echo on || echo off)"
             printf -- '- Resolve stale threads: `%s`\n' "$([ "$RESOLVE_STALE_THREADS" = "true" ] && echo on || echo off)"
             printf -- '- Fix title/description: `%s`\n' "$([ "$FIX_PR_METADATA" = "true" ] && echo on || echo off)"
+            printf -- '- Mark draft if unready: `%s`\n' "$([ "$MARK_DRAFT_IF_UNREADY" = "true" ] && echo on || echo off)"
             printf -- '- Verify prior findings: `%s`\n' "$([ "$VERIFY_PRIOR_FINDINGS" = "true" ] && echo on || echo off)"
             if [ "$FIX_CI_FAILURES" = "true" ] && [ "$FIX_DIFF_FINDINGS" = "true" ]; then
               _fixpass='on (CI failures and diff findings)'
@@ -1096,6 +1112,7 @@ runs:
         INCLUDE_CI_LOGS: ${{ inputs.include_ci_logs }}
         RESOLVE_STALE_THREADS: ${{ inputs.resolve_stale_threads }}
         FIX_PR_METADATA: ${{ inputs.fix_pr_metadata }}
+        MARK_DRAFT_IF_UNREADY: ${{ inputs.mark_draft_if_unready }}
         VERIFY_PRIOR_FINDINGS: ${{ inputs.verify_prior_findings }}
         MODEL: ${{ inputs.model }}
         EXTRA_ARGS: ${{ inputs.extra_claude_args }}
@@ -1119,8 +1136,8 @@ runs:
             if [ "$RESOLVE_STALE_THREADS" = "true" ]; then
               ALLOWED="${ALLOWED},mcp__github__resolve_review_thread,Bash(gh api:*)"
             fi
-            # A dedicated write to this pull request's own title and body, distinct from the resolve_stale_threads escape hatch above -- it needs no gh api:* grant and no special token identity.
-            if [ "$FIX_PR_METADATA" = "true" ]; then
+            # A dedicated write to this pull request's own title and body, distinct from the resolve_stale_threads escape hatch above -- it needs no gh api:* grant and no special token identity. mark_draft_if_unready shares this exact grant for its own, narrower purpose (setting draft: true only), so the tool is added once whichever (or both) of the two is on -- there is nothing to gain from two separate mcp__github__update_pull_request entries in the same allowlist string.
+            if [ "$FIX_PR_METADATA" = "true" ] || [ "$MARK_DRAFT_IF_UNREADY" = "true" ]; then
               ALLOWED="${ALLOWED},mcp__github__update_pull_request"
             fi
             # WebFetch is arbitrary network egress, a materially different risk than every other grant here (all otherwise scoped to the GitHub REST/GraphQL surface) -- gated on its own toggle rather than folded into resolve_stale_threads for that reason.
