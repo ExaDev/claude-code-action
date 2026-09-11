@@ -17,7 +17,7 @@
     "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "@anthropic-ai/claude-code": "2.1.259",
+    "@anthropic-ai/claude-code": "2.1.260",
     "@commitlint/cli": "21.2.2",
     "@commitlint/config-conventional": "21.2.2",
     "@eslint/json": "2.1.0",
