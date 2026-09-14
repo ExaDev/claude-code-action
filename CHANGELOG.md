@@ -1,3 +1,10 @@
+## [1.12.1](https://github.com/ExaDev/claude-code-action/compare/v1.12.0...v1.12.1) (2026-09-14)
+
+### Bug Fixes
+
+- convert semantic-release plugin scripts to TypeScript ([a56efbd](https://github.com/ExaDev/claude-code-action/commit/a56efbd6d6a97745aa82496cb7429ec558d9fcd8))
+- cover .mts files in the pre-commit lint-staged glob ([6129db6](https://github.com/ExaDev/claude-code-action/commit/6129db62bf445f3787f11e1e8f2d7617cb4b0d3e))
+
 ## [1.12.0](https://github.com/ExaDev/claude-code-action/compare/v1.11.0...v1.12.0) (2026-09-11)
 
 ### Bug Fixes
