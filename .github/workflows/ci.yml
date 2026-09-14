@@ -114,7 +114,7 @@ jobs:
             fi
           done
 
-  # Computes the next version from commits since the last tag, generates release notes and a CHANGELOG.md entry, creates the GitHub Release and version tag, commits CHANGELOG.md back to main, and (via the move-major-tag plugin in release.config.ts) moves the moving vN tag to point at the new release -- see release.config.ts and scripts/move-major-tag.mjs. There is no npm-publish step and therefore no id-token: write permission -- this repository ships a GitHub Action, not an npm package.
+  # Computes the next version from commits since the last tag, generates release notes and a CHANGELOG.md entry, creates the GitHub Release and version tag, commits CHANGELOG.md back to main, and (via the move-major-tag plugin in release.config.ts) moves the moving vN tag to point at the new release -- see release.config.ts and scripts/move-major-tag.mts. There is no npm-publish step and therefore no id-token: write permission -- this repository ships a GitHub Action, not an npm package.
   release:
     name: Release
     needs: [required-checks]
@@ -138,7 +138,7 @@ jobs:
         with:
           # semantic-release analyses the full commit history since the last tag.
           fetch-depth: 0
-          # actions/checkout wires this into git's own credential config, so every subsequent plain `git push` in this job (the version tag, the CHANGELOG.md commit, and move-major-tag.mjs's tag move) authenticates as the App, not just this one checkout.
+          # actions/checkout wires this into git's own credential config, so every subsequent plain `git push` in this job (the version tag, the CHANGELOG.md commit, and move-major-tag.mts's tag move) authenticates as the App, not just this one checkout.
           token: ${{ steps.app-token.outputs.token }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:

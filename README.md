@@ -388,7 +388,7 @@ These native-metadata capabilities widen triage's allowlist with `Bash(gh api:*)
 
 ## Versioning
 
-Releases are automated by [`semantic-release`](https://semantic-release.gitbook.io/) (`release.config.ts`), triggered by the `release` job in `.github/workflows/ci.yml` on every push to `main` that passes `required-checks` — the single gate job aggregating commitlint, actionlint, typecheck, lint, and format, so adding, renaming, or splitting a check only ever means editing that one job's `needs:` list, never touching branch protection settings. It computes the next version from the conventional-commit types of the commits since the last release, writes `CHANGELOG.md`, creates the GitHub Release and the version tag, and moves the moving `v1` tag to it (`scripts/move-major-tag.mjs`, a local plugin — semantic-release has no concept of a moving major tag, since that's a GitHub-Actions-consumer convention, not a package-semver one). Consuming repositories reference `@v1`; a breaking change would ship as `v2` and require callers to opt in.
+Releases are automated by [`semantic-release`](https://semantic-release.gitbook.io/) (`release.config.ts`), triggered by the `release` job in `.github/workflows/ci.yml` on every push to `main` that passes `required-checks` — the single gate job aggregating commitlint, actionlint, typecheck, lint, and format, so adding, renaming, or splitting a check only ever means editing that one job's `needs:` list, never touching branch protection settings. It computes the next version from the conventional-commit types of the commits since the last release, writes `CHANGELOG.md`, creates the GitHub Release and the version tag, and moves the moving `v1` tag to it (`scripts/move-major-tag.mts`, a local plugin — semantic-release has no concept of a moving major tag, since that's a GitHub-Actions-consumer convention, not a package-semver one). Consuming repositories reference `@v1`; a breaking change would ship as `v2` and require callers to opt in.
 
 **The commit type you use is the release decision — get it right.** `commitlint.config.ts` and `release.config.ts` share one list (`commitTypes` in `release.config.ts`) mapping each conventional-commit type to a release level:
 
@@ -456,7 +456,7 @@ action.yml                     Composite action: input validation, prompt compos
                                call, automatic fixes
 turbo.json                     Turborepo task cache config (lint/typecheck/format:check)
 commitlint.config.ts           Conventional-commit enforcement (local hook + CI)
-release.config.ts              semantic-release config; scripts/move-major-tag.mjs is its
+release.config.ts              semantic-release config; scripts/move-major-tag.mts is its
                                local plugin that moves the moving vN tag after each release
 lint-staged.config.js          Deliberately .js, not .ts -- see its own header comment
 .github/dependabot.yml         Dependabot config: daily npm + github-actions scan, 7-day cooldown

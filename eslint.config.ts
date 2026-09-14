@@ -1,5 +1,5 @@
 import { defineConfig } from "eslint/config";
-import tseslint from "typescript-eslint";
+import exadev from "@exadev/eslint-config";
 import json from "@eslint/json";
 import markdown from "@eslint/markdown";
 // Recommended config, not the plugin itself: this both enables the prettier/prettier rule (reports formatting differences as lint errors, reading prettier.config.ts the same way `prettier --check` does) and applies eslint-config-prettier, which turns off every ESLint stylistic rule that could otherwise disagree with Prettier. It carries no `files:` restriction of its own, so it applies to everything ESLint actually lints below — YAML is untouched here (no ESLint language plugin for it), so `npm run format:check` remains the one authoritative formatting check that also covers the workflow/action YAML files.
@@ -7,9 +7,15 @@ import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended"
 
 export default defineConfig([
   {
-    files: ["**/*.ts"],
-    extends: [tseslint.configs.recommended],
+    files: ["**/*.{ts,mts}"],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
   },
+  ...exadev,
   {
     files: ["**/*.json"],
     ignores: ["package-lock.json"], // generated, not hand-maintained
