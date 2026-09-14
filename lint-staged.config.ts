@@ -4,7 +4,7 @@
 import { defineConfig } from "lint-staged/config";
 
 export default defineConfig({
-  "*.{ts,md}": [
+  "*.{ts,mts,md}": [
     "eslint --fix --cache --cache-location node_modules/.cache/eslint/.eslintcache",
     "prettier --write --cache",
   ],
