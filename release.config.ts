@@ -24,7 +24,7 @@ export const commitTypes: readonly CommitType[] = [
 ];
 
 /**
- * Runs on push to main. Analyses commits since the last v* tag, computes the next version, generates release notes and a CHANGELOG.md entry, creates the GitHub Release and the version tag, and commits CHANGELOG.md back to main. There is no npm-publish step: this repository ships a GitHub Action, not an npm package. The final plugin, ./scripts/move-major-tag.mjs, moves the moving `v1` tag to the new release afterwards, since semantic-release has no concept of that and consuming repositories already pin to `@v1`.
+ * Runs on push to main. Analyses commits since the last v* tag, computes the next version, generates release notes and a CHANGELOG.md entry, creates the GitHub Release and the version tag, and commits CHANGELOG.md back to main. There is no npm-publish step: this repository ships a GitHub Action, not an npm package. The final plugin, ./scripts/move-major-tag.mts, moves the moving `v1` tag to the new release afterwards, since semantic-release has no concept of that and consuming repositories already pin to `@v1`.
  */
 const config: Options = {
   branches: ["main"],
@@ -73,7 +73,7 @@ const config: Options = {
     ],
     "@semantic-release/changelog",
     // A plugin file, not an npm package: runs in the prepare step, which executes in plugin-list order, so placing it here -- after @semantic-release/changelog writes CHANGELOG.md and before @semantic-release/git commits it -- formats the generated file so it passes format:check. See the plugin's own docstring for why this is a local plugin rather than a flag on @semantic-release/changelog (which has none).
-    "./scripts/format-changelog.mjs",
+    "./scripts/format-changelog.mts",
     "@semantic-release/github",
     [
       "@semantic-release/git",
@@ -83,7 +83,7 @@ const config: Options = {
       },
     ],
     // A plugin file, not an npm dependency: referenced by path so Options.plugins' own PluginSpec type (string | [string, T]) is satisfied without a cast. See the plugin's own docstring for why this exists as local code rather than a package.
-    "./scripts/move-major-tag.mjs",
+    "./scripts/move-major-tag.mts",
   ],
 };
 
