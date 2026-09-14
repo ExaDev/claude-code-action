@@ -3,7 +3,7 @@
   "version": "0.0.0-managed-by-semantic-release",
   "private": true,
   "type": "module",
-  "packageManager": "npm@11.19.0",
+  "packageManager": "npm@12.0.2+sha512.b885e890b9418fa1693544d05f53e64f9a73ec194837d4258b15fecdd692347b1dd2a517b1b0cbaf9d31cd8e92c3b70956bd2ecc72833a57b4b3098f5bfa7943",
   "engines": {
     "node": ">=22.22.1 <23.0.0 || >=23.6.0"
   },
@@ -22,6 +22,7 @@
     "@commitlint/config-conventional": "21.2.2",
     "@eslint/json": "2.1.0",
     "@eslint/markdown": "8.0.3",
+    "@exadev/eslint-config": "2.12.3",
     "@semantic-release/changelog": "7.0.0",
     "@semantic-release/git": "11.0.1",
     "@types/node": "26.4.1",
@@ -37,5 +38,8 @@
     "turbo": "2.10.12",
     "typescript": "6.0.3",
     "typescript-eslint": "8.69.0"
+  },
+  "allowScripts": {
+    "@anthropic-ai/claude-code@2.1.259": true
   }
 }
