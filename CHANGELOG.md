@@ -1,3 +1,9 @@
+## [1.12.2](https://github.com/ExaDev/claude-code-action/compare/v1.12.1...v1.12.2) (2026-09-17)
+
+### Bug Fixes
+
+- **review:** surface the head commit so a resumed session can't mistake a re-review for a repeat ([8ddf085](https://github.com/ExaDev/claude-code-action/commit/8ddf0853427f461fff78b7dab9c293f8d0885b19))
+
 ## [1.12.1](https://github.com/ExaDev/claude-code-action/compare/v1.12.0...v1.12.1) (2026-09-14)
 
 ### Bug Fixes
