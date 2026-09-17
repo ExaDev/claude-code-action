@@ -12,9 +12,11 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
-# Reviewing every push to a busy branch gets expensive and noisy. This cancels an in-flight review when the author pushes again, so only the latest commit is reviewed.
+# Keyed on the commit's own head sha, not the pull request number. Reviewing every push to a busy branch gets expensive, and cancelling an in-flight review when the SAME commit is reviewed again is exactly what this should do -- but keying by PR number instead of sha means a second, later push arriving while an earlier push's review is still running cancels that still-in-flight review outright, with nothing left to finish it until someone notices and re-runs manually. Keying by sha means the two pushes' reviews never share a concurrency group in the first place, so neither cancels the other: a genuinely newer commit's own review runs alongside (or after) the older one's, which is at worst one redundant run, not a lost review.
+#
+# This form has no equivalent way to force a fresh review of an already-reviewed commit (see the gate step's own comment below) -- that escape hatch needs an explicit checkout ref and a pr_number passed straight to the composite action, which only examples/direct/claude-review.yml can do without changes to this repository's own reusable review.yml workflow. Use the direct form if you need that.
 concurrency:
-  group: claude-review-${{ github.event.pull_request.number }}
+  group: claude-review-${{ github.event.pull_request.head.sha }}
   cancel-in-progress: true
 
 jobs:
