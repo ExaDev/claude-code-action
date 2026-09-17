@@ -941,6 +941,7 @@ runs:
         EVENT_ACTION: ${{ github.event.action }}
         ENTITY_NUMBER: ${{ inputs.pr_number || inputs.issue_number || github.event.pull_request.number || github.event.issue.number }}
         BASE_REF: ${{ github.event.pull_request.base.ref }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         SEVERITY_RATINGS: ${{ inputs.severity_ratings }}
         ALLOWED_REVIEW_STATES: ${{ inputs.allowed_review_states }}
         INCLUDE_SUGGESTIONS: ${{ inputs.include_suggestions }}
@@ -1053,6 +1054,9 @@ runs:
             printf -- '- Pull request base branch: `%s`\n' "$BASE_REF"
           fi
           if [ "$MODE" = "review" ]; then
+            if [ -n "${HEAD_SHA:-}" ]; then
+              printf -- '- Head commit: `%s`\n' "$HEAD_SHA"
+            fi
             if [ -n "${STACK_NAMES:-}" ]; then
               printf -- '- Detected stack: `%s`\n' "$STACK_NAMES"
             else
