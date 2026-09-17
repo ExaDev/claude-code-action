@@ -1,6 +1,6 @@
 # Composite-action-step (direct) form of claude-review.yml. Copy this to .github/workflows/claude-review.yml in a repository in your organisation.
 #
-# This calls the composite action directly as a step rather than through the reusable workflow (examples/claude-review.yml), and it is the form that runs review as the Claude Code GitHub App (claude[bot]) -- which is the only identity that can submit a formal review AND resolve the bot's own stale threads on a re-review (resolve_stale_threads). The default github-actions[bot] token the reusable form uses is forbidden from both. Use this direct form when you want the App identity, the caller-side permissions: block below, or OIDC-based auth (Bedrock/Vertex/Foundry/Anthropic federation). Otherwise prefer examples/claude-review.yml -- it is shorter.
+# This calls the composite action directly as a step rather than through the reusable workflow (examples/claude-review.yml), and it is the form that runs review as the Claude Code GitHub App (claude[bot]) -- which is the only identity that can submit a formal review AND resolve the bot's own stale threads on a re-review (resolve_stale_threads). The default github-actions[bot] token the reusable form uses is forbidden from both. Use this direct form when you want the App identity, the caller-side permissions: block below, OIDC-based auth (Bedrock/Vertex/Foundry/Anthropic federation), or the workflow_dispatch escape hatch described below.
 #
 # Requires the Claude Code GitHub App installed on the organisation (https://github.com/apps/claude) and a CLAUDE_CODE_OAUTH_TOKEN secret, because the App token is minted per-run by an OIDC exchange that needs both. Do NOT pass github_token here -- leaving it unset is what makes the upstream take on the App identity; passing it would force github-actions[bot] and moderation would fail with FORBIDDEN, exactly as it does in the reusable form.
 #
@@ -9,12 +9,20 @@
 # Claude reviews every pull request when it is opened, when new commits are pushed to it, and when a draft is marked ready for review. It submits a formal review -- inline comments plus a summary body -- and by default approves a clean review (drop 'approve' from allowed_review_states if a human should be the only one who can merge).
 #
 # A gate decides whether the triggering event changed anything worth reviewing, and the review runs only if it did. It does no checkout and makes at most three API calls, so a skip costs seconds instead of a review of the whole diff. It skips a commit this reviewer has already reviewed -- two triggers landing together, or a re-run -- and it skips the merge commit GitHub's "Update branch" button creates, which introduces none of the author's own changes. It fails open: anything unexpected falls through to a review.
+#
+# A workflow_dispatch trigger exists purely as a manual escape hatch, for the one case none of the above covers: forcing a genuinely fresh review of a commit claude[bot] has already reviewed -- e.g. after fixing a bug in the review prompt itself, where the code under review hasn't changed but the review it would produce now has. Dismissing a stale review doesn't retrigger anything on its own, so without this there is no way to ask for a redo short of pushing an empty commit. It deliberately bypasses the "already reviewed this sha" check below -- that check exists to stop an automatic trigger re-paying for an unchanged review, not to stop a human deliberately asking for one -- but keeps the draft check exactly as strict as the pull_request path, resolved via an API lookup since a workflow_dispatch event carries no pull_request payload to read it from directly.
 
 name: Claude Review
 
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number to force a fresh review of, even if claude[bot] already reviewed its current head commit."
+        required: true
+        type: number
 
 permissions:
   contents: read
@@ -22,14 +30,15 @@ permissions:
   actions: read # only used when include_ci_logs is true; read-only, covers workflow-run metadata and logs
   id-token: write # the OIDC exchange that mints the Claude Code App token needs this; the reusable-workflow form cannot grant it, which is why resolve_stale_threads only works here
 
-# Reviewing every push to a busy branch gets expensive. This cancels an in-flight review when the author pushes again.
+# Keyed on the commit's own head sha (falling back to the dispatch input's pr_number, which has no head sha of its own to read until the gate step resolves one), not the pull request number. Reviewing every push to a busy branch gets expensive, and cancelling an in-flight review when the SAME commit is reviewed again is exactly what this should do -- but keying by PR number instead of sha means a second, later push arriving while an earlier push's review is still running cancels that still-in-flight review outright, with nothing left to finish it until someone notices and re-runs manually. Keying by sha means the two pushes' reviews never share a concurrency group in the first place, so neither cancels the other: a genuinely newer commit's own review runs alongside (or after) the older one's, which is at worst one redundant run, not a lost review.
 concurrency:
-  group: claude-review-${{ github.event.pull_request.number }}
+  group: claude-review-${{ github.event.pull_request.head.sha || inputs.pr_number }}
   cancel-in-progress: true
 
 jobs:
   review:
-    if: github.event.pull_request.draft == false
+    # workflow_dispatch carries no pull_request payload, so the usual `github.event.pull_request.draft == false` read would evaluate to false and skip the job outright on every manual dispatch. Let workflow_dispatch through here; the gate step below re-checks the target PR's draft state itself via the API, since that's the only way to read it without a pull_request payload.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - name: Decide whether this event changed anything worth reviewing
@@ -37,7 +46,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
           ACTION: ${{ github.event.action }}
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.event.after }}
@@ -55,6 +65,21 @@ jobs:
           # Any unexpected failure -- an API hiccup, an unreadable payload -- must fall through to a review. A gate that failed closed would silently stop reviewing the repository altogether, which is a far worse outcome than one wasted run.
           trap 'review "gate errored; failing open"' ERR
 
+          # workflow_dispatch has no pull_request context at all: HEAD_SHA and BASE_REF above are empty, and the checkout/review steps below need a real commit to act on regardless of trigger. Resolve both from the API, re-check the draft state the job's own `if:` above couldn't read for this trigger, then force a review unconditionally -- this branch deliberately never reaches the "already reviewed" check further down, which is the entire point of dispatching this by hand.
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            read -r HEAD_SHA BASE_REF IS_DRAFT <<< "$(gh pr view "$PR_NUMBER" --json headRefOid,baseRefName,isDraft --jq '"\(.headRefOid) \(.baseRefName) \(.isDraft)"')"
+            echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+            echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+            if [ "$IS_DRAFT" = "true" ]; then
+              skip "pull request #$PR_NUMBER is a draft"
+            fi
+            review "workflow_dispatch: forcing a fresh review of #$PR_NUMBER regardless of any prior review"
+          fi
+
+          # From here it's the ordinary pull_request path: HEAD_SHA/PR_NUMBER already came from the event payload above. Recorded as outputs unconditionally so the checkout and review steps below have a single place to read them from regardless of which branch of this script set them.
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
           # `edited` is not in this workflow's own trigger list, but it is the usual first addition: it fires when a pull request's base branch is retargeted, and without it a review stays pinned to a diff nobody is merging. It also fires on every title and body edit, so adding the trigger without this branch means editing a description costs a full review. Handled here so the trigger is safe to add.
           if [ "$ACTION" = "edited" ]; then
             if [ "$BASE_CHANGED" = "null" ]; then
@@ -64,7 +89,7 @@ jobs:
             review "base branch retargeted"
           fi
 
-          # A review already submitted against this exact commit has said everything there is to say about it. Catches two triggers landing together, a manual re-run of an earlier run, and `ready_for_review` on a draft whose current commit was already reviewed.
+          # A review already submitted against this exact commit has said everything there is to say about it. Catches two triggers landing together, a manual re-run of an earlier run, and `ready_for_review` on a draft whose current commit was already reviewed. workflow_dispatch never reaches this far -- see above.
           #
           # --paginate without --jq in the same call: the reviews endpoint is array-shaped, so gh merges every page into one array before jq sees it. Combining the two would instead run the filter once per page and concatenate the per-page booleans, so any match past the first page would be missed.
           ALREADY=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" --paginate \
@@ -109,12 +134,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.decide.outputs.should_review == 'true'
         with:
+          # Explicit ref rather than the default (which follows the triggering event): a workflow_dispatch run has no pull_request context for actions/checkout to resolve on its own, so this needs the gate step's own resolved head sha regardless of which trigger fired.
+          ref: ${{ steps.decide.outputs.head_sha }}
           # Full history: review mode's local git diff/log/show tools compare against the base branch, which a shallow (depth-1) clone does not have.
           fetch-depth: 0
       - uses: ExaDev/claude-code-action@v1
         if: steps.decide.outputs.should_review == 'true'
         with:
           mode: review
+          # Explicit rather than left to auto-detect: workflow_dispatch carries no pull_request context for the action to resolve a number from on its own. Harmless to pass on the ordinary pull_request path too -- an explicit value always wins over auto-detection where both are available, and the gate step's own resolved value matches what auto-detection would have found anyway.
+          pr_number: ${{ steps.decide.outputs.pr_number }}
           # No github_token: leaving it unset is what makes the review run as the Claude Code App (claude[bot]). See the header comment.
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
