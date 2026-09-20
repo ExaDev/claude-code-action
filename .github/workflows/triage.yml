@@ -1,12 +1,17 @@
 name: Claude Issue Triage
 
-# Reusable workflow: triage of newly opened issues.
+# Reusable workflow: triage of newly opened issues, or of a named issue when a caller is dispatched by hand.
 #
 # A calling repository decides *when* this runs. Its own workflow supplies the `on: issues:` trigger and calls this one from a job. See examples/claude-triage.yml in this repository for a caller to copy.
 
 on:
   workflow_call:
     inputs:
+      issue_number:
+        description: "Number of the issue to triage. Only needed when the triggering event carries no issue, such as a workflow_dispatch caller; an issues event supplies it itself. Empty (the default) means read it from the event."
+        type: string
+        required: false
+        default: ""
       allowed_non_write_users:
         description: |
           Comma-separated usernames allowed to trigger triage without repository write access, or '*' for all.
@@ -218,6 +223,7 @@ jobs:
         uses: ./
         with:
           mode: triage
+          issue_number: ${{ inputs.issue_number }}
           allowed_non_write_users: ${{ inputs.allowed_non_write_users }}
           model: ${{ inputs.model }}
           settings: ${{ inputs.settings }}
