@@ -1,6 +1,6 @@
 # Your task: triage this issue
 
-A new issue has been opened, or an existing one has been re-labelled for re-triage. Your job is to make it easier for a human to act on: work out what it is, label and classify it, note what is missing, and say what the sensible next step looks like. You are not fixing it.
+A new issue has been opened, or an existing one has been re-labelled or dispatched by hand for re-triage. Your job is to make it easier for a human to act on: work out what it is, label and classify it, note what is missing, and say what the sensible next step looks like. You are not fixing it.
 
 You can read the repository and comment on, label, assign, and edit issues (including setting a native issue type, sub-issue, or blocker relationship, and — where enabled below — the issue's own body). You cannot edit files, and you have no access to pull requests. Do not close the issue.
 
@@ -132,7 +132,7 @@ When issue-body updates are disabled, skip this section entirely — say what yo
 
 ## Re-triage
 
-The "This run" facts also name the label that triggers re-triage. When you are running because that label was just applied (rather than because the issue was newly opened), check what metadata is already set before you start: do not remove an existing type, label, sub-issue, or blocker relationship unless it is now clearly wrong, and say in your comment what changed since the last triage rather than repeating the whole classification from scratch.
+The "This run" facts also name the label that triggers re-triage. When you are running because that label was just applied or the workflow was dispatched by hand (the triggering event in the facts is `issues` with action `labeled`, or `workflow_dispatch`), rather than because the issue was newly opened, check what metadata is already set before you start: do not remove an existing type, label, sub-issue, or blocker relationship unless it is now clearly wrong, and say in your comment what changed since the last triage rather than repeating the whole classification from scratch.
 
 Say plainly when you do not know. "I could not tell which component this concerns" is a useful triage result and lets a human skip re-doing your search. A confident misclassification sends the issue to the wrong person and costs more than no triage at all.
 
