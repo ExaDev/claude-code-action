@@ -3,32 +3,40 @@ name: Claude Issue Triage
 on:
   issues:
     types: [opened, labeled]
+  # Triage an existing issue on demand, from the Actions tab or `gh workflow run claude-triage.yml -f issue_number=123`. Only someone with write access to the repository can dispatch a workflow.
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Number of the issue to triage"
+        required: true
+        type: number
 
 permissions:
   contents: read
   issues: write
   id-token: write
 
-# One triage run per issue at a time, so a new issue that is labelled straight away never has two runs writing to it together. Runs queue rather than cancel.
+# One triage run per issue at a time, so a new issue that is labelled or dispatched straight away never has two runs writing to it together. Runs queue rather than cancel.
 concurrency:
-  group: claude-triage-${{ github.event.issue.number }}
+  group: claude-triage-${{ inputs.issue_number || github.event.issue.number }}
   cancel-in-progress: false
 
 jobs:
   claude-triage:
-    # Run on new issues, or when 'needs-triage' label is applied
+    # Run on new issues, when the 'needs-triage' label is applied, or on a manual dispatch
     if: >
       (github.event.action == 'opened' &&
        github.event.issue.user.type != 'Bot') ||
       (github.event.action == 'labeled' &&
-       github.event.label.name == 'needs-triage')
+       github.event.label.name == 'needs-triage') ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./
         with:
           mode: triage
-          issue_number: ${{ github.event.issue.number }}
+          issue_number: ${{ inputs.issue_number || github.event.issue.number }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Optional: Change the re-triage label (must also update the `if:` condition above to match)
           # triage_label: "needs-triage"

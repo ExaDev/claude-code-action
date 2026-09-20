@@ -2,7 +2,7 @@
 #
 # This calls the composite action directly as a step rather than through the reusable workflow (examples/claude-triage.yml), so the job can scope its own token (the reusable form cannot take a caller permissions: block). See the header of claude-review.yml in this directory for the general reason you'd pick the direct form.
 #
-# When an issue is opened, or re-labelled for re-triage, Claude works out what it is, looks for duplicates, applies existing labels, says what information is missing, and suggests where to start looking.
+# When an issue is opened, re-labelled for re-triage, or dispatched by hand, Claude works out what it is, looks for duplicates, applies existing labels, says what information is missing, and suggests where to start looking.
 #
 # Set the ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN secret (organisation or repository level) first. Either works; wire through whichever you set.
 
@@ -11,10 +11,17 @@ name: Claude Triage
 on:
   issues:
     types: [opened, labeled]
+  # Triage an existing issue on demand, from the Actions tab or `gh workflow run claude-triage.yml -f issue_number=123`. Only someone with write access to the repository can dispatch a workflow.
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Number of the issue to triage"
+        required: true
+        type: number
 
-# One triage run per issue at a time, so a new issue that is labelled straight away, or re-labelled for re-triage while a run is still going, never has two runs writing to it together. Runs queue rather than cancel, so a run in flight is never cut off half way through posting.
+# One triage run per issue at a time, so a new issue that is labelled straight away, or re-labelled or dispatched for re-triage while a run is still going, never has two runs writing to it together. Runs queue rather than cancel, so a run in flight is never cut off half way through posting.
 concurrency:
-  group: claude-triage-${{ github.event.issue.number }}
+  group: claude-triage-${{ inputs.issue_number || github.event.issue.number }}
   cancel-in-progress: false
 
 permissions:
@@ -24,14 +31,16 @@ permissions:
 
 jobs:
   triage:
-    # `labeled` fires for every label applied to any issue, so it only runs for the re-triage label (`needs-triage`, triage mode's default; if you rename it, change it here and in the `triage_label` input). A newly opened issue always runs.
-    if: github.event.action == 'opened' || github.event.label.name == 'needs-triage'
+    # `labeled` fires for every label applied to any issue, so it only runs for the re-triage label (`needs-triage`, triage mode's default; if you rename it, change it here and in the `triage_label` input). A newly opened issue and a manual dispatch always run.
+    if: github.event.action != 'labeled' || github.event.label.name == 'needs-triage'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ExaDev/claude-code-action@v1
         with:
           mode: triage
+          # Empty for an issues event, where the number is read from the event itself; set by a manual dispatch, which carries no issue.
+          issue_number: ${{ inputs.issue_number }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Without this, only issues opened by someone with repository write access are triaged, which for most repositories means almost none of them. '*' triages everyone's issues and is usually the point of running triage.
