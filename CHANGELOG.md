@@ -1,3 +1,14 @@
+## [1.14.0](https://github.com/ExaDev/claude-code-action/compare/v1.13.0...v1.14.0) (2026-09-20)
+
+### Bug Fixes
+
+- **examples:** allow only the intended events in the triage job condition ([8ff6b56](https://github.com/ExaDev/claude-code-action/commit/8ff6b56ef2d65358e3f240b1712fa678cb756494))
+
+### Features
+
+- **examples:** let the triage examples and this repository's own triage run on demand ([ab702b5](https://github.com/ExaDev/claude-code-action/commit/ab702b57aafd6f8e082e6cc32ec0e1f083a296a4))
+- **triage:** accept an issue number so a caller can dispatch triage by hand ([b0f5d0b](https://github.com/ExaDev/claude-code-action/commit/b0f5d0b394063e9b53d6118f0472fbc78f63b8df))
+
 ## [1.13.0](https://github.com/ExaDev/claude-code-action/compare/v1.12.5...v1.13.0) (2026-09-20)
 
 ### Bug Fixes
