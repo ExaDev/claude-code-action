@@ -32,7 +32,7 @@ permissions:
 jobs:
   triage:
     # `labeled` fires for every label applied to any issue, so it only runs for the re-triage label (`needs-triage`, triage mode's default; if you rename it, change it here and in the `triage_label` input). A newly opened issue and a manual dispatch always run.
-    if: github.event.action != 'labeled' || github.event.label.name == 'needs-triage'
+    if: github.event_name == 'workflow_dispatch' || github.event.action == 'opened' || github.event.label.name == 'needs-triage'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
