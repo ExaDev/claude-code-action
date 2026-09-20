@@ -403,6 +403,9 @@ outputs:
   execution_file:
     description: "Path to the Claude Code execution output file."
     value: ${{ steps.claude.outputs.execution_file }}
+  result:
+    description: "The text of the final result message Claude Code produced in the winning attempt, or empty when it left none. For generic mode this is the plain-text answer to the prompt file; with --json-schema, structured_output holds the validated JSON instead."
+    value: ${{ steps.result-text.outputs.result }}
   permission_denials:
     description: "How many tool calls the runner rejected during the winning attempt, summed across every result message in its execution file. Empty when the count could not be read."
     value: ${{ steps.permission-denials.outputs.count }}
@@ -2300,6 +2303,25 @@ runs:
             jq -r '.by_tool | to_entries[] | "- `\(.key)`: \(.value)"' <<<"$SUMMARY"
           } >> "$GITHUB_STEP_SUMMARY"
         fi
+
+    # A caller that wants the model's plain-text answer, which is what generic mode exists to return, would otherwise have to parse the execution file itself. Best-effort for the same reason as the count above: the run's real work is already done.
+    - name: Extract result text
+      id: result-text
+      if: ${{ steps.claude.outcome == 'success' }}
+      continue-on-error: true
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        EXEC_FILE: ${{ steps.claude.outputs.execution_file }}
+      run: |
+        set -euo pipefail
+        RESULT_TEXT="$(bash "${ACTION_PATH}/scripts/execution-result.sh" "${EXEC_FILE:-}" | jq -r '.result // empty')"
+        delim="RESULT_TEXT_$(openssl rand -hex 16)"
+        {
+          echo "result<<${delim}"
+          echo "${RESULT_TEXT}"
+          echo "${delim}"
+        } >> "$GITHUB_OUTPUT"
 
     - name: Verify Headroom actually proxied this run
       id: headroom-verify
