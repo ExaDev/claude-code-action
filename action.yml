@@ -40,12 +40,10 @@ inputs:
       fragment, no generated "This run" facts block. A deliberate full bypass of "Compose prompt"
       below, for a caller that has already built its own complete prompt and wants nothing this action
       would otherwise add or infer. Same philosophy as claude_args's own full-override escape hatch:
-      for a caller building its own fully custom invocation, not for ordinary tuning. resume_sessions
-      defaults to true and is mode-agnostic: it resumes whichever session file was most recently
-      modified under this job's own local cache directory, with no awareness of mode, entity, or
-      prompt_file -- calling generic mode more than once in the same job will silently feed an earlier
-      call's unrelated conversation into the next one's context unless you set resume_sessions: false
-      on each call.
+      for a caller building its own fully custom invocation, not for ordinary tuning. Generic mode has
+      no pull request or issue to belong to, so it never resumes a session, posts a progress comment,
+      or runs the turn-limit wrap-up, whatever resume_sessions, post_progress_comment and
+      wrap_up_on_turn_limit are set to.
     required: false
     default: ""
 
@@ -131,7 +129,7 @@ inputs:
 
   resume_sessions:
     description: |
-      All modes. Cache Claude Code session files (only ~/.claude/projects/ — never credentials or auth state) across
+      All modes except generic, which ignores it and never resumes. Cache Claude Code session files (only ~/.claude/projects/ — never credentials or auth state) across
       workflow runs and resume the prior session for the same pull request, issue, or branch. On by default.
       A first run for an entity is a cache miss and starts a fresh session; each later run restores the most
       recent session and passes --resume <id> to Claude Code, so prior context carries forward. Set "false" to
@@ -151,7 +149,7 @@ inputs:
     default: "false"
   post_progress_comment:
     description: |
-      All modes. Post a plain "Claude is working on this" issue comment via `gh api` before the run starts, then edit it once the run (and any optional follow-up pass) finishes -- independent of, and unaffected by, track_progress/use_sticky_comment above: those are pure passthroughs to upstream's own tracking-comment mechanism, which only its tag mode implements, and every mode this action runs always sets `prompt` (see "Compose prompt" below), which upstream's own agent mode requires and tag mode has no use for. Needs no special token identity -- just whatever issues:write/pull-requests:write scope the calling job already grants for its own mode -- so it works in both the reusable-workflow and direct forms. On by default, since a caller with no comment at all otherwise has no visible signal a run has started until the mode's own output (a review, a triage comment, an interactive reply) lands, which for a slow run (CI-log inspection, a fix pass) can be several minutes; set "false" to restore the previous silent-until-output behaviour.
+      All modes except generic, which ignores it and never posts one. Post a plain "Claude is working on this" issue comment via `gh api` before the run starts, then edit it once the run (and any optional follow-up pass) finishes -- independent of, and unaffected by, track_progress/use_sticky_comment above: those are pure passthroughs to upstream's own tracking-comment mechanism, which only its tag mode implements, and every mode this action runs always sets `prompt` (see "Compose prompt" below), which upstream's own agent mode requires and tag mode has no use for. Needs no special token identity -- just whatever issues:write/pull-requests:write scope the calling job already grants for its own mode -- so it works in both the reusable-workflow and direct forms. On by default, since a caller with no comment at all otherwise has no visible signal a run has started until the mode's own output (a review, a triage comment, an interactive reply) lands, which for a slow run (CI-log inspection, a fix pass) can be several minutes; set "false" to restore the previous silent-until-output behaviour.
     required: false
     default: "true"
   include_fix_links:
@@ -214,7 +212,7 @@ inputs:
     default: ""
   wrap_up_on_turn_limit:
     description: |
-      All modes. When the primary run hits its turn limit (cut off mid-task rather than finishing cleanly), fire a short follow-on run (3 turns) that resumes the same session and asks Claude to summarise what it found and what remains, so the work is not lost. On by default; set to "false" to skip the follow-on entirely.
+      All modes except generic, which ignores it and never wraps up. When the primary run hits its turn limit (cut off mid-task rather than finishing cleanly), fire a short follow-on run (3 turns) that resumes the same session and asks Claude to summarise what it found and what remains, so the work is not lost. On by default; set to "false" to skip the follow-on entirely.
     required: false
     default: "true"
   escalate_findings_to_issues:
@@ -760,7 +758,7 @@ runs:
     # --- Progress comment --- A plain, ordinary issue comment posted and later deleted (on success) or edited (on failure) entirely by this action's own steps via `gh api`, independent of track_progress/use_sticky_comment above: those are pure passthroughs to upstream's own tracking-comment mechanism, which only its tag mode implements, and every mode this action runs (review, triage, interactive) always sets `prompt` (see "Compose prompt" below) -- upstream's detectMode treats a non-empty prompt as agent mode, which has no tracking-comment support at all. Placed first, before stack detection or prompt composition, so the comment lands as early as possible rather than waiting on work this comment doesn't depend on.
     - name: Post progress comment
       id: progress-comment
-      if: ${{ inputs.post_progress_comment == 'true' }}
+      if: ${{ inputs.post_progress_comment == 'true' && inputs.mode != 'generic' }}
       # A transient failure to post this best-effort status comment (a rate limit, a network blip, a gh api hiccup) must not fail the whole job -- the real work below hasn't started yet, and this step running first means an unguarded failure here would block every mode's actual review/triage/interactive work over a "nice to have" visual signal, a worse outcome than not having this feature at all. Same reasoning as "Prepare fix pass"/"Publish applied fixes" further down.
       continue-on-error: true
       shell: bash
@@ -1227,7 +1225,7 @@ runs:
 
     - name: Resolve cache scope
       id: cache-scope
-      if: ${{ inputs.resume_sessions == 'true' }}
+      if: ${{ inputs.resume_sessions == 'true' && inputs.mode != 'generic' }}
       shell: bash
       env:
         PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number }}
@@ -1253,7 +1251,7 @@ runs:
 
     - name: Restore Claude Code session
       id: restore-session
-      if: ${{ inputs.resume_sessions == 'true' }}
+      if: ${{ inputs.resume_sessions == 'true' && inputs.mode != 'generic' }}
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.claude/projects
@@ -1262,7 +1260,7 @@ runs:
 
     - name: Resume prior session
       id: resume
-      if: ${{ inputs.resume_sessions == 'true' }}
+      if: ${{ inputs.resume_sessions == 'true' && inputs.mode != 'generic' }}
       shell: bash
       env:
         BASE_ARGS: ${{ steps.args.outputs.claude_args }}
@@ -2423,7 +2421,7 @@ runs:
     # --- Wrap-up on turn limit --- When the primary run hits --max-turns, Claude Code exits mid-task with no closing reply. This detects that and fires a short follow-on (3 turns) that resumes the session with a summarise-what-you-found prompt, so the work is captured rather than lost. Modelled on Exie's wrap-up pattern: short follow-on, full prior context via --resume, a nudge forcing a closing answer.
     - name: Detect turn-limit hit
       id: detect-turn-limit
-      if: ${{ inputs.wrap_up_on_turn_limit == 'true' && steps.claude.outputs.session_id != '' }}
+      if: ${{ inputs.wrap_up_on_turn_limit == 'true' && inputs.mode != 'generic' && steps.claude.outputs.session_id != '' }}
       shell: bash
       env:
         EXEC_FILE: ${{ steps.claude.outputs.execution_file }}
@@ -2760,7 +2758,7 @@ runs:
         fi
 
     - name: Save Claude Code session
-      if: ${{ inputs.resume_sessions == 'true' && steps.claude.outputs.session_id != '' }}
+      if: ${{ inputs.resume_sessions == 'true' && inputs.mode != 'generic' && steps.claude.outputs.session_id != '' }}
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.claude/projects
