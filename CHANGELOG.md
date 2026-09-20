@@ -1,3 +1,18 @@
+## [1.13.0](https://github.com/ExaDev/claude-code-action/compare/v1.12.5...v1.13.0) (2026-09-20)
+
+### Bug Fixes
+
+- **triage:** fall back to issue types seen on existing issues when the organisation lookup fails ([35ef78e](https://github.com/ExaDev/claude-code-action/commit/35ef78e0ad5f21c7d6528f130d217d481764ef67))
+- **triage:** pass comment and body text inline and sub-issue ids as integers ([fba8fde](https://github.com/ExaDev/claude-code-action/commit/fba8fded87499aa0a0029aace54f9d4fa304b518))
+
+### Features
+
+- list the allowed and denied tools in the composed prompt ([bbba000](https://github.com/ExaDev/claude-code-action/commit/bbba000a8807424dca671d931684712585df961c))
+- report how many tool calls the runner rejected in each run ([f18d58c](https://github.com/ExaDev/claude-code-action/commit/f18d58cc61114549fe3f4b09d50219f496de66b4))
+- **review:** tell the reviewer how its shell commands are checked ([96a7454](https://github.com/ExaDev/claude-code-action/commit/96a7454b9d9bc6cfb920ed9838349ecba06f1086))
+- **triage:** confine writes to the triggering issue apart from relationship links ([32b39d6](https://github.com/ExaDev/claude-code-action/commit/32b39d693473a233c2a1ea336943abc84d4d1119))
+- **triage:** give the exact call for recording a native blocked-by relationship ([9aefc83](https://github.com/ExaDev/claude-code-action/commit/9aefc83220ad9350bbc8eb6b2ceee21bfdf61b03))
+
 ## [1.12.5](https://github.com/ExaDev/claude-code-action/compare/v1.12.4...v1.12.5) (2026-09-20)
 
 ### Bug Fixes
