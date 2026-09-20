@@ -1,0 +1,47 @@
+name: Scratch generic smoke
+
+on:
+  push:
+    branches: [scratch/generic-smoke]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build prompts
+        run: |
+          echo "Reply with exactly the single word ALPHA and nothing else." > "${RUNNER_TEMP}/p1.txt"
+          echo "What single word did you reply with earlier in this conversation? If there is no earlier conversation, reply with exactly NONE and nothing else." > "${RUNNER_TEMP}/p2.txt"
+
+      - uses: ./
+        id: first
+        with:
+          mode: generic
+          prompt_file: ${{ runner.temp }}/p1.txt
+          model: haiku
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: ./
+        id: second
+        with:
+          mode: generic
+          prompt_file: ${{ runner.temp }}/p2.txt
+          model: haiku
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Show outputs
+        env:
+          FIRST: ${{ steps.first.outputs.result }}
+          SECOND: ${{ steps.second.outputs.result }}
+        run: |
+          printf 'SMOKE first=[%s]\n' "$FIRST"
+          printf 'SMOKE second=[%s]\n' "$SECOND"
