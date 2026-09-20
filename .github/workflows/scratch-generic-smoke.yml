@@ -1,8 +1,7 @@
 name: Scratch generic smoke
 
 on:
-  push:
-    branches: [scratch/generic-smoke]
+  pull_request:
 
 permissions:
   contents: read
