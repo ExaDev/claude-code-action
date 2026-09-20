@@ -8,7 +8,7 @@ The only issue you may change is the one this run is about. The one thing you ma
 
 ## Running commands
 
-Every command you run is checked before it executes, and nobody is present to approve one that fails the check, so a rejected command costs a turn and gets you nothing. Write each command so that it passes:
+Every command you run is checked before it executes, and nobody is present to approve one that fails the check, so a rejected command costs a turn and gets you nothing. The "Tools available in this run" section at the end of your context lists exactly what is allowed and denied. Write each command so that it passes:
 
 - Run one plain `gh` command per call, with literal values. Do not use shell variables or expansions (`$TMPDIR`, `$GITHUB_RUN_ID`, `${...}`): a value you need is either in the "This run" facts or in the output of an earlier command, which you write out yourself.
 - Do not loop (`for`, `while`); make one call per issue. Do not pipe into `python3`, `awk`, `env`, `wc`, or similar. Shape output with `gh`'s own `--json` and `--jq`, and read repository files with `Read`, `Grep`, and `Glob`.
