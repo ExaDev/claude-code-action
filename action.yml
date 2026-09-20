@@ -2172,6 +2172,8 @@ runs:
         if [ -z "$WINNER" ]; then
           # Upstream prints only a sanitised summary of a finished run, with no result text unless show_full_output is on, so the step logs above never say why an attempt failed: an errored run reports nothing more than "subtype success with is_error:true". Each attempt's execution file does hold the full final result message, so surface exactly that one message per failed attempt here, collapsed onto a single line (a newline in it would otherwise start a new workflow command) and truncated. Never the transcript, which upstream withholds for a reason. The cap only needs to fit an API error message; it exists so a pathological result cannot flood the annotation.
           RESULT_DIAGNOSTIC_MAX_CHARS=1000
+          # Secret-shaped substrings are replaced before truncating, never after, so a token cannot be cut into a fragment the patterns no longer recognise. Best-effort pattern matching on top of the runner's own masking of the exact credential values this action was given, not a guarantee. The opaque-token floor sits above ordinary request ids and below real API keys and OAuth tokens; a full 40-character git SHA in an error message is collateral.
+          OPAQUE_TOKEN_MIN_CHARS=40
           for slot in 1 1R 2 2R 3 3R 4 4R 5 5R; do
             outcome_var="OUTCOME_${slot}"
             [ "${!outcome_var:-}" = "failure" ] || continue
@@ -2181,12 +2183,17 @@ runs:
               echo "::warning::Run Claude Code (attempt ${slot}) failed without leaving a final result message in its execution file, so it failed before Claude produced one. The step log above is the only source of detail for it."
               continue
             fi
-            diagnosis="$(jq -r --argjson max "$RESULT_DIAGNOSTIC_MAX_CHARS" '
+            diagnosis="$(jq -r --argjson max "$RESULT_DIAGNOSTIC_MAX_CHARS" --argjson floor "$OPAQUE_TOKEN_MIN_CHARS" '
+              def redact:
+                gsub("\\b(?:sk-ant-|sk-|ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|xox[abposr]-|AKIA|AIza)[A-Za-z0-9_-]{8,}"; "[redacted]")
+                | gsub("eyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]*"; "[redacted]")
+                | gsub("(?i)bearer\\s+\\S+"; "Bearer [redacted]")
+                | gsub("[A-Za-z0-9+/=_-]{\($floor),}"; "[redacted]");
               [ "subtype=\(.subtype // "unknown")",
                 "is_error=\(.is_error)",
                 (if .api_error_status != null then "api_error_status=\(.api_error_status)" else empty end),
                 (((.result // "") + (if (.errors // []) | length > 0 then " " + (.errors | join("; ")) else "" end))
-                  | gsub("\\s+"; " ") | sub("^ "; "") | .[0:$max] | select(length > 0) | "result=\(.)")
+                  | redact | gsub("\\s+"; " ") | sub("^ "; "") | .[0:$max] | select(length > 0) | "result=\(.)")
               ] | join(", ")' <<<"$final_result")"
             echo "::error::Run Claude Code (attempt ${slot}) failed: ${diagnosis}"
           done
