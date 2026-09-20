@@ -9,6 +9,11 @@ permissions:
   issues: write
   id-token: write
 
+# One triage run per issue at a time, so a new issue that is labelled straight away never has two runs writing to it together. Runs queue rather than cancel.
+concurrency:
+  group: claude-triage-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
 jobs:
   claude-triage:
     # Run on new issues, or when 'needs-triage' label is applied
