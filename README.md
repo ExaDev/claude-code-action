@@ -461,7 +461,7 @@ action.yml                     Composite action: input validation, prompt compos
                                rate-limit retry, per-mode tool allowlists, pinned upstream
                                call, automatic fixes
 turbo.json                     Turborepo task cache config (lint/typecheck/format:check)
-scripts/execution-result.sh      Extracts the final result message from an upstream execution file; used
+scripts/execution-result.sh    Extracts the final result message from an upstream execution file; used
                                by the rate-limit retry gates and the failed-attempt diagnosis
 commitlint.config.ts           Conventional-commit enforcement (local hook + CI)
 release.config.ts              semantic-release config; scripts/move-major-tag.mts is its
