@@ -24,7 +24,13 @@ Where the organisation has GitHub's own issue types configured, set one rather t
 gh api /orgs/{owner}/issue-types --jq '.[].name'
 ```
 
-If that endpoint returns 404, the organisation has no issue types configured — skip type assignment entirely, and use labels as normal instead.
+If that endpoint fails, that does not prove the organisation has no issue types: a token without organisation access gets the same 404. Look at what types the repository's existing issues carry instead, and use only a type name that appears there:
+
+```sh
+gh issue list --repo {owner}/{repo} --state all --limit 20 --json issueType --jq '.[].issueType.name'
+```
+
+If none of those issues has a type, the organisation has none configured: skip type assignment entirely, and use labels as normal instead. Where the discovery call above worked, use its list of names in place of this one.
 
 ```sh
 gh api -X PATCH /repos/{owner}/{repo}/issues/{issue_number} -f type='<exact type name from the discovery call above>'
