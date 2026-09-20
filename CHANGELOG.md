@@ -1,3 +1,14 @@
+## [1.15.0](https://github.com/ExaDev/claude-code-action/compare/v1.14.0...v1.15.0) (2026-09-20)
+
+### Bug Fixes
+
+- **examples:** pass the generic demo's model output through the environment ([d6ef898](https://github.com/ExaDev/claude-code-action/commit/d6ef89810cf084dbceaccd3a3bd773367d6458ac))
+- **generic:** never resume a session, post a progress comment, or wrap up in generic mode ([c8f8c72](https://github.com/ExaDev/claude-code-action/commit/c8f8c720d45b6b39b5e66d587f7c415d5dacf6ad))
+
+### Features
+
+- expose the final result text as a result output ([49456e2](https://github.com/ExaDev/claude-code-action/commit/49456e272166555c7240fcc8fda1638b334d517e))
+
 ## [1.14.0](https://github.com/ExaDev/claude-code-action/compare/v1.13.0...v1.14.0) (2026-09-20)
 
 ### Bug Fixes
