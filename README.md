@@ -117,7 +117,13 @@ Falling through to the next credential is the right response to a quota exhausti
 
 This is a single, bounded retry per credential slot, not a configurable count: like the fallback chain itself, a composite action has no native loop, so "retry N times" would mean N more statically unrolled steps per slot rather than something one input could scale arbitrarily. One extra attempt per slot is what the static step graph actually provides. Set `retry_on_rate_limit: false` to restore the previous behaviour — fall through immediately on any failure, genuine rate limit or not.
 
-The classification reads only the failing attempt's own `execution_file` output (the same JSON `structured_review_summary` and other steps already treat as this action's own internal state) — it is not fed anything from the triggering issue, pull request, or comment, so it carries none of the untrusted-input risk the [Security notes](#security-notes) below are about.
+The classification reads only the failing attempt's own `execution_file` output (the same JSON `structured_review_summary` and other steps already treat as this action's own internal state) — it is not fed anything from the triggering issue, pull request, or comment, so it carries none of the untrusted-input risk the [Security notes](#security-notes) below are about. That file is a JSON array of every SDK message from the run, not a single object, so `scripts/execution-result.sh` picks the final `result` message out of it and the gate reads that message's `api_error_status` and `result`.
+
+### Finding out why an attempt failed
+
+Upstream `anthropics/claude-code-action` prints only a sanitised summary of a finished run: no result text unless `show_full_output` is on. A run that errors therefore logs nothing more specific than `Claude result reported subtype success with is_error:true`, which says that it failed and nothing about why (a rate limit, an oversized prompt, an authentication error, a tool failure all look identical). When no credential's attempt succeeds, the "Resolve Claude Code result" step reads the final `result` message from each failed attempt's `execution_file` and prints one error annotation per attempt with its `subtype`, `is_error`, `api_error_status` (when present) and `result`/`errors` text, e.g. `Run Claude Code (attempt 1) failed: subtype=success, is_error=true, result=Prompt is too long`. An attempt that failed before Claude produced any result message gets a warning saying so, since only the step log has detail for it.
+
+This is deliberately narrower than `show_full_output`: it prints only that one final message of an attempt that already failed, never the transcript or tool output, collapsed onto one line and truncated to 1000 characters. For a failed run that message is normally an API or CLI error string, but it is Claude-side text, so the caution under [Output verbosity](#extended-options) about public Actions logs applies in principle to a public repository.
 
 ## Context compression (Headroom)
 
@@ -455,6 +461,8 @@ action.yml                     Composite action: input validation, prompt compos
                                rate-limit retry, per-mode tool allowlists, pinned upstream
                                call, automatic fixes
 turbo.json                     Turborepo task cache config (lint/typecheck/format:check)
+scripts/execution-result.sh      Extracts the final result message from an upstream execution file; used
+                               by the rate-limit retry gates and the failed-attempt diagnosis
 commitlint.config.ts           Conventional-commit enforcement (local hook + CI)
 release.config.ts              semantic-release config; scripts/move-major-tag.mts is its
                                local plugin that moves the moving vN tag after each release
