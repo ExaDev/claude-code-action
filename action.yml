@@ -405,6 +405,9 @@ outputs:
   execution_file:
     description: "Path to the Claude Code execution output file."
     value: ${{ steps.claude.outputs.execution_file }}
+  permission_denials:
+    description: "How many tool calls the runner rejected during the winning attempt, summed across every result message in its execution file. Empty when the count could not be read."
+    value: ${{ steps.permission-denials.outputs.count }}
   branch_name:
     description: "Branch created by Claude Code during this run, if any."
     value: ${{ steps.claude.outputs.branch_name }}
@@ -2270,6 +2273,35 @@ runs:
             echo "${delim}"
           } >>"$GITHUB_OUTPUT"
         done
+
+    # Every rejected tool call costs a turn and nobody is present to approve it, so a run that "succeeds" can still have burned much of its turn budget on rejections. This makes that visible on the run itself instead of only inside a log nobody opens, which is also the only way to see the effect of a prompt or allowlist change. Best-effort: a failure here must never fail a run whose actual work already completed.
+    - name: Report rejected tool calls
+      id: permission-denials
+      if: ${{ steps.claude.outcome == 'success' }}
+      continue-on-error: true
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        EXEC_FILE: ${{ steps.claude.outputs.execution_file }}
+      run: |
+        set -euo pipefail
+        SUMMARY="$(bash "${ACTION_PATH}/scripts/permission-denials.sh" "${EXEC_FILE:-}")"
+        if [ -z "$SUMMARY" ]; then
+          echo "No execution file to count rejected tool calls from."
+          exit 0
+        fi
+        COUNT="$(jq -r '.count' <<<"$SUMMARY")"
+        echo "count=${COUNT}" >> "$GITHUB_OUTPUT"
+        echo "Rejected tool calls: ${SUMMARY}"
+        if [ "$COUNT" -gt 0 ]; then
+          {
+            echo "### Rejected tool calls: ${COUNT}"
+            echo
+            echo "The runner rejected these calls, each costing a turn. By tool:"
+            echo
+            jq -r '.by_tool | to_entries[] | "- `\(.key)`: \(.value)"' <<<"$SUMMARY"
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi
 
     - name: Verify Headroom actually proxied this run
       id: headroom-verify
