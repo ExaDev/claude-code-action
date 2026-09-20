@@ -386,7 +386,7 @@ Beyond the basics, every mode's reusable workflow exposes further optional input
 
 ## Triage: native metadata and issue-body updates
 
-Beyond labelling and commenting, triage mode can set a native GitHub issue type (where the organisation has issue types configured — checked via `gh api /orgs/<owner>/issue-types`, skipped entirely on a 404), record a sub-issue relationship when an issue is clearly a component of an existing one, and note a blocker relationship when the issue text explicitly states a dependency ("blocked by #42"). None of these are inferred from topical similarity alone.
+Beyond labelling and commenting, triage mode can set a native GitHub issue type (where the organisation has issue types configured — checked via `gh api /orgs/<owner>/issue-types`, skipped entirely on a 404), record a sub-issue relationship when an issue is clearly a component of an existing one, and record a native blocked-by relationship (`POST .../dependencies/blocked_by`) when the issue text explicitly states a dependency ("blocked by #42"). None of these are inferred from topical similarity alone.
 
 Triage changes only the issue it was triggered on. The one write it makes to any other issue is a relationship (this issue as a sub-issue of it, or as blocked by it), and it only ever comments on, labels, or edits the triggering issue. That boundary is enforced by the prompt alone: `gh issue edit`, `gh issue comment`, and `gh api` all accept any issue number, and `gh api` could technically open or close one, so treat the token's `issues: write` scope, not the prompt, as the real limit on what a subverted run could touch.
 
