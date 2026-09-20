@@ -1,3 +1,10 @@
+## [1.12.5](https://github.com/ExaDev/claude-code-action/compare/v1.12.4...v1.12.5) (2026-09-20)
+
+### Bug Fixes
+
+- **ci:** serialise this repository's own triage runs per issue ([7f46205](https://github.com/ExaDev/claude-code-action/commit/7f46205f8c6f5104ce8f6795cc28201e2a3d88b3))
+- **examples:** make the triage examples able to re-triage, serialise per issue and name allowed bots ([8aa93d1](https://github.com/ExaDev/claude-code-action/commit/8aa93d17a61f8770881f42cbf25081b11aa5660f))
+
 ## [1.12.4](https://github.com/ExaDev/claude-code-action/compare/v1.12.3...v1.12.4) (2026-09-20)
 
 ## [1.12.3](https://github.com/ExaDev/claude-code-action/compare/v1.12.2...v1.12.3) (2026-09-20)
