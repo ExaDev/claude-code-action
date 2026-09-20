@@ -1498,14 +1498,16 @@ runs:
       shell: bash
       env:
         EXECUTION_FILE: ${{ steps.attempt_1.outputs.execution_file }}
+        ACTION_PATH: ${{ github.action_path }}
         WAIT_SECONDS: ${{ inputs.rate_limit_retry_wait_seconds }}
       run: |
         set -euo pipefail
 
         SHOULD_RETRY=false
         if [ -n "${EXECUTION_FILE:-}" ] && [ -f "$EXECUTION_FILE" ]; then
-          API_ERROR_STATUS=$(jq -r '.api_error_status // empty' "$EXECUTION_FILE" 2>/dev/null) || true
-          RESULT_TEXT=$(jq -r '.result // empty' "$EXECUTION_FILE" 2>/dev/null) || true
+          FINAL_RESULT=$(bash "${ACTION_PATH}/scripts/execution-result.sh" "$EXECUTION_FILE")
+          API_ERROR_STATUS=$(jq -r '.api_error_status // empty' <<<"$FINAL_RESULT")
+          RESULT_TEXT=$(jq -r '.result // empty' <<<"$FINAL_RESULT")
           # A 429 is the only status worth waiting out at all. Its own message decides whether the wait is
           # worthwhile: one naming a multi-day-scale reset (a weekly or monthly account quota) cannot be fixed
           # by retrying within this job, so only a 429 that does NOT look like that is treated as a genuine,
@@ -1623,14 +1625,16 @@ runs:
       shell: bash
       env:
         EXECUTION_FILE: ${{ steps.attempt_2.outputs.execution_file }}
+        ACTION_PATH: ${{ github.action_path }}
         WAIT_SECONDS: ${{ inputs.rate_limit_retry_wait_seconds }}
       run: |
         set -euo pipefail
 
         SHOULD_RETRY=false
         if [ -n "${EXECUTION_FILE:-}" ] && [ -f "$EXECUTION_FILE" ]; then
-          API_ERROR_STATUS=$(jq -r '.api_error_status // empty' "$EXECUTION_FILE" 2>/dev/null) || true
-          RESULT_TEXT=$(jq -r '.result // empty' "$EXECUTION_FILE" 2>/dev/null) || true
+          FINAL_RESULT=$(bash "${ACTION_PATH}/scripts/execution-result.sh" "$EXECUTION_FILE")
+          API_ERROR_STATUS=$(jq -r '.api_error_status // empty' <<<"$FINAL_RESULT")
+          RESULT_TEXT=$(jq -r '.result // empty' <<<"$FINAL_RESULT")
           # A 429 is the only status worth waiting out at all. Its own message decides whether the wait is
           # worthwhile: one naming a multi-day-scale reset (a weekly or monthly account quota) cannot be fixed
           # by retrying within this job, so only a 429 that does NOT look like that is treated as a genuine,
@@ -1748,14 +1752,16 @@ runs:
       shell: bash
       env:
         EXECUTION_FILE: ${{ steps.attempt_3.outputs.execution_file }}
+        ACTION_PATH: ${{ github.action_path }}
         WAIT_SECONDS: ${{ inputs.rate_limit_retry_wait_seconds }}
       run: |
         set -euo pipefail
 
         SHOULD_RETRY=false
         if [ -n "${EXECUTION_FILE:-}" ] && [ -f "$EXECUTION_FILE" ]; then
-          API_ERROR_STATUS=$(jq -r '.api_error_status // empty' "$EXECUTION_FILE" 2>/dev/null) || true
-          RESULT_TEXT=$(jq -r '.result // empty' "$EXECUTION_FILE" 2>/dev/null) || true
+          FINAL_RESULT=$(bash "${ACTION_PATH}/scripts/execution-result.sh" "$EXECUTION_FILE")
+          API_ERROR_STATUS=$(jq -r '.api_error_status // empty' <<<"$FINAL_RESULT")
+          RESULT_TEXT=$(jq -r '.result // empty' <<<"$FINAL_RESULT")
           # A 429 is the only status worth waiting out at all. Its own message decides whether the wait is
           # worthwhile: one naming a multi-day-scale reset (a weekly or monthly account quota) cannot be fixed
           # by retrying within this job, so only a 429 that does NOT look like that is treated as a genuine,
@@ -1873,14 +1879,16 @@ runs:
       shell: bash
       env:
         EXECUTION_FILE: ${{ steps.attempt_4.outputs.execution_file }}
+        ACTION_PATH: ${{ github.action_path }}
         WAIT_SECONDS: ${{ inputs.rate_limit_retry_wait_seconds }}
       run: |
         set -euo pipefail
 
         SHOULD_RETRY=false
         if [ -n "${EXECUTION_FILE:-}" ] && [ -f "$EXECUTION_FILE" ]; then
-          API_ERROR_STATUS=$(jq -r '.api_error_status // empty' "$EXECUTION_FILE" 2>/dev/null) || true
-          RESULT_TEXT=$(jq -r '.result // empty' "$EXECUTION_FILE" 2>/dev/null) || true
+          FINAL_RESULT=$(bash "${ACTION_PATH}/scripts/execution-result.sh" "$EXECUTION_FILE")
+          API_ERROR_STATUS=$(jq -r '.api_error_status // empty' <<<"$FINAL_RESULT")
+          RESULT_TEXT=$(jq -r '.result // empty' <<<"$FINAL_RESULT")
           # A 429 is the only status worth waiting out at all. Its own message decides whether the wait is
           # worthwhile: one naming a multi-day-scale reset (a weekly or monthly account quota) cannot be fixed
           # by retrying within this job, so only a 429 that does NOT look like that is treated as a genuine,
@@ -1998,14 +2006,16 @@ runs:
       shell: bash
       env:
         EXECUTION_FILE: ${{ steps.attempt_5.outputs.execution_file }}
+        ACTION_PATH: ${{ github.action_path }}
         WAIT_SECONDS: ${{ inputs.rate_limit_retry_wait_seconds }}
       run: |
         set -euo pipefail
 
         SHOULD_RETRY=false
         if [ -n "${EXECUTION_FILE:-}" ] && [ -f "$EXECUTION_FILE" ]; then
-          API_ERROR_STATUS=$(jq -r '.api_error_status // empty' "$EXECUTION_FILE" 2>/dev/null) || true
-          RESULT_TEXT=$(jq -r '.result // empty' "$EXECUTION_FILE" 2>/dev/null) || true
+          FINAL_RESULT=$(bash "${ACTION_PATH}/scripts/execution-result.sh" "$EXECUTION_FILE")
+          API_ERROR_STATUS=$(jq -r '.api_error_status // empty' <<<"$FINAL_RESULT")
+          RESULT_TEXT=$(jq -r '.result // empty' <<<"$FINAL_RESULT")
           # A 429 is the only status worth waiting out at all. Its own message decides whether the wait is
           # worthwhile: one naming a multi-day-scale reset (a weekly or monthly account quota) cannot be fixed
           # by retrying within this job, so only a 429 that does NOT look like that is treated as a genuine,
@@ -2075,6 +2085,7 @@ runs:
       id: claude
       shell: bash
       env:
+        ACTION_PATH: ${{ github.action_path }}
         CREDENTIAL_COUNT: ${{ steps.credentials.outputs.credential_count }}
         OUTCOME_1: ${{ steps.attempt_1.outcome }}
         OUTCOME_1R: ${{ steps.attempt_1_retry.outcome }}
@@ -2159,10 +2170,30 @@ runs:
         done
 
         if [ -z "$WINNER" ]; then
+          # Upstream prints only a sanitised summary of a finished run, with no result text unless show_full_output is on, so the step logs above never say why an attempt failed: an errored run reports nothing more than "subtype success with is_error:true". Each attempt's execution file does hold the full final result message, so surface exactly that one message per failed attempt here, collapsed onto a single line (a newline in it would otherwise start a new workflow command) and truncated. Never the transcript, which upstream withholds for a reason. The cap only needs to fit an API error message; it exists so a pathological result cannot flood the annotation.
+          RESULT_DIAGNOSTIC_MAX_CHARS=1000
+          for slot in 1 1R 2 2R 3 3R 4 4R 5 5R; do
+            outcome_var="OUTCOME_${slot}"
+            [ "${!outcome_var:-}" = "failure" ] || continue
+            file_var="EXECUTION_FILE_${slot}"
+            final_result="$(bash "${ACTION_PATH}/scripts/execution-result.sh" "${!file_var:-}")"
+            if [ -z "$final_result" ]; then
+              echo "::warning::Run Claude Code (attempt ${slot}) failed without leaving a final result message in its execution file, so it failed before Claude produced one. The step log above is the only source of detail for it."
+              continue
+            fi
+            diagnosis="$(jq -r --argjson max "$RESULT_DIAGNOSTIC_MAX_CHARS" '
+              [ "subtype=\(.subtype // "unknown")",
+                "is_error=\(.is_error)",
+                (if .api_error_status != null then "api_error_status=\(.api_error_status)" else empty end),
+                (((.result // "") + (if (.errors // []) | length > 0 then " " + (.errors | join("; ")) else "" end))
+                  | gsub("\\s+"; " ") | sub("^ "; "") | .[0:$max] | select(length > 0) | "result=\(.)")
+              ] | join(", ")' <<<"$final_result")"
+            echo "::error::Run Claude Code (attempt ${slot}) failed: ${diagnosis}"
+          done
           if [ "${CREDENTIAL_COUNT:-0}" -eq 0 ]; then
             echo "::error::Claude Code failed to run and no explicit credential was supplied. Check use_bedrock/use_vertex/use_foundry's own configuration, or an org/repo-level ANTHROPIC_API_KEY/CLAUDE_CODE_OAUTH_TOKEN environment variable, in the calling job." >&2
           else
-            echo "::error::All ${CREDENTIAL_COUNT} attempted credential(s) (including same-credential rate-limit retries) failed to run Claude Code. See the individual 'Run Claude Code (attempt N)'/'Run Claude Code (attempt N retry)' step logs above for the underlying error from each." >&2
+            echo "::error::All ${CREDENTIAL_COUNT} attempted credential(s) (including same-credential rate-limit retries) failed to run Claude Code. Each failed attempt's own diagnosis is in the errors above; the individual 'Run Claude Code (attempt N)'/'Run Claude Code (attempt N retry)' step logs hold whatever else upstream printed." >&2
           fi
           exit 1
         fi
