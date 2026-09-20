@@ -2,7 +2,7 @@
 #
 # This calls the composite action directly as a step rather than through the reusable workflow (examples/claude-triage.yml), so the job can scope its own token (the reusable form cannot take a caller permissions: block). See the header of claude-review.yml in this directory for the general reason you'd pick the direct form.
 #
-# When an issue is opened, Claude works out what it is, looks for duplicates, applies existing labels, says what information is missing, and suggests where to start looking.
+# When an issue is opened, or re-labelled for re-triage, Claude works out what it is, looks for duplicates, applies existing labels, says what information is missing, and suggests where to start looking.
 #
 # Set the ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN secret (organisation or repository level) first. Either works; wire through whichever you set.
 
@@ -10,15 +10,22 @@ name: Claude Triage
 
 on:
   issues:
-    types: [opened]
+    types: [opened, labeled]
+
+# One triage run per issue at a time, so a new issue that is labelled straight away, or re-labelled for re-triage while a run is still going, never has two runs writing to it together. Runs queue rather than cancel, so a run in flight is never cut off half way through posting.
+concurrency:
+  group: claude-triage-${{ github.event.issue.number }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
   issues: write
-  id-token: write # the OIDC exchange that mints the Claude Code App token needs this -- without it, an empty github_token (below, left unset deliberately) makes every run fail outright at setupGitHubToken() with "Could not fetch an OIDC token"
+  id-token: write # the OIDC exchange that mints the Claude Code App token needs this; without it, an empty github_token (below, left unset deliberately) makes every run fail outright at setupGitHubToken() with "Could not fetch an OIDC token"
 
 jobs:
   triage:
+    # `labeled` fires for every label applied to any issue, so it only runs for the re-triage label (`needs-triage`, triage mode's default; if you rename it, change it here and in the `triage_label` input). A newly opened issue always runs.
+    if: github.event.action == 'opened' || github.event.label.name == 'needs-triage'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -31,4 +38,6 @@ jobs:
           #
           # It does mean untrusted issue text reaches the model, so read the security notes in the action's README before enabling it. Triage mode holds no pull-request or code-write scope, which is what makes this trade-off acceptable here; do not copy the same setting into the interactive workflow.
           allowed_non_write_users: "*"
-          # Every other input is optional with a sensible default -- see action.yml for the full list.
+          # An issue opened by a bot fails the run with "Workflow initiated by non-human actor" unless that bot is named here, so list any automation that files issues you want triaged (comma-separated logins). Naming them is safer than '*', which allows every bot.
+          # allowed_bots: "your-reporting-bot"
+          # Every other input is optional with a sensible default; see action.yml for the full list.
