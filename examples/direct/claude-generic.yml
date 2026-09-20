@@ -1,10 +1,10 @@
-# Composite-action-step (direct) form for mode: generic -- a one-shot, no-tools, no-GitHub-entity call: build your own prompt file, get text or (with --json-schema) validated JSON back.
+# Composite-action-step (direct) form for mode: generic, a one-shot, no-tools, no-GitHub-entity call: build your own prompt file, get text (the `result` output) or, with --json-schema, validated JSON (the `structured_output` output) back.
 #
-# There is no examples/claude-generic.yml (reusable-workflow) counterpart and no dedicated event trigger. The three reusable workflows this repository ships exist to centralise EVENT-TRIGGER gating logic (label/mention/author-association checks for pull-request and issue events), and generic mode has none of that -- it is called imperatively from inside a job you already have (a release pipeline, a scheduled report, a data pipeline step), not dispatched off a GitHub event of its own. Copy the "Build prompt" and "Print the result" steps below into your own job rather than this whole file verbatim; the workflow_dispatch trigger and checkout step here exist only so this file is itself runnable on its own.
+# There is no examples/claude-generic.yml (reusable-workflow) counterpart and no dedicated event trigger. The three reusable workflows this repository ships exist to centralise EVENT-TRIGGER gating logic (label/mention/author-association checks for pull-request and issue events), and generic mode has none of that: it is called imperatively from inside a job you already have (a release pipeline, a scheduled report, a data pipeline step), not dispatched off a GitHub event of its own. Copy the "Build prompt" and "Print the result" steps below into your own job rather than this whole file verbatim; the workflow_dispatch trigger and checkout step here exist only so this file is itself runnable on its own.
 #
 # Set the ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN secret (organisation or repository level) first. Either works; wire through whichever you set.
 #
-# This demo summarises the repository's own CHANGELOG.md into a short JSON object, validated against an inline --json-schema, and prints the parsed result -- standing in for "build a prompt file from data only your job has, then read structured_output back" (see structured_output's own description on the action's outputs). Note the caveat there: a schema-validation failure THROWS and fails this step outright -- add continue-on-error: true if a given call is best-effort in your own job.
+# This demo summarises the repository's own CHANGELOG.md into a short JSON object, validated against an inline --json-schema, and prints the parsed result. It stands in for "build a prompt file from data only your job has, then read structured_output back" (see structured_output's own description on the action's outputs). Note the caveat there: a schema-validation failure THROWS and fails this step outright, so add continue-on-error: true if a given call is best-effort in your own job. Without --json-schema, read the plain-text answer from steps.<id>.outputs.result instead.
 #
 # Generic mode has no pull request or issue to belong to, so it never resumes a session, posts a progress comment, or runs the turn-limit wrap-up; there is nothing to switch off for those.
 #
@@ -28,7 +28,7 @@ jobs:
         run: |
           {
             echo "Summarise the changes described in CHANGELOG.md below in one sentence."
-            echo "Respond with only the JSON object matching the schema you were given -- no prose, no code fences."
+            echo "Respond with only the JSON object matching the schema you were given, with no prose and no code fences."
             echo
             echo "CHANGELOG.md:"
             cat CHANGELOG.md
@@ -46,5 +46,8 @@ jobs:
           extra_claude_args: |-
             --json-schema '{"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"],"additionalProperties":false}'
 
+      # The output is model-written text, so it goes through an environment variable rather than being interpolated into the script: a quote or a command substitution inside it would otherwise be run by the shell.
       - name: Print the result
-        run: echo '${{ steps.claude.outputs.structured_output }}' | jq .
+        env:
+          STRUCTURED_OUTPUT: ${{ steps.claude.outputs.structured_output }}
+        run: jq . <<<"$STRUCTURED_OUTPUT"
