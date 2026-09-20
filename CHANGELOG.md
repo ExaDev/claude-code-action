@@ -1,3 +1,10 @@
+## [1.12.3](https://github.com/ExaDev/claude-code-action/compare/v1.12.2...v1.12.3) (2026-09-20)
+
+### Bug Fixes
+
+- **action:** redact secret-shaped text from a failed attempt's diagnosis ([8071592](https://github.com/ExaDev/claude-code-action/commit/8071592e68785fe9d4b71630c6cb8726d5bb005f))
+- **action:** report why an attempt failed and read the rate-limit gate from the real result message ([16f604c](https://github.com/ExaDev/claude-code-action/commit/16f604cbb0620c0718f7ca4f07954080d655bb98))
+
 ## [1.12.2](https://github.com/ExaDev/claude-code-action/compare/v1.12.1...v1.12.2) (2026-09-17)
 
 ### Bug Fixes
