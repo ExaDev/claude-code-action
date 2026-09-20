@@ -41,7 +41,11 @@ gh api -X POST /repos/{owner}/{repo}/issues/{parent_number}/sub_issues -F sub_is
 
 Run these as two separate calls and write the printed id into the second by hand. It is `-F`, not `-f`, because the API takes an integer and `-f` would send a string.
 
-Do not set a parent relationship based on keyword overlap alone; the issue must logically be a piece of work that contributes to completing the parent. If the issue text explicitly states a dependency ("blocked by #42", "depends on #42", "requires #42 first"), note that relationship too — never infer a blocker from topical similarity alone.
+Do not set a parent relationship based on keyword overlap alone; the issue must logically be a piece of work that contributes to completing the parent. If the issue text explicitly states a dependency ("blocked by #42", "depends on #42", "requires #42 first"), record that as a real blocker relationship too, never inferring one from topical similarity alone. Get the id of the blocking issue with the same first call as above, run against its number, then:
+
+```sh
+gh api -X POST /repos/{owner}/{repo}/issues/{issue_number}/dependencies/blocked_by -F issue_id=<the id of the blocking issue>
+```
 
 ## Read before you judge
 
