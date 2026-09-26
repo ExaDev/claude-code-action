@@ -1,3 +1,5 @@
+## [1.15.2](https://github.com/ExaDev/claude-code-action/compare/v1.15.1...v1.15.2) (2026-09-26)
+
 ## [1.15.1](https://github.com/ExaDev/claude-code-action/compare/v1.15.0...v1.15.1) (2026-09-26)
 
 ## [1.15.0](https://github.com/ExaDev/claude-code-action/compare/v1.14.0...v1.15.0) (2026-09-20)
