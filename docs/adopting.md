@@ -52,6 +52,7 @@ rather than guessing at what the README/examples would say. Its README and examp
 checked out here, so read them from GitHub first:
 
     gh api repos/ExaDev/claude-code-action/contents/README.md --jq '.content' | base64 -d
+    gh api repos/ExaDev/claude-code-action/contents/docs/<name>.md --jq '.content' | base64 -d
     gh api repos/ExaDev/claude-code-action/contents/examples --jq '.[].name'
     gh api repos/ExaDev/claude-code-action/contents/examples/<name> --jq '.content' | base64 -d
 
@@ -66,21 +67,21 @@ Then:
    for, not all three by default.
 3. For each mode, copy the matching example to .github/workflows/claude-<mode>.yml,
    unmodified except: the secret name if it isn't literally ANTHROPIC_API_KEY, and any
-   "Extended options" input from the README genuinely worth setting for this repository —
+   "Extended options" input from docs/calling-and-options.md genuinely worth setting for this repository —
    don't add inputs speculatively, only ones with an actual reason.
 4. Check this repository's actual default workflow permissions (Settings → Actions →
    General → Workflow permissions) and confirm they cover at least the token scopes the
-   README's "What each mode is allowed to do" table lists for each mode you're adding —
+   "What each mode is allowed to do" table in docs/modes-and-permissions.md lists for each mode you're adding —
    don't copy that list from memory, read the table itself, since it's the single source of
    truth this prompt would otherwise drift out of sync with. If the default falls short, add
-   a permissions: block to that job matching the table's scopes exactly (see the README's
-   step 3) — this is allowed and correct, not something GitHub rejects. Tell me either way:
+   a permissions: block to that job matching the table's scopes exactly (see step 3 in
+   docs/adopting.md) — this is allowed and correct, not something GitHub rejects. Tell me either way:
    which repositories needed a permissions: block added and which didn't, since that's worth
    knowing even when nothing needs fixing.
 5. Only if this repository has genuinely repo-specific instructions beyond its own
    CLAUDE.md/AGENTS.md/README.md, add .github/claude/shared.md and/or
-   .github/claude/<mode>.md (additive only — see the README's "Adding repository-local
-   instructions" section). Don't create these files with generic or empty content.
+   .github/claude/<mode>.md (additive only — see the "Adding repository-local instructions"
+   section in docs/review-conventions.md). Don't create these files with generic or empty content.
 6. Commit the new workflow file(s) and open a pull request. Don't merge it.
 
 Report back: which mode(s) you set up, whether a credential secret already existed, and
