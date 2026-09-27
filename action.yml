@@ -126,6 +126,19 @@ inputs:
       consumers of this action's own previous design rely on this exact override semantic.
     required: false
     default: ""
+  timeout_minutes:
+    description: |
+      Passthrough for the upstream action's own timeout_minutes input (currently only present on the
+      fork this action is temporarily pinned to, see the uses: comment on each attempt_N step -- pending
+      anthropics/claude-code-action#1863). Bounds the whole Claude Code SDK session, covering a tool call
+      that never returns (a stuck WebFetch, confirmed directly against a real run: 30-second tool_progress
+      heartbeats on the same tool_use_id for over three hours) as well as the run's own total duration.
+      Unset (default) applies no internal bound, leaving the calling job's own timeout-minutes as the only
+      backstop, which kills the whole job rather than letting this action's own attempt_N retry/credential-
+      fallback chain run again within the same job. Set this to a value comfortably shorter than the job's
+      timeout-minutes so a hang surfaces as a normal step failure instead.
+    required: false
+    default: ""
 
   resume_sessions:
     description: |
@@ -1488,10 +1501,11 @@ runs:
     - name: Run Claude Code (attempt 1)
       id: attempt_1
       continue-on-error: true
-      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         claude_args: ${{ inputs.claude_args || steps.resume.outputs.claude_args || steps.args.outputs.claude_args }}
+        timeout_minutes: ${{ inputs.timeout_minutes }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_1_type == 'key' && steps.credentials.outputs.cred_1_token || '' }}
         claude_code_oauth_token: ${{ steps.credentials.outputs.cred_1_type == 'oauth' && steps.credentials.outputs.cred_1_token || '' }}
@@ -1568,11 +1582,12 @@ runs:
       id: attempt_1_retry
       if: steps.retry_gate_1.outputs.should_retry == 'true'
       continue-on-error: true
-      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here -- see attempt_2's own comment further up: a same-credential retry within this same job run must always start fresh, never resume a session the failed first try in this run may have already written to.
         claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
+        timeout_minutes: ${{ inputs.timeout_minutes }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_1_type == 'key' && steps.credentials.outputs.cred_1_token || '' }}
         claude_code_oauth_token: ${{ steps.credentials.outputs.cred_1_type == 'oauth' && steps.credentials.outputs.cred_1_token || '' }}
@@ -1615,10 +1630,11 @@ runs:
       id: attempt_2
       if: steps.credentials.outputs.cred_2_token != '' && !(steps.attempt_1.outcome == 'success' || steps.attempt_1_retry.outcome == 'success')
       continue-on-error: true
-      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
+        timeout_minutes: ${{ inputs.timeout_minutes }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_2_type == 'key' && steps.credentials.outputs.cred_2_token || '' }}
         claude_code_oauth_token: ${{ steps.credentials.outputs.cred_2_type == 'oauth' && steps.credentials.outputs.cred_2_token || '' }}
@@ -1695,11 +1711,12 @@ runs:
       id: attempt_2_retry
       if: steps.retry_gate_2.outputs.should_retry == 'true'
       continue-on-error: true
-      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here -- see attempt_2's own comment further up: a same-credential retry within this same job run must always start fresh, never resume a session the failed first try in this run may have already written to.
         claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
+        timeout_minutes: ${{ inputs.timeout_minutes }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_2_type == 'key' && steps.credentials.outputs.cred_2_token || '' }}
         claude_code_oauth_token: ${{ steps.credentials.outputs.cred_2_type == 'oauth' && steps.credentials.outputs.cred_2_token || '' }}
@@ -1742,10 +1759,11 @@ runs:
       id: attempt_3
       if: steps.credentials.outputs.cred_3_token != '' && !(steps.attempt_2.outcome == 'success' || steps.attempt_2_retry.outcome == 'success')
       continue-on-error: true
-      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
+        timeout_minutes: ${{ inputs.timeout_minutes }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_3_type == 'key' && steps.credentials.outputs.cred_3_token || '' }}
         claude_code_oauth_token: ${{ steps.credentials.outputs.cred_3_type == 'oauth' && steps.credentials.outputs.cred_3_token || '' }}
@@ -1822,11 +1840,12 @@ runs:
       id: attempt_3_retry
       if: steps.retry_gate_3.outputs.should_retry == 'true'
       continue-on-error: true
-      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here -- see attempt_2's own comment further up: a same-credential retry within this same job run must always start fresh, never resume a session the failed first try in this run may have already written to.
         claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
+        timeout_minutes: ${{ inputs.timeout_minutes }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_3_type == 'key' && steps.credentials.outputs.cred_3_token || '' }}
         claude_code_oauth_token: ${{ steps.credentials.outputs.cred_3_type == 'oauth' && steps.credentials.outputs.cred_3_token || '' }}
@@ -1869,10 +1888,11 @@ runs:
       id: attempt_4
       if: steps.credentials.outputs.cred_4_token != '' && !(steps.attempt_3.outcome == 'success' || steps.attempt_3_retry.outcome == 'success')
       continue-on-error: true
-      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
+        timeout_minutes: ${{ inputs.timeout_minutes }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_4_type == 'key' && steps.credentials.outputs.cred_4_token || '' }}
         claude_code_oauth_token: ${{ steps.credentials.outputs.cred_4_type == 'oauth' && steps.credentials.outputs.cred_4_token || '' }}
@@ -1949,11 +1969,12 @@ runs:
       id: attempt_4_retry
       if: steps.retry_gate_4.outputs.should_retry == 'true'
       continue-on-error: true
-      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here -- see attempt_2's own comment further up: a same-credential retry within this same job run must always start fresh, never resume a session the failed first try in this run may have already written to.
         claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
+        timeout_minutes: ${{ inputs.timeout_minutes }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_4_type == 'key' && steps.credentials.outputs.cred_4_token || '' }}
         claude_code_oauth_token: ${{ steps.credentials.outputs.cred_4_type == 'oauth' && steps.credentials.outputs.cred_4_token || '' }}
@@ -1996,10 +2017,11 @@ runs:
       id: attempt_5
       if: steps.credentials.outputs.cred_5_token != '' && !(steps.attempt_4.outcome == 'success' || steps.attempt_4_retry.outcome == 'success')
       continue-on-error: true
-      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
+        timeout_minutes: ${{ inputs.timeout_minutes }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_5_type == 'key' && steps.credentials.outputs.cred_5_token || '' }}
         claude_code_oauth_token: ${{ steps.credentials.outputs.cred_5_type == 'oauth' && steps.credentials.outputs.cred_5_token || '' }}
@@ -2076,11 +2098,12 @@ runs:
       id: attempt_5_retry
       if: steps.retry_gate_5.outputs.should_retry == 'true'
       continue-on-error: true
-      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here -- see attempt_2's own comment further up: a same-credential retry within this same job run must always start fresh, never resume a session the failed first try in this run may have already written to.
         claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
+        timeout_minutes: ${{ inputs.timeout_minutes }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.credentials.outputs.cred_5_type == 'key' && steps.credentials.outputs.cred_5_token || '' }}
         claude_code_oauth_token: ${{ steps.credentials.outputs.cred_5_type == 'oauth' && steps.credentials.outputs.cred_5_token || '' }}
@@ -2464,11 +2487,12 @@ runs:
     - name: Wrap up on turn limit
       id: wrap-up
       if: ${{ steps.detect-turn-limit.outputs.hit_limit == 'true' }}
-      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
         prompt: |
           You may have been cut off by a turn limit in your previous run on this pull request or issue. Reply now, briefly and honestly: if your work is complete, say "Done." If you were interrupted, summarise what you found, what you completed, and what remains to be done. Do not start new work — this is a closing reply, not a continuation.
         claude_args: "--resume ${{ steps.claude.outputs.session_id }} --max-turns 3"
+        timeout_minutes: ${{ inputs.timeout_minutes }}
         anthropic_api_key: ${{ steps.claude.outputs.winning_cred_type == 'key' && steps.claude.outputs.winning_cred_token || '' }}
         claude_code_oauth_token: ${{ steps.claude.outputs.winning_cred_type == 'oauth' && steps.claude.outputs.winning_cred_token || '' }}
         github_token: ${{ inputs.github_token }}
@@ -2512,7 +2536,7 @@ runs:
       id: escalate
       if: ${{ inputs.mode == 'review' && inputs.escalate_findings_to_issues == 'true' && steps.wrap-up.outcome == 'failure' }}
       continue-on-error: true
-      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
         prompt: |
           Your last reply in this session could not be posted where it was meant to go -- most likely because that write was blocked, or because the pull request had already merged or closed underneath you. This is a further, final pass: decide whether anything you already found is worth a standing record even though your normal output channel is unavailable.
@@ -2525,6 +2549,7 @@ runs:
 
           One issue per distinct finding -- never bundle unrelated findings into a single issue. If nothing you found clears the Blocker/Should-fix bar, or everything is already recorded somewhere, do nothing and say so; do not create an issue just to have created one.
         claude_args: '--resume ${{ steps.claude.outputs.session_id }} --max-turns 10 --allowedTools "Read,Grep,Glob,Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh issue create:*),Bash(gh issue comment:*),Bash(gh issue edit:*),mcp__github__search_issues,mcp__github__list_issues,mcp__github__get_issue,mcp__github__create_issue,mcp__github__update_issue,mcp__github__add_issue_comment" --disallowedTools "Write,Edit,NotebookEdit,Bash(git push:*),Bash(gh api:*),Bash(gh pr:*),Bash(gh issue close:*),Bash(gh issue delete:*)"'
+        timeout_minutes: ${{ inputs.timeout_minutes }}
         anthropic_api_key: ${{ steps.claude.outputs.winning_cred_type == 'key' && steps.claude.outputs.winning_cred_token || '' }}
         claude_code_oauth_token: ${{ steps.claude.outputs.winning_cred_type == 'oauth' && steps.claude.outputs.winning_cred_token || '' }}
         github_token: ${{ inputs.github_token }}
@@ -2622,7 +2647,7 @@ runs:
       id: apply-fixes
       if: ${{ steps.fix-args.outputs.can_push == 'true' }}
       continue-on-error: true
-      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
         prompt: |
           You have just submitted your review of pull request #${{ inputs.pr_number || github.event.pull_request.number }} in ${{ github.repository }}, in this same session. This is a separate, final pass with a different job: apply the fixes you are confident about, and commit them. It does not change the review you already submitted, and you must not submit another one.
@@ -2659,6 +2684,7 @@ runs:
 
           Do not comment on the pull request, do not open a review, do not resolve a thread, and do not touch the title or description. All of that belonged to the pass before this one.
         claude_args: ${{ steps.fix-args.outputs.claude_args }}
+        timeout_minutes: ${{ inputs.timeout_minutes }}
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.claude.outputs.winning_cred_type == 'key' && steps.claude.outputs.winning_cred_token || '' }}
         claude_code_oauth_token: ${{ steps.claude.outputs.winning_cred_type == 'oauth' && steps.claude.outputs.winning_cred_token || '' }}
@@ -2742,7 +2768,7 @@ runs:
       id: structured-summary
       if: ${{ inputs.mode == 'review' && inputs.structured_review_summary == 'true' && steps.claude.outputs.session_id != '' && steps.detect-turn-limit.outputs.hit_limit != 'true' }}
       continue-on-error: true
-      uses: anthropics/claude-code-action@e8c2d7c16c018cf1e694711c1c07a5f5db2b5eb1 # v1.0.208
+      uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
         prompt: |
           You just finished reviewing pull request #${{ inputs.pr_number || github.event.pull_request.number }} in ${{ github.repository }} in this same session. Do not review anything further, and do not re-judge your findings from memory.
@@ -2753,6 +2779,7 @@ runs:
 
           Respond with only the JSON object matching the schema you were given -- no prose before or after it. `review_state` is the state from step 1. `findings` is the counts from step 2. `summary` is one sentence.
         claude_args: ${{ steps.summary-args.outputs.claude_args }}
+        timeout_minutes: ${{ inputs.timeout_minutes }}
         anthropic_api_key: ${{ steps.claude.outputs.winning_cred_type == 'key' && steps.claude.outputs.winning_cred_token || '' }}
         claude_code_oauth_token: ${{ steps.claude.outputs.winning_cred_type == 'oauth' && steps.claude.outputs.winning_cred_token || '' }}
         github_token: ${{ inputs.github_token }}
