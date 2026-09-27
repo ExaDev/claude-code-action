@@ -1,3 +1,13 @@
+## [1.16.0](https://github.com/ExaDev/claude-code-action/compare/v1.15.2...v1.16.0) (2026-09-27)
+
+### Bug Fixes
+
+- temporarily pin every Claude Code invocation to ExaDev/claude-code-action-fork ([6733b2d](https://github.com/ExaDev/claude-code-action/commit/6733b2d570d51e6850bf548b922713539aacfeae)), closes [#1863](https://github.com/ExaDev/claude-code-action/issues/1863)
+
+### Features
+
+- add timeout_minutes passthrough input ([df7e4eb](https://github.com/ExaDev/claude-code-action/commit/df7e4eb02dfe11f22185d0ca02f028c658d1bd05))
+
 ## [1.15.2](https://github.com/ExaDev/claude-code-action/compare/v1.15.1...v1.15.2) (2026-09-26)
 
 ## [1.15.1](https://github.com/ExaDev/claude-code-action/compare/v1.15.0...v1.15.1) (2026-09-26)
