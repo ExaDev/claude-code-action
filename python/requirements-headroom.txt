@@ -3,4 +3,4 @@
 # version this action actually installs lives in action.yml's headroom_version input default -- keep
 # the two in sync by hand (see README.md's "Context compression (Headroom)" section): when this file's
 # version bumps, update action.yml's default to match in the same PR.
-headroom-ai[proxy]==0.37.0
+headroom-ai[proxy]==0.38.0
