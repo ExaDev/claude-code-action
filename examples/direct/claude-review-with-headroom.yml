@@ -8,13 +8,15 @@
 #
 # claude_code_oauth_token compatibility is confirmed, not just assumed -- see the README's "Context compression (Headroom)" section for how.
 #
+# A gate step first decides whether the triggering event changed anything worth reviewing, exactly as in examples/direct/claude-review.yml (a commit already reviewed and not dismissed, a title or body edit, and the merge commit of GitHub's "Update branch" button are skipped; a base-branch retarget is reviewed), and every later step runs only if it says to review.
+#
 # Requires the Claude Code GitHub App installed on the organisation (https://github.com/apps/claude) and a CLAUDE_CODE_OAUTH_TOKEN secret, exactly as examples/direct/claude-review.yml does. Do NOT pass github_token -- leaving it unset is what makes the review run as claude[bot].
 
 name: Claude Review
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
 
 permissions:
   contents: read
@@ -23,8 +25,9 @@ permissions:
   id-token: write # the OIDC exchange that mints the Claude Code App token needs this; the reusable-workflow form cannot grant it, which is why resolve_stale_threads only works here
 
 # Reviewing every push to a busy branch gets expensive. This cancels an in-flight review when the author pushes again.
+# A title or body edit, which the gate skips, gets a group of its own: sharing the group would let a skipped run cancel a review in flight and leave the commit unreviewed. A base-branch retarget keeps the shared group, because it changes the diff the in-flight review is reading.
 concurrency:
-  group: claude-review-${{ github.event.pull_request.number }}
+  group: claude-review-${{ github.event.pull_request.number }}${{ github.event.action == 'edited' && !github.event.changes.base && '-metadata-edit' || '' }}
   cancel-in-progress: true
 
 jobs:
@@ -32,11 +35,87 @@ jobs:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
+      - name: Decide whether this event changed anything worth reviewing
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ACTION: ${{ github.event.action }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # Non-empty only when an `edited` event actually retargeted the base branch, rather than editing the title or body.
+          BASE_CHANGED: ${{ toJSON(github.event.changes.base) }}
+          REVIEWER: "claude[bot]" # This form leaves github_token unset, so the review is submitted by the Claude Code App and prior reviews are attributed to this login. Passing github_token would make it github-actions[bot] instead.
+        run: |
+          set -euo pipefail
+
+          skip() { echo "should_review=false" >> "$GITHUB_OUTPUT"; echo "SKIP: $1"; exit 0; }
+          review() { echo "should_review=true" >> "$GITHUB_OUTPUT"; echo "REVIEW: $1"; exit 0; }
+
+          # Any unexpected failure (an API hiccup, an unreadable payload) must fall through to a review. A gate that failed closed would silently stop reviewing the repository altogether, which is a far worse outcome than one wasted run.
+          trap 'review "gate errored; failing open"' ERR
+
+          # `edited` fires when a pull request's base branch is retargeted, which is what GitHub does to a stacked pull request when its parent merges and the parent's branch is deleted, and it also fires on every title and body edit. Without the trigger a review stays pinned to a diff nobody is merging; without this branch, editing a description would cost a full review.
+          if [ "$ACTION" = "edited" ]; then
+            if [ "$BASE_CHANGED" = "null" ]; then
+              skip "pull request metadata edited, base branch unchanged"
+            fi
+            # A retarget keeps the same head sha but changes the diff, so this must reach a review even though the already-reviewed check below would otherwise match it. Hence its position above that check rather than below.
+            review "base branch retargeted"
+          fi
+
+          # A review already submitted against this exact commit has said everything there is to say about it. Catches two triggers landing together, a manual re-run of an earlier run, and `ready_for_review` on a draft whose current commit was already reviewed. A DISMISSED review does not count: GitHub dismisses the bot's approval when the base branch changes, and a review that no longer stands says nothing about the commit, so a re-run at the same commit must be able to review it again.
+          #
+          # --paginate without --jq in the same call: the reviews endpoint is array-shaped, so gh merges every page into one array before jq sees it. Combining the two would instead run the filter once per page and concatenate the per-page booleans, so any match past the first page would be missed.
+          ALREADY=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" --paginate \
+            | jq --arg sha "$HEAD_SHA" --arg who "$REVIEWER" \
+                 '[.[] | select(.user.login == $who and .commit_id == $sha and .state != "DISMISSED")] | length > 0')
+          if [ "$ALREADY" = "true" ]; then
+            skip "$REVIEWER has already reviewed $HEAD_SHA"
+          fi
+
+          # Everything that is not a new push (opened / reopened / ready_for_review) is review-worthy from here.
+          if [ "$ACTION" != "synchronize" ]; then
+            review "action=$ACTION"
+          fi
+
+          # From here it is a push, and the case worth skipping is GitHub's "Update branch" button, which merges the base branch into the pull request and introduces none of the author's own changes.
+          PARENTS=$(gh api "repos/$REPO/commits/$AFTER" --jq '.parents[].sha' | tr '\n' ' ')
+          read -r P1 P2 EXTRA <<< "$PARENTS"
+
+          if [ -z "${P2:-}" ] || [ -n "${EXTRA:-}" ]; then
+            review "head commit is not a two-parent merge"
+          fi
+
+          # A base merge keeps the previous head as its first parent. A force-push, rebase or squash does not, and any of those can change the author's own work.
+          if [ "$P1" != "$BEFORE" ]; then
+            review "first parent is not the previous head (force-push or rebase)"
+          fi
+
+          # The second parent must already be contained in the base branch, or this merged something other than the base.
+          STATUS=$(gh api "repos/$REPO/compare/$P2...$BASE_REF" --jq '.status' 2>/dev/null || echo "unknown")
+          case "$STATUS" in
+            identical|ahead) ;;
+            *) review "second parent is not an ancestor of $BASE_REF (status=$STATUS)" ;;
+          esac
+
+          # The "Update branch" button is only offered for a conflict-free merge, and GitHub commits the result itself. A merge pushed from a workstation looks identical in shape but can carry conflict resolutions, which are real code and never reviewed, so it is deliberately still reviewed.
+          COMMITTER=$(gh api "repos/$REPO/commits/$AFTER" --jq '.commit.committer.name')
+          if [ "$COMMITTER" != "GitHub" ]; then
+            review "merge was committed by '$COMMITTER', not the Update branch button"
+          fi
+
+          skip "base branch merged in via the Update branch button; no new author changes"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.decide.outputs.should_review == 'true'
         with:
           # Full history: review mode's local git diff/log/show tools compare against the base branch, which a shallow (depth-1) clone does not have.
           fetch-depth: 0
       - uses: ExaDev/claude-code-action@v1
+        if: steps.decide.outputs.should_review == 'true'
         with:
           mode: review
           # No github_token: leaving it unset is what makes the review run as the Claude Code App (claude[bot]). See examples/direct/claude-review.yml's header comment.
