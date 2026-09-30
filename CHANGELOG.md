@@ -1,3 +1,9 @@
+## [1.16.1](https://github.com/ExaDev/claude-code-action/compare/v1.16.0...v1.16.1) (2026-09-30)
+
+### Bug Fixes
+
+- review stacked pull requests again after their base is retargeted ([36fb371](https://github.com/ExaDev/claude-code-action/commit/36fb371a91d5d5f0ecc89189e2b37264b34a6add)), closes [#110](https://github.com/ExaDev/claude-code-action/issues/110)
+
 ## [1.16.0](https://github.com/ExaDev/claude-code-action/compare/v1.15.2...v1.16.0) (2026-09-27)
 
 ### Bug Fixes
