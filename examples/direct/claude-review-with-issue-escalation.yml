@@ -64,7 +64,7 @@ jobs:
             review "base branch retargeted"
           fi
 
-          # A review already submitted against this exact commit has said everything there is to say about it. Catches two triggers landing together, a manual re-run of an earlier run, and `ready_for_review` on a draft whose current commit was already reviewed. A DISMISSED review does not count: GitHub dismisses the bot's approval when the base branch changes, and a review that no longer stands says nothing about the commit, so a re-run at the same commit must be able to review it again.
+          # A review already submitted against this exact commit has said everything there is to say about it. Catches two triggers landing together, a manual re-run of an earlier run, and `ready_for_review` on a draft whose current commit was already reviewed. A DISMISSED review does not count: GitHub dismisses the bot's approval when the base branch changes, and a review that no longer stands says nothing about the commit, so a re-run at the same commit must be able to review it again. The API does not say why a review was dismissed, so this also covers one a maintainer dismissed by hand: a later trigger at that commit may review it again, which is the accepted cost of not depending on the dismissal's cause.
           #
           # --paginate without --jq in the same call: the reviews endpoint is array-shaped, so gh merges every page into one array before jq sees it. Combining the two would instead run the filter once per page and concatenate the per-page booleans, so any match past the first page would be missed.
           ALREADY=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" --paginate \
