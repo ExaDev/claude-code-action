@@ -1,3 +1,9 @@
+## [1.16.2](https://github.com/ExaDev/claude-code-action/compare/v1.16.1...v1.16.2) (2026-10-01)
+
+### Bug Fixes
+
+- **dogfood:** review stacked pull requests again after a base retarget ([8ad5d01](https://github.com/ExaDev/claude-code-action/commit/8ad5d019f016832146e851eed9ed5945af1cac4a)), closes [#112](https://github.com/ExaDev/claude-code-action/issues/112)
+
 ## [1.16.1](https://github.com/ExaDev/claude-code-action/compare/v1.16.0...v1.16.1) (2026-09-30)
 
 ### Bug Fixes
