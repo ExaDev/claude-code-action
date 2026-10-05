@@ -6,6 +6,8 @@ import markdown from "@eslint/markdown";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 
 export default defineConfig([
+  // turbo writes its cache manifests as single-line JSON with nanosecond timestamps, which trips prettier/prettier and json/no-unsafe-values once more than one `turbo run` has populated .turbo in the same tree. node_modules is already an ESLint default ignore; .turbo is not.
+  { ignores: [".turbo/**"] },
   {
     files: ["**/*.{ts,mts}"],
     languageOptions: {
