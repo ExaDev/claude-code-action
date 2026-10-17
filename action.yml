@@ -2638,6 +2638,14 @@ runs:
         timeout_minutes: ${{ inputs.timeout_minutes }}
         anthropic_api_key: ${{ steps.claude.outputs.winning_cred_type == 'key' && steps.claude.outputs.winning_cred_token || '' }}
         claude_code_oauth_token: ${{ steps.claude.outputs.winning_cred_type == 'oauth' && steps.claude.outputs.winning_cred_token || '' }}
+        use_bedrock: ${{ inputs.use_bedrock }}
+        use_vertex: ${{ inputs.use_vertex }}
+        use_foundry: ${{ inputs.use_foundry }}
+        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
+        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
+        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
+        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
+        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
         github_token: ${{ inputs.github_token }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
@@ -2695,6 +2703,14 @@ runs:
         timeout_minutes: ${{ inputs.timeout_minutes }}
         anthropic_api_key: ${{ steps.claude.outputs.winning_cred_type == 'key' && steps.claude.outputs.winning_cred_token || '' }}
         claude_code_oauth_token: ${{ steps.claude.outputs.winning_cred_type == 'oauth' && steps.claude.outputs.winning_cred_token || '' }}
+        use_bedrock: ${{ inputs.use_bedrock }}
+        use_vertex: ${{ inputs.use_vertex }}
+        use_foundry: ${{ inputs.use_foundry }}
+        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
+        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
+        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
+        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
+        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
         github_token: ${{ inputs.github_token }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
@@ -2831,6 +2847,14 @@ runs:
         additional_permissions: ${{ steps.args.outputs.additional_permissions }}
         anthropic_api_key: ${{ steps.claude.outputs.winning_cred_type == 'key' && steps.claude.outputs.winning_cred_token || '' }}
         claude_code_oauth_token: ${{ steps.claude.outputs.winning_cred_type == 'oauth' && steps.claude.outputs.winning_cred_token || '' }}
+        use_bedrock: ${{ inputs.use_bedrock }}
+        use_vertex: ${{ inputs.use_vertex }}
+        use_foundry: ${{ inputs.use_foundry }}
+        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
+        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
+        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
+        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
+        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
         github_token: ${{ inputs.github_token }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
@@ -2925,6 +2949,14 @@ runs:
         timeout_minutes: ${{ inputs.timeout_minutes }}
         anthropic_api_key: ${{ steps.claude.outputs.winning_cred_type == 'key' && steps.claude.outputs.winning_cred_token || '' }}
         claude_code_oauth_token: ${{ steps.claude.outputs.winning_cred_type == 'oauth' && steps.claude.outputs.winning_cred_token || '' }}
+        use_bedrock: ${{ inputs.use_bedrock }}
+        use_vertex: ${{ inputs.use_vertex }}
+        use_foundry: ${{ inputs.use_foundry }}
+        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
+        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
+        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
+        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
+        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
         github_token: ${{ inputs.github_token }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
