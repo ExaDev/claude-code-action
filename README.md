@@ -104,8 +104,9 @@ turbo.json                     Turborepo task cache config (lint/typecheck/forma
 scripts/execution-result.sh    Extracts the final result message from an upstream execution file; used
                                by the rate-limit retry gates and the failed-attempt diagnosis
 scripts/attempt-stop.sh        Decides whether a failed attempt stops the credential chain (turn limit,
-                               budget, structured-output retries, a rejected result) and which
-                               session the turn-limit wrap-up resumes
+                               budget or structured-output retries, a fork step failing after the
+                               run, a result the fork failed) and which session the turn-limit
+                               wrap-up resumes
 scripts/execution-file.sh      Clears the shared execution file and keeps each attempt's own copy
 scripts/execution-scripts.test.sh  npm test: the scripts and steps above, over scripts/test-fixtures/
 commitlint.config.ts           Conventional-commit enforcement (local hook + CI)
