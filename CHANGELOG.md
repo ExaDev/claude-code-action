@@ -1,3 +1,9 @@
+## [1.16.5](https://github.com/ExaDev/claude-code-action/compare/v1.16.4...v1.16.5) (2026-10-17)
+
+### Bug Fixes
+
+- pin the fork commit that wires timeout_minutes at the top level ([c1c1798](https://github.com/ExaDev/claude-code-action/commit/c1c179887993320f598ee400ace268e53bdf2f08))
+
 ## [1.16.4](https://github.com/ExaDev/claude-code-action/compare/v1.16.3...v1.16.4) (2026-10-17)
 
 ### Bug Fixes
