@@ -1497,7 +1497,7 @@ runs:
 
     # Pinned to the commit that anthropics/claude-code-action's v1 tag resolved to on 2026-08-08 (v1.0.189). Update the pin deliberately, never by moving to @v1: see the Versioning section of README.md.
     #
-    # attempt_1 .. attempt_5 are one statically-unrolled step per position in the credential fallback chain "Parse credential fallback chain" built above -- a composite action has no native loop, so this is the fallback mechanism itself, not a stutter. attempt_N (N=2..5) only runs if there is a credential at that position AND the previous credential's own effort (its retry, if one ran, else the attempt itself) genuinely failed (continue-on-error means downstream steps still run either way; .outcome, not .conclusion, is what actually reflects a real failure -- .conclusion is rewritten to success by continue-on-error even when the step failed). Each attempt_N is immediately followed by its own "Rate-limit retry gate" and, when that gate judges the failure a genuine short-lived rate limit rather than a hard quota exhaustion, an attempt_N_retry that reruns the exact same credential once -- see retry_on_rate_limit's own description in the inputs: block above for why this is a single bounded retry per slot rather than a configurable count. "Resolve Claude Code result" below picks whichever attempt (or retry) actually succeeded and re-exposes its outputs under the stable id `claude` that every later step already reads, so nothing past this point needs to know fallback or retry happened at all.
+    # attempt_1 .. attempt_5 are one statically-unrolled step per position in the credential fallback chain "Parse credential fallback chain" built above -- a composite action has no native loop, so this is the fallback mechanism itself, not a stutter. attempt_N (N=2..5) only runs if there is a credential at that position AND the previous credential's own effort (its retry, if one ran, else the attempt itself) genuinely failed (continue-on-error means downstream steps still run either way; .outcome, not .conclusion, is what actually reflects a real failure -- .conclusion is rewritten to success by continue-on-error even when the step failed). The condition asks for the previous attempt's 'failure' rather than its not being 'success', so a chain that stopped stays stopped: a skipped attempt is not a success either, and testing for that alone let attempt N+2 run again after attempt N succeeded and attempt N+1 was skipped. Each attempt_N is immediately followed by its own "Rate-limit retry gate" and, when that gate judges the failure a genuine short-lived rate limit rather than a hard quota exhaustion, an attempt_N_retry that reruns the exact same credential once -- see retry_on_rate_limit's own description in the inputs: block above for why this is a single bounded retry per slot rather than a configurable count. "Resolve Claude Code result" below picks whichever attempt (or retry) actually succeeded and re-exposes its outputs under the stable id `claude` that every later step already reads, so nothing past this point needs to know fallback or retry happened at all.
     - name: Run Claude Code (attempt 1)
       id: attempt_1
       continue-on-error: true
@@ -1628,7 +1628,7 @@ runs:
 
     - name: Run Claude Code (attempt 2)
       id: attempt_2
-      if: steps.credentials.outputs.cred_2_token != '' && !(steps.attempt_1.outcome == 'success' || steps.attempt_1_retry.outcome == 'success')
+      if: steps.credentials.outputs.cred_2_token != '' && steps.attempt_1.outcome == 'failure' && steps.attempt_1_retry.outcome != 'success'
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
@@ -1757,7 +1757,7 @@ runs:
 
     - name: Run Claude Code (attempt 3)
       id: attempt_3
-      if: steps.credentials.outputs.cred_3_token != '' && !(steps.attempt_2.outcome == 'success' || steps.attempt_2_retry.outcome == 'success')
+      if: steps.credentials.outputs.cred_3_token != '' && steps.attempt_2.outcome == 'failure' && steps.attempt_2_retry.outcome != 'success'
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
@@ -1886,7 +1886,7 @@ runs:
 
     - name: Run Claude Code (attempt 4)
       id: attempt_4
-      if: steps.credentials.outputs.cred_4_token != '' && !(steps.attempt_3.outcome == 'success' || steps.attempt_3_retry.outcome == 'success')
+      if: steps.credentials.outputs.cred_4_token != '' && steps.attempt_3.outcome == 'failure' && steps.attempt_3_retry.outcome != 'success'
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
@@ -2015,7 +2015,7 @@ runs:
 
     - name: Run Claude Code (attempt 5)
       id: attempt_5
-      if: steps.credentials.outputs.cred_5_token != '' && !(steps.attempt_4.outcome == 'success' || steps.attempt_4_retry.outcome == 'success')
+      if: steps.credentials.outputs.cred_5_token != '' && steps.attempt_4.outcome == 'failure' && steps.attempt_4_retry.outcome != 'success'
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
