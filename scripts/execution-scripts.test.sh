@@ -157,6 +157,11 @@ cp "${fixtures}/success.json" "$shared"
 run_step clear-execution-file > /dev/null
 expect_equal "the first attempt starts with no execution file" "absent" "$([ -e "$shared" ] && echo present || echo absent)"
 
+expect_equal "the execution file is always cleared, whatever happened before" "" "$(step_value clear-execution-file if)"
+clear_line="$(grep -nxF "      id: clear-execution-file" "$action" | cut -d: -f1)"
+attempt_line="$(grep -nxF "      id: attempt_1" "$action" | cut -d: -f1)"
+expect_equal "the execution file is cleared before attempt 1 runs" "true" "$([ -n "$clear_line" ] && [ -n "$attempt_line" ] && [ "$clear_line" -lt "$attempt_line" ] && echo true || echo false)"
+
 # Rate-limit retry gates keep the attempt's own file before its retry overwrites the shared one.
 reset_runner_temp
 cp "${fixtures}/rate-limited.json" "$shared"
@@ -187,6 +192,8 @@ for n in 1 2 3 4 5; do
   expect_equal "chain_stop_${n} runs when attempt ${n} and any retry of it failed" "steps.attempt_${n}.outcome == 'failure' && steps.attempt_${n}_retry.outcome != 'success'" "$(step_value "chain_stop_${n}" if)"
   expect_equal "chain_stop_${n} falls through rather than skipping the chain when it fails" "true" "$(step_value "chain_stop_${n}" continue-on-error)"
   expect_equal "chain_stop_${n} reads slot ${n}'s latest run" "\${{ steps.attempt_${n}_retry.outcome == 'failure' && '${n}R' || '${n}' }}" "$(step_value "chain_stop_${n}" SLOT)"
+  expect_equal "retry_gate_${n} reads attempt ${n}'s execution file" "\${{ steps.attempt_${n}.outputs.execution_file }}" "$(step_value "retry_gate_${n}" EXECUTION_FILE)"
+  expect_equal "retry_gate_${n} keeps attempt ${n}'s file as slot ${n}'s own before retrying" "1" "$(step_script "retry_gate_${n}" | grep -cxF "  bash \"\${ACTION_PATH}/scripts/execution-file.sh\" keep ${n} > /dev/null")"
   expect_equal "attempt ${n}'s retry runs only when its rate-limit gate says so" "steps.retry_gate_${n}.outputs.should_retry == 'true'" "$(step_value "attempt_${n}_retry" if)"
   for field in REASON SESSION_ID EXECUTION_FILE; do
     output_name="$(tr '[:upper:]' '[:lower:]' <<<"$field")"
