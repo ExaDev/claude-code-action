@@ -1495,8 +1495,6 @@ runs:
         echo "ANTHROPIC_BASE_URL=http://127.0.0.1:${HEADROOM_PORT}" >> "$GITHUB_ENV"
         echo "Headroom proxy healthy (${HEADROOM_INSTALL_METHOD}); ANTHROPIC_BASE_URL exported for every following step in this job."
 
-    # Pinned to the commit that anthropics/claude-code-action's v1 tag resolved to on 2026-08-08 (v1.0.189). Update the pin deliberately, never by moving to @v1: see the Versioning section of README.md.
-    #
     - name: Clear the execution file before the first attempt
       id: clear-execution-file
       shell: bash
@@ -1506,6 +1504,8 @@ runs:
       run: |
         bash "${ACTION_PATH}/scripts/execution-file.sh" clear
 
+    # Pinned to the commit that anthropics/claude-code-action's v1 tag resolved to on 2026-08-08 (v1.0.189). Update the pin deliberately, never by moving to @v1: see the Versioning section of README.md.
+    #
     # attempt_1 .. attempt_5 are one statically-unrolled step per position in the credential fallback chain "Parse credential fallback chain" built above -- a composite action has no native loop, so this is the fallback mechanism itself, not a stutter. attempt_N (N=2..5) only runs if there is a credential at that position AND the previous credential's own effort (its retry, if one ran, else the attempt itself) genuinely failed (continue-on-error means downstream steps still run either way; .outcome, not .conclusion, is what actually reflects a real failure -- .conclusion is rewritten to success by continue-on-error even when the step failed) AND did not stop the chain. The condition asks for the previous attempt's 'failure' rather than its not being 'success', so a chain that stopped stays stopped: a skipped attempt is not a success either, and testing for that alone let attempt N+2 run again after attempt N succeeded and attempt N+1 was skipped. An attempt that ran Claude Code and then failed (its turn limit, its budget, structured-output retries, or a result the fork rejected) did so with a working credential, so the "Check whether attempt N should stop the credential chain" step after each slot stops the chain there rather than having the next credential repeat the whole task, side effects included; see scripts/attempt-stop.sh. That step also keeps the slot's execution file aside as its own, since every attempt writes the same path. Each attempt_N is immediately followed by its own "Rate-limit retry gate" and, when that gate judges the failure a genuine short-lived rate limit rather than a hard quota exhaustion, an attempt_N_retry that reruns the exact same credential once -- see retry_on_rate_limit's own description in the inputs: block above for why this is a single bounded retry per slot rather than a configurable count. "Resolve Claude Code result" below picks whichever attempt (or retry) actually succeeded and re-exposes its outputs under the stable id `claude` that every later step already reads, so nothing past this point needs to know fallback or retry happened at all.
     - name: Run Claude Code (attempt 1)
       id: attempt_1
