@@ -1,1 +1,7 @@
-[{ "type": "system", "subtype": "init", "session_id": "session-no-result" }]
+[
+  {
+    "type": "system",
+    "subtype": "init",
+    "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+  }
+]

@@ -1,0 +1,11 @@
+[
+  {
+    "type": "result",
+    "subtype": "success",
+    "is_error": true,
+    "num_turns": 1,
+    "api_error_status": 429,
+    "result": "Too many requests, try again shortly.",
+    "session_id": "99999999-9999-4999-8999-999999999999"
+  }
+]

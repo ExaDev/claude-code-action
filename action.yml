@@ -225,7 +225,7 @@ inputs:
     default: ""
   wrap_up_on_turn_limit:
     description: |
-      All modes except generic, which ignores it and never wraps up. When the primary run hits its turn limit (cut off mid-task rather than finishing cleanly), fire a short follow-on run (3 turns) that resumes the same session and asks Claude to summarise what it found and what remains, so the work is not lost. The turn-limited attempt stops the credential fallback chain (its credential worked, so no later credential repeats the task), and the run still fails, because its task did not finish. On by default; set to "false" to skip the follow-on entirely.
+      All modes except generic, which ignores it and never wraps up. When the primary run hits its turn limit (cut off mid-task rather than finishing cleanly), fire a short follow-on run (3 turns) that resumes the same session and asks Claude to summarise what it found and what remains, so the work is not lost. The turn-limited attempt stops the credential fallback chain (its credential worked, so no later credential repeats the task), and the run still fails, because its task did not finish. An attempt that ran out of budget or structured-output retries, or whose result the fork rejected, stops the chain the same way but is not wrapped up. On by default; set to "false" to skip the follow-on entirely.
     required: false
     default: "true"
   escalate_findings_to_issues:
@@ -1497,7 +1497,16 @@ runs:
 
     # Pinned to the commit that anthropics/claude-code-action's v1 tag resolved to on 2026-08-08 (v1.0.189). Update the pin deliberately, never by moving to @v1: see the Versioning section of README.md.
     #
-    # attempt_1 .. attempt_5 are one statically-unrolled step per position in the credential fallback chain "Parse credential fallback chain" built above -- a composite action has no native loop, so this is the fallback mechanism itself, not a stutter. attempt_N (N=2..5) only runs if there is a credential at that position AND the previous credential's own effort (its retry, if one ran, else the attempt itself) genuinely failed (continue-on-error means downstream steps still run either way; .outcome, not .conclusion, is what actually reflects a real failure -- .conclusion is rewritten to success by continue-on-error even when the step failed) AND did not run until its turn limit. The condition asks for the previous attempt's 'failure' rather than its not being 'success', so a chain that stopped stays stopped: a skipped attempt is not a success either, and testing for that alone let attempt N+2 run again after attempt N succeeded and attempt N+1 was skipped. A turn-limited attempt failed with a working credential, so the "Check whether attempt N hit its turn limit" step after each slot stops the chain there rather than having the next credential repeat the whole task (and overwrite the one execution file every attempt shares). Each attempt_N is immediately followed by its own "Rate-limit retry gate" and, when that gate judges the failure a genuine short-lived rate limit rather than a hard quota exhaustion, an attempt_N_retry that reruns the exact same credential once -- see retry_on_rate_limit's own description in the inputs: block above for why this is a single bounded retry per slot rather than a configurable count. "Resolve Claude Code result" below picks whichever attempt (or retry) actually succeeded and re-exposes its outputs under the stable id `claude` that every later step already reads, so nothing past this point needs to know fallback or retry happened at all.
+    - name: Clear the execution file before the first attempt
+      id: clear-execution-file
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      # A file left at the shared path by anything earlier in this job would otherwise be read as attempt 1's own if attempt 1 failed before writing one; see scripts/execution-file.sh.
+      run: |
+        bash "${ACTION_PATH}/scripts/execution-file.sh" clear
+
+    # attempt_1 .. attempt_5 are one statically-unrolled step per position in the credential fallback chain "Parse credential fallback chain" built above -- a composite action has no native loop, so this is the fallback mechanism itself, not a stutter. attempt_N (N=2..5) only runs if there is a credential at that position AND the previous credential's own effort (its retry, if one ran, else the attempt itself) genuinely failed (continue-on-error means downstream steps still run either way; .outcome, not .conclusion, is what actually reflects a real failure -- .conclusion is rewritten to success by continue-on-error even when the step failed) AND did not stop the chain. The condition asks for the previous attempt's 'failure' rather than its not being 'success', so a chain that stopped stays stopped: a skipped attempt is not a success either, and testing for that alone let attempt N+2 run again after attempt N succeeded and attempt N+1 was skipped. An attempt that ran Claude Code and then failed (its turn limit, its budget, structured-output retries, or a result the fork rejected) did so with a working credential, so the "Check whether attempt N should stop the credential chain" step after each slot stops the chain there rather than having the next credential repeat the whole task, side effects included; see scripts/attempt-stop.sh. That step also keeps the slot's execution file aside as its own, since every attempt writes the same path. Each attempt_N is immediately followed by its own "Rate-limit retry gate" and, when that gate judges the failure a genuine short-lived rate limit rather than a hard quota exhaustion, an attempt_N_retry that reruns the exact same credential once -- see retry_on_rate_limit's own description in the inputs: block above for why this is a single bounded retry per slot rather than a configurable count. "Resolve Claude Code result" below picks whichever attempt (or retry) actually succeeded and re-exposes its outputs under the stable id `claude` that every later step already reads, so nothing past this point needs to know fallback or retry happened at all.
     - name: Run Claude Code (attempt 1)
       id: attempt_1
       continue-on-error: true
@@ -1572,6 +1581,8 @@ runs:
         echo "should_retry=${SHOULD_RETRY}" >> "$GITHUB_OUTPUT"
 
         if [ "$SHOULD_RETRY" = "true" ]; then
+          # The retry writes the same shared path, so keep this attempt's file as its own for the failed-attempt diagnosis.
+          bash "${ACTION_PATH}/scripts/execution-file.sh" keep 1 > /dev/null
           echo "Attempt 1 failed with a 429 that does not look like a hard quota exhaustion; waiting ${WAIT_SECONDS}s before retrying the same credential."
           sleep "${WAIT_SECONDS}"
         else
@@ -1626,29 +1637,32 @@ runs:
         display_report: ${{ inputs.display_report }}
         show_full_output: ${{ inputs.show_full_output }}
 
-    - name: Check whether attempt 1 hit its turn limit
-      id: turn_limit_1
+    - name: Check whether attempt 1 should stop the credential chain
+      id: chain_stop_1
       if: steps.attempt_1.outcome == 'failure' && steps.attempt_1_retry.outcome != 'success'
+      # A failure here (a missing jq, say) leaves stop_reason unset, which is the plain fallthrough to the next credential, rather than skipping every later attempt and Resolve.
+      continue-on-error: true
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
-        # The retry, when one ran, wrote the slot's latest execution file; otherwise the attempt did.
-        EXECUTION_FILE: ${{ steps.attempt_1_retry.outputs.execution_file || steps.attempt_1.outputs.execution_file }}
+        # The slot's latest run wrote the shared execution file: its retry when one ran.
+        SLOT: ${{ steps.attempt_1_retry.outcome == 'failure' && '1R' || '1' }}
       run: |
         set -euo pipefail
-        session_id="$(bash "${ACTION_PATH}/scripts/turn-limited-session-id.sh" "${EXECUTION_FILE:-}")"
-        if [ -n "$session_id" ]; then
-          {
-            echo "hit_limit=true"
-            echo "session_id=${session_id}"
-            echo "execution_file=${EXECUTION_FILE}"
-          } >> "$GITHUB_OUTPUT"
-          echo "Attempt 1 ran until its turn limit, so its credential works: no later credential runs, and its session goes to the turn-limit wrap-up."
+        kept="$(bash "${ACTION_PATH}/scripts/execution-file.sh" keep "$SLOT")"
+        if [ -z "$kept" ]; then
+          exit 0
+        fi
+        echo "execution_file=${kept}" >> "$GITHUB_OUTPUT"
+        stop="$(bash "${ACTION_PATH}/scripts/attempt-stop.sh" "$kept")"
+        if [ -n "$stop" ]; then
+          echo "$stop" >> "$GITHUB_OUTPUT"
+          echo "Attempt ${SLOT} ran Claude Code and failed (${stop%%$'\n'*}), so no later credential runs: it would only repeat the task."
         fi
 
     - name: Run Claude Code (attempt 2)
       id: attempt_2
-      if: steps.credentials.outputs.cred_2_token != '' && steps.attempt_1.outcome == 'failure' && steps.attempt_1_retry.outcome != 'success' && steps.turn_limit_1.outputs.hit_limit != 'true'
+      if: steps.credentials.outputs.cred_2_token != '' && steps.attempt_1.outcome == 'failure' && steps.attempt_1_retry.outcome != 'success' && steps.chain_stop_1.outputs.stop_reason == ''
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
@@ -1721,6 +1735,8 @@ runs:
         echo "should_retry=${SHOULD_RETRY}" >> "$GITHUB_OUTPUT"
 
         if [ "$SHOULD_RETRY" = "true" ]; then
+          # The retry writes the same shared path, so keep this attempt's file as its own for the failed-attempt diagnosis.
+          bash "${ACTION_PATH}/scripts/execution-file.sh" keep 2 > /dev/null
           echo "Attempt 2 failed with a 429 that does not look like a hard quota exhaustion; waiting ${WAIT_SECONDS}s before retrying the same credential."
           sleep "${WAIT_SECONDS}"
         else
@@ -1775,29 +1791,32 @@ runs:
         display_report: ${{ inputs.display_report }}
         show_full_output: ${{ inputs.show_full_output }}
 
-    - name: Check whether attempt 2 hit its turn limit
-      id: turn_limit_2
+    - name: Check whether attempt 2 should stop the credential chain
+      id: chain_stop_2
       if: steps.attempt_2.outcome == 'failure' && steps.attempt_2_retry.outcome != 'success'
+      # A failure here (a missing jq, say) leaves stop_reason unset, which is the plain fallthrough to the next credential, rather than skipping every later attempt and Resolve.
+      continue-on-error: true
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
-        # The retry, when one ran, wrote the slot's latest execution file; otherwise the attempt did.
-        EXECUTION_FILE: ${{ steps.attempt_2_retry.outputs.execution_file || steps.attempt_2.outputs.execution_file }}
+        # The slot's latest run wrote the shared execution file: its retry when one ran.
+        SLOT: ${{ steps.attempt_2_retry.outcome == 'failure' && '2R' || '2' }}
       run: |
         set -euo pipefail
-        session_id="$(bash "${ACTION_PATH}/scripts/turn-limited-session-id.sh" "${EXECUTION_FILE:-}")"
-        if [ -n "$session_id" ]; then
-          {
-            echo "hit_limit=true"
-            echo "session_id=${session_id}"
-            echo "execution_file=${EXECUTION_FILE}"
-          } >> "$GITHUB_OUTPUT"
-          echo "Attempt 2 ran until its turn limit, so its credential works: no later credential runs, and its session goes to the turn-limit wrap-up."
+        kept="$(bash "${ACTION_PATH}/scripts/execution-file.sh" keep "$SLOT")"
+        if [ -z "$kept" ]; then
+          exit 0
+        fi
+        echo "execution_file=${kept}" >> "$GITHUB_OUTPUT"
+        stop="$(bash "${ACTION_PATH}/scripts/attempt-stop.sh" "$kept")"
+        if [ -n "$stop" ]; then
+          echo "$stop" >> "$GITHUB_OUTPUT"
+          echo "Attempt ${SLOT} ran Claude Code and failed (${stop%%$'\n'*}), so no later credential runs: it would only repeat the task."
         fi
 
     - name: Run Claude Code (attempt 3)
       id: attempt_3
-      if: steps.credentials.outputs.cred_3_token != '' && steps.attempt_2.outcome == 'failure' && steps.attempt_2_retry.outcome != 'success' && steps.turn_limit_2.outputs.hit_limit != 'true'
+      if: steps.credentials.outputs.cred_3_token != '' && steps.attempt_2.outcome == 'failure' && steps.attempt_2_retry.outcome != 'success' && steps.chain_stop_2.outputs.stop_reason == ''
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
@@ -1870,6 +1889,8 @@ runs:
         echo "should_retry=${SHOULD_RETRY}" >> "$GITHUB_OUTPUT"
 
         if [ "$SHOULD_RETRY" = "true" ]; then
+          # The retry writes the same shared path, so keep this attempt's file as its own for the failed-attempt diagnosis.
+          bash "${ACTION_PATH}/scripts/execution-file.sh" keep 3 > /dev/null
           echo "Attempt 3 failed with a 429 that does not look like a hard quota exhaustion; waiting ${WAIT_SECONDS}s before retrying the same credential."
           sleep "${WAIT_SECONDS}"
         else
@@ -1924,29 +1945,32 @@ runs:
         display_report: ${{ inputs.display_report }}
         show_full_output: ${{ inputs.show_full_output }}
 
-    - name: Check whether attempt 3 hit its turn limit
-      id: turn_limit_3
+    - name: Check whether attempt 3 should stop the credential chain
+      id: chain_stop_3
       if: steps.attempt_3.outcome == 'failure' && steps.attempt_3_retry.outcome != 'success'
+      # A failure here (a missing jq, say) leaves stop_reason unset, which is the plain fallthrough to the next credential, rather than skipping every later attempt and Resolve.
+      continue-on-error: true
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
-        # The retry, when one ran, wrote the slot's latest execution file; otherwise the attempt did.
-        EXECUTION_FILE: ${{ steps.attempt_3_retry.outputs.execution_file || steps.attempt_3.outputs.execution_file }}
+        # The slot's latest run wrote the shared execution file: its retry when one ran.
+        SLOT: ${{ steps.attempt_3_retry.outcome == 'failure' && '3R' || '3' }}
       run: |
         set -euo pipefail
-        session_id="$(bash "${ACTION_PATH}/scripts/turn-limited-session-id.sh" "${EXECUTION_FILE:-}")"
-        if [ -n "$session_id" ]; then
-          {
-            echo "hit_limit=true"
-            echo "session_id=${session_id}"
-            echo "execution_file=${EXECUTION_FILE}"
-          } >> "$GITHUB_OUTPUT"
-          echo "Attempt 3 ran until its turn limit, so its credential works: no later credential runs, and its session goes to the turn-limit wrap-up."
+        kept="$(bash "${ACTION_PATH}/scripts/execution-file.sh" keep "$SLOT")"
+        if [ -z "$kept" ]; then
+          exit 0
+        fi
+        echo "execution_file=${kept}" >> "$GITHUB_OUTPUT"
+        stop="$(bash "${ACTION_PATH}/scripts/attempt-stop.sh" "$kept")"
+        if [ -n "$stop" ]; then
+          echo "$stop" >> "$GITHUB_OUTPUT"
+          echo "Attempt ${SLOT} ran Claude Code and failed (${stop%%$'\n'*}), so no later credential runs: it would only repeat the task."
         fi
 
     - name: Run Claude Code (attempt 4)
       id: attempt_4
-      if: steps.credentials.outputs.cred_4_token != '' && steps.attempt_3.outcome == 'failure' && steps.attempt_3_retry.outcome != 'success' && steps.turn_limit_3.outputs.hit_limit != 'true'
+      if: steps.credentials.outputs.cred_4_token != '' && steps.attempt_3.outcome == 'failure' && steps.attempt_3_retry.outcome != 'success' && steps.chain_stop_3.outputs.stop_reason == ''
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
@@ -2019,6 +2043,8 @@ runs:
         echo "should_retry=${SHOULD_RETRY}" >> "$GITHUB_OUTPUT"
 
         if [ "$SHOULD_RETRY" = "true" ]; then
+          # The retry writes the same shared path, so keep this attempt's file as its own for the failed-attempt diagnosis.
+          bash "${ACTION_PATH}/scripts/execution-file.sh" keep 4 > /dev/null
           echo "Attempt 4 failed with a 429 that does not look like a hard quota exhaustion; waiting ${WAIT_SECONDS}s before retrying the same credential."
           sleep "${WAIT_SECONDS}"
         else
@@ -2073,29 +2099,32 @@ runs:
         display_report: ${{ inputs.display_report }}
         show_full_output: ${{ inputs.show_full_output }}
 
-    - name: Check whether attempt 4 hit its turn limit
-      id: turn_limit_4
+    - name: Check whether attempt 4 should stop the credential chain
+      id: chain_stop_4
       if: steps.attempt_4.outcome == 'failure' && steps.attempt_4_retry.outcome != 'success'
+      # A failure here (a missing jq, say) leaves stop_reason unset, which is the plain fallthrough to the next credential, rather than skipping every later attempt and Resolve.
+      continue-on-error: true
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
-        # The retry, when one ran, wrote the slot's latest execution file; otherwise the attempt did.
-        EXECUTION_FILE: ${{ steps.attempt_4_retry.outputs.execution_file || steps.attempt_4.outputs.execution_file }}
+        # The slot's latest run wrote the shared execution file: its retry when one ran.
+        SLOT: ${{ steps.attempt_4_retry.outcome == 'failure' && '4R' || '4' }}
       run: |
         set -euo pipefail
-        session_id="$(bash "${ACTION_PATH}/scripts/turn-limited-session-id.sh" "${EXECUTION_FILE:-}")"
-        if [ -n "$session_id" ]; then
-          {
-            echo "hit_limit=true"
-            echo "session_id=${session_id}"
-            echo "execution_file=${EXECUTION_FILE}"
-          } >> "$GITHUB_OUTPUT"
-          echo "Attempt 4 ran until its turn limit, so its credential works: no later credential runs, and its session goes to the turn-limit wrap-up."
+        kept="$(bash "${ACTION_PATH}/scripts/execution-file.sh" keep "$SLOT")"
+        if [ -z "$kept" ]; then
+          exit 0
+        fi
+        echo "execution_file=${kept}" >> "$GITHUB_OUTPUT"
+        stop="$(bash "${ACTION_PATH}/scripts/attempt-stop.sh" "$kept")"
+        if [ -n "$stop" ]; then
+          echo "$stop" >> "$GITHUB_OUTPUT"
+          echo "Attempt ${SLOT} ran Claude Code and failed (${stop%%$'\n'*}), so no later credential runs: it would only repeat the task."
         fi
 
     - name: Run Claude Code (attempt 5)
       id: attempt_5
-      if: steps.credentials.outputs.cred_5_token != '' && steps.attempt_4.outcome == 'failure' && steps.attempt_4_retry.outcome != 'success' && steps.turn_limit_4.outputs.hit_limit != 'true'
+      if: steps.credentials.outputs.cred_5_token != '' && steps.attempt_4.outcome == 'failure' && steps.attempt_4_retry.outcome != 'success' && steps.chain_stop_4.outputs.stop_reason == ''
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@2b630458f5713dff63b3de934542464f88052090 # merges fix/abort-hung-sdk-query, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once that merges
       with:
@@ -2168,6 +2197,8 @@ runs:
         echo "should_retry=${SHOULD_RETRY}" >> "$GITHUB_OUTPUT"
 
         if [ "$SHOULD_RETRY" = "true" ]; then
+          # The retry writes the same shared path, so keep this attempt's file as its own for the failed-attempt diagnosis.
+          bash "${ACTION_PATH}/scripts/execution-file.sh" keep 5 > /dev/null
           echo "Attempt 5 failed with a 429 that does not look like a hard quota exhaustion; waiting ${WAIT_SECONDS}s before retrying the same credential."
           sleep "${WAIT_SECONDS}"
         else
@@ -2222,24 +2253,27 @@ runs:
         display_report: ${{ inputs.display_report }}
         show_full_output: ${{ inputs.show_full_output }}
 
-    - name: Check whether attempt 5 hit its turn limit
-      id: turn_limit_5
+    - name: Check whether attempt 5 should stop the credential chain
+      id: chain_stop_5
       if: steps.attempt_5.outcome == 'failure' && steps.attempt_5_retry.outcome != 'success'
+      # A failure here (a missing jq, say) leaves stop_reason unset, which is the plain fallthrough to the next credential, rather than skipping every later attempt and Resolve.
+      continue-on-error: true
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
-        # The retry, when one ran, wrote the slot's latest execution file; otherwise the attempt did.
-        EXECUTION_FILE: ${{ steps.attempt_5_retry.outputs.execution_file || steps.attempt_5.outputs.execution_file }}
+        # The slot's latest run wrote the shared execution file: its retry when one ran.
+        SLOT: ${{ steps.attempt_5_retry.outcome == 'failure' && '5R' || '5' }}
       run: |
         set -euo pipefail
-        session_id="$(bash "${ACTION_PATH}/scripts/turn-limited-session-id.sh" "${EXECUTION_FILE:-}")"
-        if [ -n "$session_id" ]; then
-          {
-            echo "hit_limit=true"
-            echo "session_id=${session_id}"
-            echo "execution_file=${EXECUTION_FILE}"
-          } >> "$GITHUB_OUTPUT"
-          echo "Attempt 5 ran until its turn limit, so its credential works: no later credential runs, and its session goes to the turn-limit wrap-up."
+        kept="$(bash "${ACTION_PATH}/scripts/execution-file.sh" keep "$SLOT")"
+        if [ -z "$kept" ]; then
+          exit 0
+        fi
+        echo "execution_file=${kept}" >> "$GITHUB_OUTPUT"
+        stop="$(bash "${ACTION_PATH}/scripts/attempt-stop.sh" "$kept")"
+        if [ -n "$stop" ]; then
+          echo "$stop" >> "$GITHUB_OUTPUT"
+          echo "Attempt ${SLOT} ran Claude Code and failed (${stop%%$'\n'*}), so no later credential runs: it would only repeat the task."
         fi
 
     # Aggregation step, deliberately kept at id: claude -- every later step (turn-limit wrap-up, the fix pass, the structured summary, session save, the progress comment) already reads steps.claude.outputs.*/steps.claude.outcome, so keeping this id here is what lets fallback slot in without touching any of them. Picks whichever attempt_N actually succeeded (first one wins; the chain stops there) and re-exposes its outputs under the same field names the single-step version used to produce, plus the winning credential itself (winning_cred_type/winning_cred_token, not part of this action's own top-level outputs -- purely internal, so the three later steps that still need to authenticate a follow-on call against the same account that actually worked -- wrap-up, apply-fixes, structured-summary -- can read it instead of inputs.anthropic_api_key/inputs.claude_code_oauth_token, which may be an unresolved multi-line list by this point). If every attempted credential failed, this step exits 1 itself so steps.claude.outcome correctly reads 'failure' -- exactly what "Update progress comment" already keys off further down -- rather than the continue-on-error above silently making the whole composite action look like it succeeded.
@@ -2319,21 +2353,21 @@ runs:
         STRUCTURED_OUTPUT_4R: ${{ steps.attempt_4_retry.outputs.structured_output }}
         STRUCTURED_OUTPUT_5: ${{ steps.attempt_5.outputs.structured_output }}
         STRUCTURED_OUTPUT_5R: ${{ steps.attempt_5_retry.outputs.structured_output }}
-        HIT_LIMIT_1: ${{ steps.turn_limit_1.outputs.hit_limit }}
-        HIT_LIMIT_SESSION_ID_1: ${{ steps.turn_limit_1.outputs.session_id }}
-        HIT_LIMIT_EXECUTION_FILE_1: ${{ steps.turn_limit_1.outputs.execution_file }}
-        HIT_LIMIT_2: ${{ steps.turn_limit_2.outputs.hit_limit }}
-        HIT_LIMIT_SESSION_ID_2: ${{ steps.turn_limit_2.outputs.session_id }}
-        HIT_LIMIT_EXECUTION_FILE_2: ${{ steps.turn_limit_2.outputs.execution_file }}
-        HIT_LIMIT_3: ${{ steps.turn_limit_3.outputs.hit_limit }}
-        HIT_LIMIT_SESSION_ID_3: ${{ steps.turn_limit_3.outputs.session_id }}
-        HIT_LIMIT_EXECUTION_FILE_3: ${{ steps.turn_limit_3.outputs.execution_file }}
-        HIT_LIMIT_4: ${{ steps.turn_limit_4.outputs.hit_limit }}
-        HIT_LIMIT_SESSION_ID_4: ${{ steps.turn_limit_4.outputs.session_id }}
-        HIT_LIMIT_EXECUTION_FILE_4: ${{ steps.turn_limit_4.outputs.execution_file }}
-        HIT_LIMIT_5: ${{ steps.turn_limit_5.outputs.hit_limit }}
-        HIT_LIMIT_SESSION_ID_5: ${{ steps.turn_limit_5.outputs.session_id }}
-        HIT_LIMIT_EXECUTION_FILE_5: ${{ steps.turn_limit_5.outputs.execution_file }}
+        STOP_REASON_1: ${{ steps.chain_stop_1.outputs.stop_reason }}
+        STOP_SESSION_ID_1: ${{ steps.chain_stop_1.outputs.session_id }}
+        STOP_EXECUTION_FILE_1: ${{ steps.chain_stop_1.outputs.execution_file }}
+        STOP_REASON_2: ${{ steps.chain_stop_2.outputs.stop_reason }}
+        STOP_SESSION_ID_2: ${{ steps.chain_stop_2.outputs.session_id }}
+        STOP_EXECUTION_FILE_2: ${{ steps.chain_stop_2.outputs.execution_file }}
+        STOP_REASON_3: ${{ steps.chain_stop_3.outputs.stop_reason }}
+        STOP_SESSION_ID_3: ${{ steps.chain_stop_3.outputs.session_id }}
+        STOP_EXECUTION_FILE_3: ${{ steps.chain_stop_3.outputs.execution_file }}
+        STOP_REASON_4: ${{ steps.chain_stop_4.outputs.stop_reason }}
+        STOP_SESSION_ID_4: ${{ steps.chain_stop_4.outputs.session_id }}
+        STOP_EXECUTION_FILE_4: ${{ steps.chain_stop_4.outputs.execution_file }}
+        STOP_REASON_5: ${{ steps.chain_stop_5.outputs.stop_reason }}
+        STOP_SESSION_ID_5: ${{ steps.chain_stop_5.outputs.session_id }}
+        STOP_EXECUTION_FILE_5: ${{ steps.chain_stop_5.outputs.execution_file }}
       run: |
         set -euo pipefail
 
@@ -2347,32 +2381,6 @@ runs:
         done
 
         if [ -z "$WINNER" ]; then
-          # An attempt that ran until its turn limit is a failure, not a credential to fall through from: the "Check whether attempt N hit its turn limit" step after it stopped the chain there. Hand its session on to the turn-limit wrap-up, which resumes it for a closing reply, and still fail this step, because the task itself did not finish.
-          for slot in 1 2 3 4 5; do
-            hit_var="HIT_LIMIT_${slot}"
-            [ "${!hit_var:-}" = "true" ] || continue
-            session_var="HIT_LIMIT_SESSION_ID_${slot}"
-            file_var="HIT_LIMIT_EXECUTION_FILE_${slot}"
-            type_var="CRED_TYPE_${slot}"
-            token_var="CRED_TOKEN_${slot}"
-            for field in conclusion execution_file session_id winning_cred_type winning_cred_token; do
-              case "$field" in
-              conclusion) value="failure" ;;
-              execution_file) value="${!file_var}" ;;
-              session_id) value="${!session_var}" ;;
-              winning_cred_type) value="${!type_var:-}" ;;
-              winning_cred_token) value="${!token_var:-}" ;;
-              esac
-              delim="RESULT_$(openssl rand -hex 16)"
-              {
-                echo "${field}<<${delim}"
-                echo "${value}"
-                echo "${delim}"
-              } >>"$GITHUB_OUTPUT"
-            done
-            echo "::error::Run Claude Code (attempt ${slot}) stopped at its turn limit before finishing. The turn-limit wrap-up resumes its session for a closing reply when wrap_up_on_turn_limit is on; the run still fails."
-            exit 1
-          done
           # Upstream prints only a sanitised summary of a finished run, with no result text unless show_full_output is on, so the step logs above never say why an attempt failed: an errored run reports nothing more than "subtype success with is_error:true". Each attempt's execution file does hold the full final result message, so surface exactly that one message per failed attempt here, collapsed onto a single line (a newline in it would otherwise start a new workflow command) and truncated. Never the transcript, which upstream withholds for a reason. The cap only needs to fit an API error message; it exists so a pathological result cannot flood the annotation.
           RESULT_DIAGNOSTIC_MAX_CHARS=1000
           # Secret-shaped substrings are replaced before truncating, never after, so a token cannot be cut into a fragment the patterns no longer recognise. Best-effort pattern matching on top of the runner's own masking of the exact credential values this action was given, not a guarantee. The opaque-token floor sits above ordinary request ids and below real API keys and OAuth tokens; a full 40-character git SHA in an error message is collateral.
@@ -2380,8 +2388,13 @@ runs:
           for slot in 1 1R 2 2R 3 3R 4 4R 5 5R; do
             outcome_var="OUTCOME_${slot}"
             [ "${!outcome_var:-}" = "failure" ] || continue
-            file_var="EXECUTION_FILE_${slot}"
-            final_result="$(bash "${ACTION_PATH}/scripts/execution-result.sh" "${!file_var:-}")"
+            # The attempt's own file, which the chain-stop step or the retry gate kept aside; the shared path holds whichever attempt ran last.
+            execution_file="${RUNNER_TEMP}/claude-execution-output-attempt-${slot}.json"
+            if [ ! -f "$execution_file" ]; then
+              file_var="EXECUTION_FILE_${slot}"
+              execution_file="${!file_var:-}"
+            fi
+            final_result="$(bash "${ACTION_PATH}/scripts/execution-result.sh" "$execution_file")"
             if [ -z "$final_result" ]; then
               echo "::warning::Run Claude Code (attempt ${slot}) failed without leaving a final result message in its execution file, so it failed before Claude produced one. The step log above is the only source of detail for it."
               continue
@@ -2399,6 +2412,37 @@ runs:
                   | redact | gsub("\\s+"; " ") | sub("^ "; "") | .[0:$max] | select(length > 0) | "result=\(.)")
               ] | join(", ")' <<<"$final_result")"
             echo "::error::Run Claude Code (attempt ${slot}) failed: ${diagnosis}"
+          done
+          # An attempt that ran Claude Code and failed stopped the chain (the "Check whether attempt N should stop the credential chain" step after it), because another credential would only repeat the task. One that stopped at its turn limit hands its session and credential on to the turn-limit wrap-up, which resumes it for a closing reply; either way this step fails, because the task did not finish.
+          for slot in 1 2 3 4 5; do
+            reason_var="STOP_REASON_${slot}"
+            reason="${!reason_var:-}"
+            [ -n "$reason" ] || continue
+            session_var="STOP_SESSION_ID_${slot}"
+            file_var="STOP_EXECUTION_FILE_${slot}"
+            if [ "$reason" = "turn_limit" ] && [ -n "${!session_var:-}" ]; then
+              type_var="CRED_TYPE_${slot}"
+              token_var="CRED_TOKEN_${slot}"
+              for field in conclusion execution_file session_id winning_cred_type winning_cred_token; do
+                case "$field" in
+                conclusion) value="failure" ;;
+                execution_file) value="${!file_var}" ;;
+                session_id) value="${!session_var}" ;;
+                winning_cred_type) value="${!type_var:-}" ;;
+                winning_cred_token) value="${!token_var:-}" ;;
+                esac
+                delim="RESULT_$(openssl rand -hex 16)"
+                {
+                  echo "${field}<<${delim}"
+                  echo "${value}"
+                  echo "${delim}"
+                } >>"$GITHUB_OUTPUT"
+              done
+              echo "::error::Run Claude Code (attempt ${slot}) stopped at its turn limit before finishing, so no later credential was tried. The turn-limit wrap-up resumes its session for a closing reply when wrap_up_on_turn_limit is on; the run still fails."
+            else
+              echo "::error::Run Claude Code (attempt ${slot}) ran Claude Code and failed (stop reason ${reason}), so no later credential was tried: it would only repeat the task. Its diagnosis is above."
+            fi
+            exit 1
           done
           if [ "${CREDENTIAL_COUNT:-0}" -eq 0 ]; then
             echo "::error::Claude Code failed to run and no explicit credential was supplied. Check use_bedrock/use_vertex/use_foundry's own configuration, or an org/repo-level ANTHROPIC_API_KEY/CLAUDE_CODE_OAUTH_TOKEN environment variable, in the calling job." >&2
@@ -2604,7 +2648,7 @@ runs:
         echo "Giving up on posting the Headroom savings comment after 3 attempts."
         exit 1
 
-    # --- Wrap-up on turn limit --- When the primary run hits --max-turns, Claude Code exits mid-task with no closing reply. The attempt fails its own step, the "Check whether attempt N hit its turn limit" step after it stops the credential chain there, and "Resolve Claude Code result" hands its session on while still failing, so these steps run under !cancelled(). This detects the hit and fires a short follow-on (3 turns) that resumes the session with a summarise-what-you-found prompt, so the work is captured rather than lost; the run itself still fails, because its task did not finish. Modelled on Exie's wrap-up pattern: short follow-on, full prior context via --resume, a nudge forcing a closing answer.
+    # --- Wrap-up on turn limit --- When the primary run hits --max-turns, Claude Code exits mid-task with no closing reply. The attempt fails its own step, the "Check whether attempt N should stop the credential chain" step after it stops the chain there, and "Resolve Claude Code result" hands its session on while still failing, so these steps run under !cancelled(). This detects the hit and fires a short follow-on (3 turns) that resumes the session with a summarise-what-you-found prompt, so the work is captured rather than lost; the run itself still fails, because its task did not finish. Modelled on Exie's wrap-up pattern: short follow-on, full prior context via --resume, a nudge forcing a closing answer.
     - name: Detect turn-limit hit
       id: detect-turn-limit
       if: ${{ !cancelled() && inputs.wrap_up_on_turn_limit == 'true' && inputs.mode != 'generic' && steps.claude.outputs.session_id != '' }}
@@ -2620,7 +2664,7 @@ runs:
           exit 0
         fi
         # The SDK's own final result message says whether the turn limit ended the run: its subtype is "error_max_turns" when it did, and the attempt that hit it is handed on here by "Resolve Claude Code result" with its session id, while a run that finished reports "success". Never match words in the execution file as a whole: it holds the prompt, every tool result and the model's own text, so a phrase such as "GitHub ... size limit" anywhere in a pull request body, a diff or this action's own prompt used to read as a turn-limit hit on runs that had finished, and the wrap-up then resumed a completed session and could fail the job after its work had already been posted.
-        if [ -n "$(bash "${ACTION_PATH}/scripts/turn-limited-session-id.sh" "$EXEC_FILE")" ]; then
+        if grep -qx "stop_reason=turn_limit" <<<"$(bash "${ACTION_PATH}/scripts/attempt-stop.sh" "$EXEC_FILE")"; then
           echo "hit_limit=true" >> "$GITHUB_OUTPUT"
           echo "Turn-limit hit detected; will run wrap-up follow-on."
         else

@@ -1,0 +1,14 @@
+[
+  {
+    "type": "system",
+    "subtype": "init",
+    "session_id": "55555555-5555-4555-8555-555555555555"
+  },
+  {
+    "type": "result",
+    "subtype": "error_max_turns",
+    "is_error": true,
+    "num_turns": 31,
+    "errors": []
+  }
+]

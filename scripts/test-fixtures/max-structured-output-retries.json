@@ -1,0 +1,10 @@
+[
+  {
+    "type": "result",
+    "subtype": "error_max_structured_output_retries",
+    "is_error": true,
+    "num_turns": 7,
+    "errors": [],
+    "session_id": "77777777-7777-4777-8777-777777777777"
+  }
+]
