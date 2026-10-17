@@ -3036,23 +3036,12 @@ runs:
         COMMENT_ID: ${{ steps.progress-comment.outputs.comment_id }}
         MARKER_FAILED: ${{ steps.progress-comment.outputs.marker_failed }}
         CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
-        # "Wrap up on turn limit" is the one later step with no continue-on-error and no prior id (unlike the fix pass / structured-summary steps, which are all continue-on-error: true and so can never make an already-successful primary run look failed here) -- if it runs and itself fails, the job outcome is failure even though steps.claude.outcome is still the earlier, successful "success". Folded in below rather than trusted on its own, since it reports "skipped" (not "success") whenever detect-turn-limit didn't fire, which must not be read as a failure.
-        WRAP_UP_OUTCOME: ${{ steps.wrap-up.outcome }}
-        # A wrap-up failure that "Escalate blocked findings to issues" then actually recorded somewhere durable (a new or updated issue) is no longer an unseen failure -- it is a handled one, so it should not flip an otherwise-successful run to failure. escalate itself is continue-on-error: true and reports "skipped" whenever escalate_findings_to_issues is off or the wrap-up did not fail, both of which must not be read as "recovered" -- only a genuine "success" here counts.
-        ESCALATE_OUTCOME: ${{ steps.escalate.outcome }}
-        # "Verify triage output landed" is the other step with no continue-on-error -- same reasoning, folded in the same way. It only ever runs (rather than reporting "skipped") for triage mode, so the "skipped" exemption below applies identically for every other mode.
+        # "Verify triage output landed" has no continue-on-error, so when it fails after a successful Claude Code run the job fails while steps.claude.outcome still reads "success"; it is folded in below for that reason. It reports "skipped" for every mode but triage, which must not be read as a failure.
         VERIFY_TRIAGE_OUTCOME: ${{ steps.verify-triage-output.outcome }}
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       run: |
         set -euo pipefail
         OUTCOME="$CLAUDE_OUTCOME"
-        if [ "$OUTCOME" = "success" ] && [ -n "${WRAP_UP_OUTCOME:-}" ] && [ "$WRAP_UP_OUTCOME" != "success" ] && [ "$WRAP_UP_OUTCOME" != "skipped" ]; then
-          if [ "${ESCALATE_OUTCOME:-}" = "success" ]; then
-            echo "Wrap-up failed (outcome: ${WRAP_UP_OUTCOME}), but escalation recorded it as an issue -- not treating this run as failed."
-          else
-            OUTCOME="$WRAP_UP_OUTCOME"
-          fi
-        fi
         if [ "$OUTCOME" = "success" ] && [ -n "${VERIFY_TRIAGE_OUTCOME:-}" ] && [ "$VERIFY_TRIAGE_OUTCOME" != "success" ] && [ "$VERIFY_TRIAGE_OUTCOME" != "skipped" ]; then
           OUTCOME="$VERIFY_TRIAGE_OUTCOME"
         fi
