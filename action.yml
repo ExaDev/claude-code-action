@@ -2469,6 +2469,7 @@ runs:
       if: ${{ inputs.wrap_up_on_turn_limit == 'true' && inputs.mode != 'generic' && steps.claude.outputs.session_id != '' }}
       shell: bash
       env:
+        ACTION_PATH: ${{ github.action_path }}
         EXEC_FILE: ${{ steps.claude.outputs.execution_file }}
         SESSION_ID: ${{ steps.claude.outputs.session_id }}
       run: |
@@ -2477,7 +2478,9 @@ runs:
           echo "hit_limit=false" >> "$GITHUB_OUTPUT"
           exit 0
         fi
-        if grep -qiE "max.?turns|turn.?limit|maximum.*turns|hit.*limit|exceeded.*turn|step.?limit" "$EXEC_FILE" 2>/dev/null; then
+        # The SDK's own final result message says whether the turn limit ended the run: its subtype is "error_max_turns" then, and "success" when Claude finished. Never match words in the execution file as a whole: it holds the prompt, every tool result and the model's own text, so a phrase such as "GitHub ... size limit" anywhere in a pull request body, a diff or this action's own prompt read as a turn-limit hit on runs that had finished, and the wrap-up then resumed a completed session and could fail the job after the review had already been submitted.
+        subtype="$(bash "${ACTION_PATH}/scripts/execution-result.sh" "$EXEC_FILE" | jq -r '.subtype // empty')"
+        if [ "$subtype" = "error_max_turns" ]; then
           echo "hit_limit=true" >> "$GITHUB_OUTPUT"
           echo "Turn-limit hit detected; will run wrap-up follow-on."
         else
