@@ -107,7 +107,7 @@ result_subtype() {
 }
 
 stop_lines() {
-  bash "${repo_root}/scripts/attempt-stop.sh" "$1" | paste -sd ' ' -
+  bash "${repo_root}/scripts/attempt-stop.sh" "$@" | paste -sd ' ' -
 }
 
 printf 'not json' > "${work_dir}/invalid.json"
@@ -126,10 +126,12 @@ expect_equal "the final result's session id wins over the init message's" "stop_
 expect_equal "a turn-limited run whose result has no session id falls back to the init message" "stop_reason=turn_limit session_id=55555555-5555-4555-8555-555555555555" "$(stop_lines "${fixtures}/max-turns-init-only.json")"
 expect_equal "a turn-limited run with no session id still stops the chain" "stop_reason=turn_limit" "$(stop_lines "${fixtures}/max-turns-no-session.json")"
 expect_equal "a session id that is not a UUID is never printed" "stop_reason=turn_limit" "$(stop_lines "${fixtures}/max-turns-bad-session.json")"
-expect_equal "a run out of budget stops the chain without a wrap-up" "stop_reason=ran_and_failed" "$(stop_lines "${fixtures}/max-budget.json")"
-expect_equal "a run out of structured-output retries stops the chain without a wrap-up" "stop_reason=ran_and_failed" "$(stop_lines "${fixtures}/max-structured-output-retries.json")"
-expect_equal "a failed attempt whose result reports success stops the chain without a wrap-up" "stop_reason=ran_and_failed" "$(stop_lines "${fixtures}/success.json")"
-expect_equal "a finished run whose prompt talks about hitting the limit is not a turn-limit hit" "stop_reason=ran_and_failed" "$(stop_lines "${fixtures}/success-mentions-limit.json")"
+expect_equal "a run out of budget stops the chain without a wrap-up" "stop_reason=run_limit" "$(stop_lines "${fixtures}/max-budget.json")"
+expect_equal "a run out of structured-output retries stops the chain without a wrap-up" "stop_reason=run_limit" "$(stop_lines "${fixtures}/max-structured-output-retries.json")"
+expect_equal "a failed attempt whose clean result the fork concluded as success failed in a later fork step" "stop_reason=post_step_failed" "$(stop_lines "${fixtures}/success.json" success)"
+expect_equal "a failed attempt whose clean result got no conclusion was failed by the fork" "stop_reason=result_not_accepted" "$(stop_lines "${fixtures}/success.json")"
+expect_equal "a rejected credential falls through whatever its conclusion" "" "$(stop_lines "${fixtures}/api-error.json" success)"
+expect_equal "a finished run whose prompt talks about hitting the limit is not a turn-limit hit" "stop_reason=result_not_accepted" "$(stop_lines "${fixtures}/success-mentions-limit.json")"
 expect_equal "a rejected credential falls through" "" "$(stop_lines "${fixtures}/api-error.json")"
 expect_equal "a rate-limited attempt falls through" "" "$(stop_lines "${fixtures}/rate-limited.json")"
 expect_equal "an execution error falls through" "" "$(stop_lines "${fixtures}/during-execution.json")"
@@ -171,18 +173,26 @@ expect_equal "a retried attempt's execution file is kept as its own" "should_ret
 # Check whether attempt N should stop the credential chain
 reset_runner_temp
 cp "${fixtures}/max-turns.json" "$shared"
-status="$(run_step chain_stop_2 SLOT=2R)"
+status="$(run_step chain_stop_2 SLOT=2R ATTEMPT_CONCLUSION= RETRY_CONCLUSION=)"
 expect_equal "the chain-stop check succeeds on a turn-limited attempt" "0" "$status"
 expect_equal "the chain-stop check stops the chain for a turn-limited attempt" "turn_limit" "$(output_value "${work_dir}/output" stop_reason)"
 expect_equal "the chain-stop check hands on the session id" "33333333-3333-4333-8333-333333333333" "$(output_value "${work_dir}/output" session_id)"
 expect_equal "the chain-stop check hands on the slot's kept execution file" "${runner_temp}/claude-execution-output-attempt-2R.json" "$(output_value "${work_dir}/output" execution_file)"
 reset_runner_temp
 cp "${fixtures}/max-budget.json" "$shared"
-run_step chain_stop_2 SLOT=2 > /dev/null
-expect_equal "the chain-stop check stops the chain for a run out of budget" "ran_and_failed" "$(output_value "${work_dir}/output" stop_reason)"
+run_step chain_stop_2 SLOT=2 ATTEMPT_CONCLUSION= RETRY_CONCLUSION= > /dev/null
+expect_equal "the chain-stop check stops the chain for a run out of budget" "run_limit" "$(output_value "${work_dir}/output" stop_reason)"
+reset_runner_temp
+cp "${fixtures}/success.json" "$shared"
+run_step chain_stop_2 SLOT=2 ATTEMPT_CONCLUSION=success RETRY_CONCLUSION= > /dev/null
+expect_equal "the chain-stop check reads the attempt's own conclusion" "post_step_failed" "$(output_value "${work_dir}/output" stop_reason)"
+reset_runner_temp
+cp "${fixtures}/success.json" "$shared"
+run_step chain_stop_2 SLOT=2R ATTEMPT_CONCLUSION=success RETRY_CONCLUSION= > /dev/null
+expect_equal "the chain-stop check reads the retry's conclusion for a retried slot" "result_not_accepted" "$(output_value "${work_dir}/output" stop_reason)"
 reset_runner_temp
 cp "${fixtures}/api-error.json" "$shared"
-status="$(run_step chain_stop_2 SLOT=2)"
+status="$(run_step chain_stop_2 SLOT=2 ATTEMPT_CONCLUSION= RETRY_CONCLUSION=)"
 expect_equal "the chain-stop check succeeds on a rejected credential" "0" "$status"
 expect_equal "the chain-stop check lets a rejected credential fall through" "" "$(output_value "${work_dir}/output" stop_reason)"
 expect_equal "the chain-stop check still keeps a rejected credential's file aside" "absent" "$([ -e "$shared" ] && echo present || echo absent)"
@@ -194,6 +204,9 @@ for n in 1 2 3 4 5; do
   expect_equal "chain_stop_${n} reads slot ${n}'s latest run" "\${{ steps.attempt_${n}_retry.outcome == 'failure' && '${n}R' || '${n}' }}" "$(step_value "chain_stop_${n}" SLOT)"
   expect_equal "retry_gate_${n} reads attempt ${n}'s execution file" "\${{ steps.attempt_${n}.outputs.execution_file }}" "$(step_value "retry_gate_${n}" EXECUTION_FILE)"
   expect_equal "retry_gate_${n} keeps attempt ${n}'s file as slot ${n}'s own before retrying" "1" "$(step_script "retry_gate_${n}" | grep -cxF "  bash \"\${ACTION_PATH}/scripts/execution-file.sh\" keep ${n} > /dev/null")"
+  expect_equal "chain_stop_${n} runs the same script as the chain_stop_2 tested above" "$(step_script chain_stop_2)" "$(step_script "chain_stop_${n}")"
+  expect_equal "chain_stop_${n} reads attempt ${n}'s conclusion" "\${{ steps.attempt_${n}.outputs.conclusion }}" "$(step_value "chain_stop_${n}" ATTEMPT_CONCLUSION)"
+  expect_equal "chain_stop_${n} reads attempt ${n}'s retry's conclusion" "\${{ steps.attempt_${n}_retry.outputs.conclusion }}" "$(step_value "chain_stop_${n}" RETRY_CONCLUSION)"
   expect_equal "attempt ${n}'s retry runs only when its rate-limit gate says so" "steps.retry_gate_${n}.outputs.should_retry == 'true'" "$(step_value "attempt_${n}_retry" if)"
   for field in REASON SESSION_ID EXECUTION_FILE; do
     output_name="$(tr '[:upper:]' '[:lower:]' <<<"$field")"
@@ -228,10 +241,16 @@ expect_contains "Resolve says the turn limit stopped the chain" "Run Claude Code
 
 reset_runner_temp
 cp "${fixtures}/max-budget.json" "${runner_temp}/claude-execution-output-attempt-1.json"
-status="$(run_step claude OUTCOME_1=failure STOP_REASON_1=ran_and_failed STOP_EXECUTION_FILE_1="${runner_temp}/claude-execution-output-attempt-1.json" CRED_TYPE_1=oauth CRED_TOKEN_1=token-one CREDENTIAL_COUNT=2)"
+status="$(run_step claude OUTCOME_1=failure STOP_REASON_1=run_limit STOP_EXECUTION_FILE_1="${runner_temp}/claude-execution-output-attempt-1.json" CRED_TYPE_1=oauth CRED_TOKEN_1=token-one CREDENTIAL_COUNT=2)"
 expect_equal "Resolve fails when an attempt ran and failed" "1" "$status"
 expect_equal "Resolve hands on no session for a run that is not wrapped up" "" "$(output_value "${work_dir}/output" session_id)"
-expect_contains "Resolve says why the chain stopped" "stop reason ran_and_failed" "$(cat "${work_dir}/stdout")"
+expect_contains "Resolve says why the chain stopped" "Run Claude Code (attempt 1) used up its budget or its structured-output retries" "$(cat "${work_dir}/stdout")"
+for case in "post_step_failed:a later step of the fork failed" "result_not_accepted:the fork then failed it before setting a conclusion" "turn_limit:the turn-limit wrap-up was skipped because the run left no usable session id"; do
+  reset_runner_temp
+  run_step claude OUTCOME_1=failure STOP_REASON_1="${case%%:*}" CRED_TYPE_1=oauth CRED_TOKEN_1=token-one CREDENTIAL_COUNT=1 > /dev/null
+  expect_contains "Resolve explains a ${case%%:*} stop" "${case#*:}" "$(cat "${work_dir}/stdout")"
+  expect_equal "Resolve hands on no session for a ${case%%:*} stop without one" "" "$(output_value "${work_dir}/output" session_id)"
+done
 
 reset_runner_temp
 status="$(run_step claude OUTCOME_1=failure EXECUTION_FILE_1="${fixtures}/during-execution.json" CRED_TYPE_1=oauth CRED_TOKEN_1=token-one CREDENTIAL_COUNT=1)"

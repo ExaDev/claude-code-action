@@ -225,7 +225,7 @@ inputs:
     default: ""
   wrap_up_on_turn_limit:
     description: |
-      All modes except generic, which ignores it and never wraps up. When the primary run hits its turn limit (cut off mid-task rather than finishing cleanly), fire a short follow-on run (3 turns) that resumes the same session and asks Claude to summarise what it found and what remains, so the work is not lost. The turn-limited attempt stops the credential fallback chain (its credential worked, so no later credential repeats the task), and the run still fails, because its task did not finish. An attempt that ran out of budget or structured-output retries, or whose result the fork rejected, stops the chain the same way but is not wrapped up. On by default; set to "false" to skip the follow-on entirely.
+      All modes except generic, which ignores it and never wraps up. When the primary run hits its turn limit (cut off mid-task rather than finishing cleanly), fire a short follow-on run (3 turns) that resumes the same session and asks Claude to summarise what it found and what remains, so the work is not lost. The turn-limited attempt stops the credential fallback chain (its credential worked, so no later credential repeats the task), and the run still fails, because its task did not finish. An attempt that used up its budget or structured-output retries, or that finished and was then failed by the fork (a later fork step failing, or the fork failing the result it received), stops the chain the same way but is not wrapped up. On by default; set to "false" to skip the follow-on entirely.
     required: false
     default: "true"
   escalate_findings_to_issues:
@@ -1506,7 +1506,7 @@ runs:
 
     # Pinned to the commit that anthropics/claude-code-action's v1 tag resolved to on 2026-08-08 (v1.0.189). Update the pin deliberately, never by moving to @v1: see the Versioning section of README.md.
     #
-    # attempt_1 .. attempt_5 are one statically-unrolled step per position in the credential fallback chain "Parse credential fallback chain" built above -- a composite action has no native loop, so this is the fallback mechanism itself, not a stutter. attempt_N (N=2..5) only runs if there is a credential at that position AND the previous credential's own effort (its retry, if one ran, else the attempt itself) genuinely failed (continue-on-error means downstream steps still run either way; .outcome, not .conclusion, is what actually reflects a real failure -- .conclusion is rewritten to success by continue-on-error even when the step failed) AND did not stop the chain. The condition asks for the previous attempt's 'failure' rather than its not being 'success', so a chain that stopped stays stopped: a skipped attempt is not a success either, and testing for that alone let attempt N+2 run again after attempt N succeeded and attempt N+1 was skipped. An attempt that ran Claude Code and then failed (its turn limit, its budget, structured-output retries, or a result the fork rejected) did so with a working credential, so the "Check whether attempt N should stop the credential chain" step after each slot stops the chain there rather than having the next credential repeat the whole task, side effects included; see scripts/attempt-stop.sh. That step also keeps the slot's execution file aside as its own, since every attempt writes the same path. Each attempt_N is immediately followed by its own "Rate-limit retry gate" and, when that gate judges the failure a genuine short-lived rate limit rather than a hard quota exhaustion, an attempt_N_retry that reruns the exact same credential once -- see retry_on_rate_limit's own description in the inputs: block above for why this is a single bounded retry per slot rather than a configurable count. "Resolve Claude Code result" below picks whichever attempt (or retry) actually succeeded and re-exposes its outputs under the stable id `claude` that every later step already reads, so nothing past this point needs to know fallback or retry happened at all.
+    # attempt_1 .. attempt_5 are one statically-unrolled step per position in the credential fallback chain "Parse credential fallback chain" built above -- a composite action has no native loop, so this is the fallback mechanism itself, not a stutter. attempt_N (N=2..5) only runs if there is a credential at that position AND the previous credential's own effort (its retry, if one ran, else the attempt itself) genuinely failed (continue-on-error means downstream steps still run either way; .outcome, not .conclusion, is what actually reflects a real failure -- .conclusion is rewritten to success by continue-on-error even when the step failed) AND did not stop the chain. The condition asks for the previous attempt's 'failure' rather than its not being 'success', so a chain that stopped stays stopped: a skipped attempt is not a success either, and testing for that alone let attempt N+2 run again after attempt N succeeded and attempt N+1 was skipped. An attempt that ran Claude Code and then failed (its turn limit, its budget or structured-output retries, a fork step that failed after Claude Code finished, or the fork failing a result it had received) did so with a working credential, so the "Check whether attempt N should stop the credential chain" step after each slot stops the chain there rather than having the next credential repeat the whole task, side effects included; see scripts/attempt-stop.sh. That step also keeps the slot's execution file aside as its own, since every attempt writes the same path. Each attempt_N is immediately followed by its own "Rate-limit retry gate" and, when that gate judges the failure a genuine short-lived rate limit rather than a hard quota exhaustion, an attempt_N_retry that reruns the exact same credential once -- see retry_on_rate_limit's own description in the inputs: block above for why this is a single bounded retry per slot rather than a configurable count. "Resolve Claude Code result" below picks whichever attempt (or retry) actually succeeded and re-exposes its outputs under the stable id `claude` that every later step already reads, so nothing past this point needs to know fallback or retry happened at all.
     - name: Run Claude Code (attempt 1)
       id: attempt_1
       continue-on-error: true
@@ -1647,6 +1647,9 @@ runs:
         ACTION_PATH: ${{ github.action_path }}
         # The slot's latest run wrote the shared execution file: its retry when one ran.
         SLOT: ${{ steps.attempt_1_retry.outcome == 'failure' && '1R' || '1' }}
+        # The fork's conclusion output for each run, set only when its Claude Code run returned; see scripts/attempt-stop.sh.
+        ATTEMPT_CONCLUSION: ${{ steps.attempt_1.outputs.conclusion }}
+        RETRY_CONCLUSION: ${{ steps.attempt_1_retry.outputs.conclusion }}
       run: |
         set -euo pipefail
         kept="$(bash "${ACTION_PATH}/scripts/execution-file.sh" keep "$SLOT")"
@@ -1654,7 +1657,12 @@ runs:
           exit 0
         fi
         echo "execution_file=${kept}" >> "$GITHUB_OUTPUT"
-        stop="$(bash "${ACTION_PATH}/scripts/attempt-stop.sh" "$kept")"
+        if [ "${SLOT%R}" = "$SLOT" ]; then
+          conclusion="$ATTEMPT_CONCLUSION"
+        else
+          conclusion="$RETRY_CONCLUSION"
+        fi
+        stop="$(bash "${ACTION_PATH}/scripts/attempt-stop.sh" "$kept" "$conclusion")"
         if [ -n "$stop" ]; then
           echo "$stop" >> "$GITHUB_OUTPUT"
           echo "Attempt ${SLOT} ran Claude Code and failed (${stop%%$'\n'*}), so no later credential runs: it would only repeat the task."
@@ -1801,6 +1809,9 @@ runs:
         ACTION_PATH: ${{ github.action_path }}
         # The slot's latest run wrote the shared execution file: its retry when one ran.
         SLOT: ${{ steps.attempt_2_retry.outcome == 'failure' && '2R' || '2' }}
+        # The fork's conclusion output for each run, set only when its Claude Code run returned; see scripts/attempt-stop.sh.
+        ATTEMPT_CONCLUSION: ${{ steps.attempt_2.outputs.conclusion }}
+        RETRY_CONCLUSION: ${{ steps.attempt_2_retry.outputs.conclusion }}
       run: |
         set -euo pipefail
         kept="$(bash "${ACTION_PATH}/scripts/execution-file.sh" keep "$SLOT")"
@@ -1808,7 +1819,12 @@ runs:
           exit 0
         fi
         echo "execution_file=${kept}" >> "$GITHUB_OUTPUT"
-        stop="$(bash "${ACTION_PATH}/scripts/attempt-stop.sh" "$kept")"
+        if [ "${SLOT%R}" = "$SLOT" ]; then
+          conclusion="$ATTEMPT_CONCLUSION"
+        else
+          conclusion="$RETRY_CONCLUSION"
+        fi
+        stop="$(bash "${ACTION_PATH}/scripts/attempt-stop.sh" "$kept" "$conclusion")"
         if [ -n "$stop" ]; then
           echo "$stop" >> "$GITHUB_OUTPUT"
           echo "Attempt ${SLOT} ran Claude Code and failed (${stop%%$'\n'*}), so no later credential runs: it would only repeat the task."
@@ -1955,6 +1971,9 @@ runs:
         ACTION_PATH: ${{ github.action_path }}
         # The slot's latest run wrote the shared execution file: its retry when one ran.
         SLOT: ${{ steps.attempt_3_retry.outcome == 'failure' && '3R' || '3' }}
+        # The fork's conclusion output for each run, set only when its Claude Code run returned; see scripts/attempt-stop.sh.
+        ATTEMPT_CONCLUSION: ${{ steps.attempt_3.outputs.conclusion }}
+        RETRY_CONCLUSION: ${{ steps.attempt_3_retry.outputs.conclusion }}
       run: |
         set -euo pipefail
         kept="$(bash "${ACTION_PATH}/scripts/execution-file.sh" keep "$SLOT")"
@@ -1962,7 +1981,12 @@ runs:
           exit 0
         fi
         echo "execution_file=${kept}" >> "$GITHUB_OUTPUT"
-        stop="$(bash "${ACTION_PATH}/scripts/attempt-stop.sh" "$kept")"
+        if [ "${SLOT%R}" = "$SLOT" ]; then
+          conclusion="$ATTEMPT_CONCLUSION"
+        else
+          conclusion="$RETRY_CONCLUSION"
+        fi
+        stop="$(bash "${ACTION_PATH}/scripts/attempt-stop.sh" "$kept" "$conclusion")"
         if [ -n "$stop" ]; then
           echo "$stop" >> "$GITHUB_OUTPUT"
           echo "Attempt ${SLOT} ran Claude Code and failed (${stop%%$'\n'*}), so no later credential runs: it would only repeat the task."
@@ -2109,6 +2133,9 @@ runs:
         ACTION_PATH: ${{ github.action_path }}
         # The slot's latest run wrote the shared execution file: its retry when one ran.
         SLOT: ${{ steps.attempt_4_retry.outcome == 'failure' && '4R' || '4' }}
+        # The fork's conclusion output for each run, set only when its Claude Code run returned; see scripts/attempt-stop.sh.
+        ATTEMPT_CONCLUSION: ${{ steps.attempt_4.outputs.conclusion }}
+        RETRY_CONCLUSION: ${{ steps.attempt_4_retry.outputs.conclusion }}
       run: |
         set -euo pipefail
         kept="$(bash "${ACTION_PATH}/scripts/execution-file.sh" keep "$SLOT")"
@@ -2116,7 +2143,12 @@ runs:
           exit 0
         fi
         echo "execution_file=${kept}" >> "$GITHUB_OUTPUT"
-        stop="$(bash "${ACTION_PATH}/scripts/attempt-stop.sh" "$kept")"
+        if [ "${SLOT%R}" = "$SLOT" ]; then
+          conclusion="$ATTEMPT_CONCLUSION"
+        else
+          conclusion="$RETRY_CONCLUSION"
+        fi
+        stop="$(bash "${ACTION_PATH}/scripts/attempt-stop.sh" "$kept" "$conclusion")"
         if [ -n "$stop" ]; then
           echo "$stop" >> "$GITHUB_OUTPUT"
           echo "Attempt ${SLOT} ran Claude Code and failed (${stop%%$'\n'*}), so no later credential runs: it would only repeat the task."
@@ -2263,6 +2295,9 @@ runs:
         ACTION_PATH: ${{ github.action_path }}
         # The slot's latest run wrote the shared execution file: its retry when one ran.
         SLOT: ${{ steps.attempt_5_retry.outcome == 'failure' && '5R' || '5' }}
+        # The fork's conclusion output for each run, set only when its Claude Code run returned; see scripts/attempt-stop.sh.
+        ATTEMPT_CONCLUSION: ${{ steps.attempt_5.outputs.conclusion }}
+        RETRY_CONCLUSION: ${{ steps.attempt_5_retry.outputs.conclusion }}
       run: |
         set -euo pipefail
         kept="$(bash "${ACTION_PATH}/scripts/execution-file.sh" keep "$SLOT")"
@@ -2270,7 +2305,12 @@ runs:
           exit 0
         fi
         echo "execution_file=${kept}" >> "$GITHUB_OUTPUT"
-        stop="$(bash "${ACTION_PATH}/scripts/attempt-stop.sh" "$kept")"
+        if [ "${SLOT%R}" = "$SLOT" ]; then
+          conclusion="$ATTEMPT_CONCLUSION"
+        else
+          conclusion="$RETRY_CONCLUSION"
+        fi
+        stop="$(bash "${ACTION_PATH}/scripts/attempt-stop.sh" "$kept" "$conclusion")"
         if [ -n "$stop" ]; then
           echo "$stop" >> "$GITHUB_OUTPUT"
           echo "Attempt ${SLOT} ran Claude Code and failed (${stop%%$'\n'*}), so no later credential runs: it would only repeat the task."
@@ -2440,7 +2480,14 @@ runs:
               done
               echo "::error::Run Claude Code (attempt ${slot}) stopped at its turn limit before finishing, so no later credential was tried. The turn-limit wrap-up resumes its session for a closing reply when wrap_up_on_turn_limit is on; the run still fails."
             else
-              echo "::error::Run Claude Code (attempt ${slot}) ran Claude Code and failed (stop reason ${reason}), so no later credential was tried: it would only repeat the task. Its diagnosis is above."
+              case "$reason" in
+              turn_limit) why="stopped at its turn limit, and the turn-limit wrap-up was skipped because the run left no usable session id (missing, or not a UUID)" ;;
+              run_limit) why="used up its budget or its structured-output retries" ;;
+              post_step_failed) why="finished, and a later step of the fork failed (such as posting buffered inline comments)" ;;
+              result_not_accepted) why="reported success, and the fork then failed it before setting a conclusion (more turns than --max-turns allowed, no structured output for --json-schema, or an SDK error after the result)" ;;
+              *) why="failed with stop reason ${reason}" ;;
+              esac
+              echo "::error::Run Claude Code (attempt ${slot}) ${why}, so no later credential was tried: it would only repeat the task. Its diagnosis is above."
             fi
             exit 1
           done
