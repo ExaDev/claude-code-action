@@ -89,6 +89,8 @@ Automated Dependabot bumps of the pinned upstream SHA, the moving-`v1`-tag mecha
 
 `npm run lint` / `npm run typecheck` / `npm run format:check` are the underlying commands; `turbo.json` wraps each in [Turborepo](https://turborepo.com)'s local task cache (single-package mode — this repository has no workspaces, just one `package.json`), so a rerun with nothing relevant changed completes from cache instead of re-executing `eslint`/`tsc`/`prettier` from scratch. `.github/workflows/ci.yml`'s `typecheck`/`lint`/`format` jobs route through `npx turbo run <task>` for the same reason. Invoke a task directly with `npx turbo run <task>` (or a plain `npm run <task>`, which skips the cache).
 
+`npm test` runs `scripts/execution-scripts.test.sh`, which runs the execution-file scripts and the `action.yml` steps built on them (the credential chain's stop check, Resolve Claude Code result and turn-limit detection) against the fixture execution files in `scripts/test-fixtures/`; CI's `test` job runs it too.
+
 `action.yml`'s own `runs.steps` array cannot be linted by `actionlint` directly — that tool only understands workflow files (`on:`/`jobs:`), not a composite action's `inputs:`/`runs:` shape. To validate it anyway, wrap the steps array in a synthetic `workflow_call` reusable workflow whose `on.workflow_call.inputs` mirror `action.yml`'s own `inputs:` (giving `actionlint` a real `inputs.*`/`steps.*` context to resolve against, not just the file's raw YAML), then run `actionlint` against that synthetic file. There's no committed script for this — it's a five-line Python/PyYAML snippet run by hand (or by a reviewing agent) before a change to `action.yml` ships; see the git history of this repository's own review comments for a worked example if you need one.
 
 ## Layout
@@ -101,6 +103,11 @@ action.yml                     Composite action: input validation, prompt compos
 turbo.json                     Turborepo task cache config (lint/typecheck/format:check)
 scripts/execution-result.sh    Extracts the final result message from an upstream execution file; used
                                by the rate-limit retry gates and the failed-attempt diagnosis
+scripts/attempt-stop.sh        Decides whether a failed attempt stops the credential chain (turn limit,
+                               budget, structured-output retries, a rejected result) and which
+                               session the turn-limit wrap-up resumes
+scripts/execution-file.sh      Clears the shared execution file and keeps each attempt's own copy
+scripts/execution-scripts.test.sh  npm test: the scripts and steps above, over scripts/test-fixtures/
 commitlint.config.ts           Conventional-commit enforcement (local hook + CI)
 release.config.ts              semantic-release config; scripts/move-major-tag.mts is its
                                local plugin that moves the moving vN tag after each release
