@@ -1,0 +1,10 @@
+[
+  { "type": "system", "subtype": "init", "session_id": "session-success" },
+  {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "num_turns": 4,
+    "result": "Review submitted."
+  }
+]

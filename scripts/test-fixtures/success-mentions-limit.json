@@ -1,0 +1,20 @@
+[
+  {
+    "type": "system",
+    "subtype": "init",
+    "session_id": "session-mentions-limit"
+  },
+  {
+    "type": "user",
+    "message": {
+      "content": "GitHub enforces a size limit. If you hit the limit or the max turns, say so; the turn limit is not an error_max_turns result."
+    }
+  },
+  {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "num_turns": 9,
+    "result": "Done. I did not hit the turn limit."
+  }
+]

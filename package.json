@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test": "bash scripts/execution-scripts.test.sh"
   },
   "devDependencies": {
     "@anthropic-ai/claude-code": "2.1.259",
