@@ -1,3 +1,14 @@
+## [1.16.4](https://github.com/ExaDev/claude-code-action/compare/v1.16.3...v1.16.4) (2026-10-17)
+
+### Bug Fixes
+
+- detect a turn-limit hit from the SDK result subtype ([93ac6ba](https://github.com/ExaDev/claude-code-action/commit/93ac6ba59f2874887e5e591046a954f49c95da9e))
+- let an attempt that stopped at its turn limit reach the wrap-up ([060748a](https://github.com/ExaDev/claude-code-action/commit/060748a6fad8823c86bf47fb34147223832951d1))
+- name each way an attempt can finish and still fail the chain ([46b1a7a](https://github.com/ExaDev/claude-code-action/commit/46b1a7a4380b8417d334bdd968c35d4d79f44811))
+- pass the provider and federation inputs to every follow-on call ([6f4f30c](https://github.com/ExaDev/claude-code-action/commit/6f4f30ce99831264696c5869e44e93cf298148cc))
+- stop the credential chain for every attempt that ran Claude Code and failed ([6c0370d](https://github.com/ExaDev/claude-code-action/commit/6c0370d5ea6729d879031c70e880973c51b3517a))
+- stop the credential chain once an attempt succeeds ([314a2e0](https://github.com/ExaDev/claude-code-action/commit/314a2e0b8ce858fa972f43d95353c6a370bfeaac))
+
 ## [1.16.3](https://github.com/ExaDev/claude-code-action/compare/v1.16.2...v1.16.3) (2026-10-05)
 
 ### Bug Fixes
