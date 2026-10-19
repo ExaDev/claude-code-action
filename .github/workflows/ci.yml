@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
           cache: npm
@@ -60,7 +60,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
           cache: npm
@@ -75,7 +75,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
           cache: npm
@@ -90,7 +90,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
           cache: npm
@@ -141,7 +141,7 @@ jobs:
       # The default job token's github-actions[bot] identity can never bypass branch protection, by GitHub's own design (a deliberate anti-privilege-escalation restriction, not something any permissions: grant can lift) -- so wherever branch protection exists on main, its push of the CHANGELOG.md/tag commit needs a bypass identity. This repository's own sync App (vars.EXADEV_APP_ID/secrets.EXADEV_SYNC_PRIVATE_KEY) has already pushed directly to this repo's own main before, via the bidirectional-sync workflow this repository used to run before its consolidation pass -- confirming that App already has contents: write here -- so it's reused rather than provisioning a second App for the same purpose. As of this repository going through the pre-public consolidation pass, it has no branch protection at all (a GitHub Free private-repo plan limitation -- the rulesets/branch-protection APIs both 403 with "Upgrade to GitHub Pro or make this repository public"), so this bypass identity is not load-bearing yet; it is wired up now so nothing needs to change the day branch protection is actually configured, matching the App-bypass pattern a protected main branch needs regardless of which repository runs it.
       - name: Mint ExaDev sync App installation token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ vars.EXADEV_APP_ID }}
           private-key: ${{ secrets.EXADEV_SYNC_PRIVATE_KEY }}
@@ -151,7 +151,7 @@ jobs:
           fetch-depth: 0
           # actions/checkout wires this into git's own credential config, so every subsequent plain `git push` in this job (the version tag, the CHANGELOG.md commit, and move-major-tag.mts's tag move) authenticates as the App, not just this one checkout.
           token: ${{ steps.app-token.outputs.token }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
           cache: npm
