@@ -3079,7 +3079,65 @@ runs:
         path: ~/.claude/projects
         key: ${{ steps.cache-scope.outputs.cache_key }}
 
-    # Closes a real, observed gap: "Resolve Claude Code result" above only confirms Claude Code itself ran (a real conclusion was produced), not that triage's own promised output -- a new issue comment, or a body edit carrying the `claude-triage:start` marker (prompts/triage/base.md's own "append a short triage summary to the issue's own description" section) -- actually landed on GitHub. Both are ordinary tool calls the model makes from its own prompt, not something this composite action enforces; a run that legitimately completes without ever calling either still reports steps.claude.outcome == 'success', which "Update progress comment" below already treats as "real output now exists elsewhere" and deletes the one visible trace (the progress comment itself) on that basis -- and, worse, that success also becomes this composite action's own overall conclusion, so even the Actions tab shows green. Confirmed happening for real, not just theoretically: three separate triage runs (novus-power/hive#1490, #1657, #1661) reported success and left zero comments and no marker, with the progress comment deleted and nothing to show for the run at all. This step re-checks GitHub's own state rather than trusting the model's self-report, the same principle "Structured review summary" above already applies to review mode by re-fetching what was actually submitted. Placed after every optional post-run step (Headroom reporting, turn-limit wrap-up, session save) rather than right after "Resolve Claude Code result", so a real failure here -- deliberately with no continue-on-error, for the same reason "Wrap up on turn limit" has none -- never starves an unrelated step of the implicit success() every unadorned `if:` in this file still carries; "Update progress comment" below is the one step built to run regardless (`if: always()`), which is exactly why this sits immediately before it. Not conditioned on `steps.progress-comment.outputs.comment_id != ''` (unlike an earlier revision of this fix) -- that would skip this whole check when `post_progress_comment` is `false`, a supported and documented input combination, reopening the exact gap this step exists to close through a different door. "Record run start time" at the very top of the job exists so this has a baseline regardless of whether a progress comment was ever posted.
+    # Triage's summary reaches the issue description here, in the runner, and not through the model. The prompt used to have the model read the whole description, append its own section and write the whole text back with `gh issue edit --body`. A description the model reads back through a tool result can be a compressed copy of the real text (Headroom compresses tool results, see docs/headroom.md), so the write-back replaced the description with a copy that had lost its words for good, which was observed on real issues in a downstream repository more than once. The model now ends its run with its summary between <triage-summary> tags and never touches the description. This step reads the live description with gh in the runner, where nothing compresses it, and replaces or appends the marked section with scripts/triage-issue-body.sh, so everything outside the markers stays exactly as written. It runs before "Verify triage output landed" so the marker it adds counts as output there. A run that ends without a summary leaves the description alone and says so. The step is best effort like the other post-run steps (`continue-on-error`): a GitHub API failure here must not turn a run that already labelled and commented into a failed job, and the verification step below still decides whether triage left real output.
+    - name: Append triage summary to the issue body
+      id: triage-body
+      if: ${{ inputs.mode == 'triage' && inputs.update_issue_body == 'true' && steps.claude.outcome == 'success' }}
+      continue-on-error: true
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token || github.token }}
+        REPOSITORY: ${{ github.repository }}
+        ISSUE_NUMBER: ${{ inputs.issue_number || github.event.issue.number }}
+        ACTION_PATH: ${{ github.action_path }}
+        EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        WORK_ROOT: ${{ runner.temp }}
+      run: |
+        set -euo pipefail
+
+        script="${ACTION_PATH}/scripts/triage-issue-body.sh"
+        work="$(mktemp -d "${WORK_ROOT}/triage-body.XXXXXX")"
+
+        bash "$script" summary "$EXECUTION_FILE" > "${work}/summary.md"
+        if [ ! -s "${work}/summary.md" ]; then
+          echo "::warning::Triage ended without a <triage-summary> block, so the description of issue #${ISSUE_NUMBER} was left as it was."
+          exit 0
+        fi
+
+        # jq -j prints the description exactly, where `gh api --jq` would add a trailing newline that every run would then write back.
+        fetched=""
+        for attempt in 1 2 3; do
+          if gh api "repos/${REPOSITORY}/issues/${ISSUE_NUMBER}" | jq -j '.body // ""' > "${work}/current.md"; then
+            fetched="true"
+            break
+          fi
+          echo "Failed to fetch the issue description (attempt ${attempt}/3)."
+          [ "$attempt" -lt 3 ] && sleep 2
+        done
+        if [ -z "$fetched" ]; then
+          echo "::error::Could not fetch the description of issue #${ISSUE_NUMBER} after 3 attempts; the triage summary was not added." >&2
+          exit 1
+        fi
+
+        bash "$script" merge "${work}/summary.md" < "${work}/current.md" > "${work}/merged.md"
+        if cmp -s "${work}/current.md" "${work}/merged.md"; then
+          echo "The triage section of issue #${ISSUE_NUMBER} already reads as this run's summary; nothing to write."
+          exit 0
+        fi
+
+        jq -n --rawfile body "${work}/merged.md" '{body: $body}' > "${work}/payload.json"
+        for attempt in 1 2 3; do
+          if gh api -X PATCH "repos/${REPOSITORY}/issues/${ISSUE_NUMBER}" --input "${work}/payload.json" > /dev/null; then
+            echo "Added the triage summary to the description of issue #${ISSUE_NUMBER}."
+            exit 0
+          fi
+          echo "Failed to update the issue description (attempt ${attempt}/3)."
+          [ "$attempt" -lt 3 ] && sleep 2
+        done
+        echo "::error::Could not update the description of issue #${ISSUE_NUMBER} after 3 attempts; the triage summary was not added." >&2
+        exit 1
+
+    # Closes a real, observed gap: "Resolve Claude Code result" above only confirms Claude Code itself ran (a real conclusion was produced), not that triage's own promised output (a new issue comment, or the `claude-triage:start` marker section that "Append triage summary to the issue body" above adds from the summary the model ends its run with) actually landed on GitHub. The comment is an ordinary tool call the model makes from its own prompt, not something this composite action enforces, and the marker section exists only when the model ended its run with a summary; a run that legitimately completes without ever calling either still reports steps.claude.outcome == 'success', which "Update progress comment" below already treats as "real output now exists elsewhere" and deletes the one visible trace (the progress comment itself) on that basis, and, worse, that success also becomes this composite action's own overall conclusion, so even the Actions tab shows green. Confirmed happening for real, not just theoretically: three separate triage runs in a downstream repository reported success and left zero comments and no marker, with the progress comment deleted and nothing to show for the run at all. This step re-checks GitHub's own state rather than trusting the model's self-report, the same principle "Structured review summary" above already applies to review mode by re-fetching what was actually submitted. Placed after every optional post-run step (Headroom reporting, turn-limit wrap-up, session save) rather than right after "Resolve Claude Code result", so a real failure here (deliberately with no continue-on-error, for the same reason "Wrap up on turn limit" has none) never starves an unrelated step of the implicit success() every unadorned `if:` in this file still carries; "Update progress comment" below is the one step built to run regardless (`if: always()`), which is exactly why this sits immediately before it. Not conditioned on `steps.progress-comment.outputs.comment_id != ''` (unlike an earlier revision of this fix), since that would skip this whole check when `post_progress_comment` is `false`, a supported and documented input combination, reopening the exact gap this step exists to close through a different door. "Record run start time" at the very top of the job exists so this has a baseline regardless of whether a progress comment was ever posted.
     - name: Verify triage output landed
       id: verify-triage-output
       if: ${{ inputs.mode == 'triage' && steps.claude.outcome == 'success' }}
