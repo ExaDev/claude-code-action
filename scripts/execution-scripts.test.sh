@@ -284,5 +284,77 @@ for id in wrap-up escalate apply-fixes structured-summary; do
   done
 done
 
+# triage-issue-body.sh
+triage_summary_of() {
+  bash "${repo_root}/scripts/triage-issue-body.sh" summary "$1"
+}
+expected_summary=$'**Triage summary**\n\n- **Kind:** bug in the `parser`, costing "$HOME" and a \\1 lookalike & more.'
+expect_equal "triage-issue-body.sh summary reads the last summary block of the final result" "$expected_summary" "$(triage_summary_of "${fixtures}/triage-summary.json")"
+expect_equal "triage-issue-body.sh summary prints nothing when the result has no summary block" "" "$(triage_summary_of "${fixtures}/success.json")"
+expect_equal "triage-issue-body.sh summary prints nothing for invalid JSON" "" "$(triage_summary_of "${work_dir}/invalid.json")"
+expect_equal "triage-issue-body.sh summary prints nothing for a missing file" "" "$(triage_summary_of "${work_dir}/missing.json")"
+
+printf '%s' "$expected_summary" > "${work_dir}/summary.md"
+merge_body() {
+  bash "${repo_root}/scripts/triage-issue-body.sh" merge "${work_dir}/summary.md"
+}
+section=$'<!-- claude-triage:start -->\n'"${expected_summary}"$'\n<!-- claude-triage:end -->'
+plain_body=$'Body with an em dash \xe2\x80\x94, `code`, a "quote" and caf\xc3\xa9.\n\nSecond paragraph.\n'
+expect_equal "triage-issue-body.sh merge appends the section after a blank line" "${plain_body%$'\n'}"$'\n\n'"${section}" "$(printf '%s' "$plain_body" | merge_body)"
+marked_body=$'Head \xe2\x80\x94 text.\n\n<!-- claude-triage:start -->\nan older summary\nover two lines\n<!-- claude-triage:end -->\n\nTail text.'
+expect_equal "triage-issue-body.sh merge replaces an existing section in place and keeps the text around it" $'Head \xe2\x80\x94 text.\n\n'"${section}"$'\n\nTail text.' "$(printf '%s' "$marked_body" | merge_body)"
+expect_equal "triage-issue-body.sh merge writes just the section into an empty description" "$section" "$(printf '' | merge_body)"
+once="$(printf '%s' "$plain_body" | merge_body)"
+expect_equal "triage-issue-body.sh merge is idempotent" "$once" "$(printf '%s' "$once" | merge_body)"
+
+# Append triage summary to the issue body
+expect_equal "the triage body step runs only in triage mode, with update_issue_body on, after a successful run" "\${{ inputs.mode == 'triage' && inputs.update_issue_body == 'true' && steps.claude.outcome == 'success' }}" "$(step_value triage-body if)"
+stub_bin="${work_dir}/stub-bin"
+mkdir -p "$stub_bin"
+cat > "${stub_bin}/gh" <<'STUB'
+#!/usr/bin/env bash
+# A gh that serves the issue JSON in $STUB_ISSUE_JSON and records what a PATCH sends in $STUB_PATCH_OUT.
+if [ "$1" = "api" ] && [ "$2" = "-X" ] && [ "$3" = "PATCH" ]; then
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = "--input" ]; then cp "$2" "$STUB_PATCH_OUT"; fi
+    shift
+  done
+  exit 0
+fi
+if [ "$1" = "api" ]; then
+  cat "$STUB_ISSUE_JSON"
+  exit 0
+fi
+exit 1
+STUB
+chmod +x "${stub_bin}/gh"
+run_triage_body() {
+  local execution_file="$1" body="$2"
+  reset_runner_temp
+  jq -n --arg body "$body" '{body: $body}' > "${work_dir}/issue.json"
+  rm -f "${work_dir}/patch.json"
+  run_step triage-body PATH="${stub_bin}:${PATH}" STUB_ISSUE_JSON="${work_dir}/issue.json" STUB_PATCH_OUT="${work_dir}/patch.json" GH_TOKEN=token REPOSITORY=owner/repo ISSUE_NUMBER=7 EXECUTION_FILE="$execution_file" WORK_ROOT="$runner_temp"
+}
+status="$(run_triage_body "${fixtures}/triage-summary.json" "$plain_body")"
+expect_equal "the triage body step succeeds when the run ended with a summary" "0" "$status"
+expect_equal "the triage body step writes the description with the summary appended and the rest exactly as it was" "${plain_body%$'\n'}"$'\n\n'"${section}" "$(jq -j '.body' "${work_dir}/patch.json")"
+status="$(run_triage_body "${fixtures}/triage-summary.json" "$once")"
+expect_equal "the triage body step succeeds when the description already holds this summary" "0" "$status"
+expect_equal "the triage body step writes nothing when the description already holds this summary" "absent" "$([ -e "${work_dir}/patch.json" ] && echo present || echo absent)"
+status="$(run_triage_body "${fixtures}/success.json" "$plain_body")"
+expect_equal "the triage body step succeeds when the run ended without a summary" "0" "$status"
+expect_equal "the triage body step leaves the description alone when the run ended without a summary" "absent" "$([ -e "${work_dir}/patch.json" ] && echo present || echo absent)"
+expect_contains "the triage body step warns when the run ended without a summary" "::warning::" "$(cat "${work_dir}/stdout")"
+
+# The triage prompt
+triage_prompt="$(cat "${repo_root}/prompts/triage/base.md")"
+expect_contains "the triage prompt asks for the summary in tags" "<triage-summary>" "$triage_prompt"
+expect_contains "the triage prompt forbids editing the description" "Never edit the description yourself" "$triage_prompt"
+if [[ "$triage_prompt" == *"gh issue edit {issue_number} --repo {owner}/{repo} --body"* ]]; then
+  fail "the triage prompt gives no command that writes the description"
+else
+  pass "the triage prompt gives no command that writes the description"
+fi
+
 echo "${passes} passed, ${failures} failed"
 [ "$failures" -eq 0 ]
