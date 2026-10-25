@@ -1,3 +1,9 @@
+## [1.17.0](https://github.com/ExaDev/claude-code-action/compare/v1.16.5...v1.17.0) (2026-10-25)
+
+### Features
+
+- **triage:** merge the triage summary into the issue body in the action, not through the model ([68a5896](https://github.com/ExaDev/claude-code-action/commit/68a589640e7e992482e073262ad345e3b065e4f0))
+
 ## [1.16.5](https://github.com/ExaDev/claude-code-action/compare/v1.16.4...v1.16.5) (2026-10-17)
 
 ### Bug Fixes
