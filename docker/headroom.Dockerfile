@@ -2,4 +2,4 @@
 # track this pin. The reference this action actually runs lives in action.yml's headroom_image
 # input default -- keep the two in sync by hand (see README.md's "Context compression (Headroom)"
 # section): when this digest bumps, update action.yml's default to match in the same PR.
-FROM ghcr.io/headroomlabs-ai/headroom@sha256:35b799e94eef4644cb15a2e695b4b99698fe7668614623e9338cb10c10ececf9
+FROM ghcr.io/headroomlabs-ai/headroom@sha256:318b431788f83e0c153ece2975b64b3963060c14e19d1bc4aa773f8fa5bfc00e
