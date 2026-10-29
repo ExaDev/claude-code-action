@@ -1,5 +1,7 @@
 # Claude Code Action
 
+[![GitHub](https://img.shields.io/badge/GitHub-181717?logo=github&logoColor=white)](https://github.com/ExaDev/claude-code-action) [![Release](https://img.shields.io/github/v/release/ExaDev/claude-code-action)](https://github.com/ExaDev/claude-code-action/releases/latest) [![CI](https://img.shields.io/github/actions/workflow/status/ExaDev/claude-code-action/ci.yml?branch=main)](https://github.com/ExaDev/claude-code-action/actions)
+
 Runs Claude Code in GitHub Actions, for four jobs:
 
 | Mode            | What it does                                                                                                                                                                | When it runs                                                                                                  |
