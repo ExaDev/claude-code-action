@@ -1,3 +1,5 @@
+## [1.17.1](https://github.com/ExaDev/claude-code-action/compare/v1.17.0...v1.17.1) (2026-10-29)
+
 ## [1.17.0](https://github.com/ExaDev/claude-code-action/compare/v1.16.5...v1.17.0) (2026-10-25)
 
 ### Features
