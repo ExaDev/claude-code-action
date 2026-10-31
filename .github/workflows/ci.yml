@@ -133,31 +133,46 @@ jobs:
     if: always() && needs.required-checks.result == 'success' && github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # The deploy key lives in this environment, whose deployment branches are limited to main, so no other branch's workflow can read it.
+    environment: release
     permissions:
-      contents: write # to create the GitHub Release; actual git pushes below authenticate as the ExaDev sync App instead, not this job token
+      contents: write # to create the GitHub Release; the release commit and tags are pushed over SSH with the deploy key
       issues: write # to comment on released issues
       pull-requests: write # to comment on released pull requests
     steps:
-      # The default job token's github-actions[bot] identity can never bypass branch protection, by GitHub's own design (a deliberate anti-privilege-escalation restriction, not something any permissions: grant can lift) -- so wherever branch protection exists on main, its push of the CHANGELOG.md/tag commit needs a bypass identity. This repository's own sync App (vars.EXADEV_APP_ID/secrets.EXADEV_SYNC_PRIVATE_KEY) has already pushed directly to this repo's own main before, via the bidirectional-sync workflow this repository used to run before its consolidation pass -- confirming that App already has contents: write here -- so it's reused rather than provisioning a second App for the same purpose. As of this repository going through the pre-public consolidation pass, it has no branch protection at all (a GitHub Free private-repo plan limitation -- the rulesets/branch-protection APIs both 403 with "Upgrade to GitHub Pro or make this repository public"), so this bypass identity is not load-bearing yet; it is wired up now so nothing needs to change the day branch protection is actually configured, matching the App-bypass pattern a protected main branch needs regardless of which repository runs it.
-      - name: Mint ExaDev sync App installation token
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          app-id: ${{ vars.EXADEV_APP_ID }}
-          private-key: ${{ secrets.EXADEV_SYNC_PRIVATE_KEY }}
+      # The default GITHUB_TOKEN cannot bypass a repository ruleset (GitHub does not support naming the github-actions[bot] identity as a bypass actor), so the release commit and tags are pushed over SSH with a deploy key, which a ruleset can name as a bypass actor. The key lives in the `release` environment, whose deployment branches are limited to main.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # semantic-release analyses the full commit history since the last tag.
           fetch-depth: 0
-          # actions/checkout wires this into git's own credential config, so every subsequent plain `git push` in this job (the version tag, the CHANGELOG.md commit, and move-major-tag.mts's tag move) authenticates as the App, not just this one checkout.
-          token: ${{ steps.app-token.outputs.token }}
+          # Credentials are not persisted: checkout fetches with the job's own token and then removes it, leaving nothing in git config for later steps. The deploy key is provisioned apart, below.
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
           cache: npm
       - run: npm ci
+      # The last step before Release and the only place the key is provisioned: written to the runner's temp directory with mode 600 from the step's env (never a command line), together with GitHub's ed25519 host key, pinned so the connection is verified rather than trusted on first use (fingerprint SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU, as published at https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints). The step then proves the key has write access to the repository, because semantic-release falls back to an https URL with GITHUB_TOKEN embedded when its own SSH push check fails, and the ruleset would reject that push only after the release had started. The dry run targets a ref name that does not exist, so it can never be rejected as non-fast-forward when main has moved on since checkout (semantic-release itself skips that case cleanly, and the step must not turn it into a failure). GitHub does not evaluate rulesets on a dry run, so this does not prove the key is a bypass actor. BASH_ENV is blanked and ssh and git are called by absolute path so that a variable or PATH entry set by an earlier step does not redirect them.
+      - name: Provision the deploy key for the Release step
+        env:
+          RELEASE_DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
+          # Blanked so a BASH_ENV exported by an earlier step cannot run in the shell that holds the key.
+          BASH_ENV: ""
+        run: |
+          install -d -m 700 "$RUNNER_TEMP/release-ssh"
+          (umask 077 && printf '%s\n' "${RELEASE_DEPLOY_KEY%$'\n'}" > "$RUNNER_TEMP/release-ssh/id")
+          printf '%s\n' 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' > "$RUNNER_TEMP/release-ssh/known_hosts"
+          # Must match the GIT_SSH_COMMAND of the Release step.
+          GIT_SSH_COMMAND="/usr/bin/ssh -i $RUNNER_TEMP/release-ssh/id -o IdentitiesOnly=yes -o UserKnownHostsFile=$RUNNER_TEMP/release-ssh/known_hosts -o StrictHostKeyChecking=yes" \
+            /usr/bin/git push --dry-run --no-verify "git@github.com:$GITHUB_REPOSITORY.git" "HEAD:refs/heads/release-key-probe-$GITHUB_RUN_ID"
+          git remote set-url origin "git@github.com:$GITHUB_REPOSITORY.git"
       - name: Release
         # HUSKY=0 so the commit-msg hook never fires against the automated release commit.
         run: HUSKY=0 npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Must match the GIT_SSH_COMMAND of the provisioning step.
+          GIT_SSH_COMMAND: /usr/bin/ssh -i ${{ runner.temp }}/release-ssh/id -o IdentitiesOnly=yes -o UserKnownHostsFile=${{ runner.temp }}/release-ssh/known_hosts -o StrictHostKeyChecking=yes
+      - name: Remove the deploy key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/release-ssh"
