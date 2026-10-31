@@ -165,7 +165,7 @@ jobs:
           # Must match the GIT_SSH_COMMAND of the Release step.
           GIT_SSH_COMMAND="/usr/bin/ssh -i $RUNNER_TEMP/release-ssh/id -o IdentitiesOnly=yes -o UserKnownHostsFile=$RUNNER_TEMP/release-ssh/known_hosts -o StrictHostKeyChecking=yes" \
             /usr/bin/git push --dry-run --no-verify "git@github.com:$GITHUB_REPOSITORY.git" "HEAD:refs/heads/release-key-probe-$GITHUB_RUN_ID"
-          git remote set-url origin "git@github.com:$GITHUB_REPOSITORY.git"
+          /usr/bin/git remote set-url origin "git@github.com:$GITHUB_REPOSITORY.git"
       - name: Release
         # HUSKY=0 so the commit-msg hook never fires against the automated release commit.
         run: HUSKY=0 npx semantic-release

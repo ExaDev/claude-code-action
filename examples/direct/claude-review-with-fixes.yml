@@ -14,13 +14,13 @@
 #   - contents: write, not contents: read. The fix commit's own push authenticates separately from the review, as
 # this repository's own sync App's installation token, minted below and passed as push_token -- not as the Claude Code App. The App identity from the OIDC exchange governs API calls for the review itself; the push_token input governs only the fix pass's git operations. So there are two identities in this one job: claude[bot] reviews, the sync App pushes.
 #   - Because of that: a push authenticated with the plain job GITHUB_TOKEN never starts new workflow runs, so checks
-# would not automatically re-run on the fix commit if push_token were left unset -- this is why push_token is wired below to the sync App's own installation token instead. That App is minimal (contents: write only, the same one ci.yml's release job already mints) and a push authenticated by a real GitHub App installation token does start workflow runs, so checks do re-run on the fix commit. Do NOT hand this token to actions/checkout's own token: input instead -- the action's fix-push step never uses the checkout-persisted credential, it builds its own authenticated URL from push_token (see action.yml's "Publish applied fixes" step), so wiring it into checkout would do nothing.
+# would not automatically re-run on the fix commit if push_token were left unset -- this is why push_token is wired below to the sync App's own installation token instead. That App is minimal (contents: write only, the same one dependabot.yml's investigate job already mints) and a push authenticated by a real GitHub App installation token does start workflow runs, so checks do re-run on the fix commit. Do NOT hand this token to actions/checkout's own token: input instead -- the action's fix-push step never uses the checkout-persisted credential, it builds its own authenticated URL from push_token (see action.yml's "Publish applied fixes" step), so wiring it into checkout would do nothing.
 #
 # fix_ci_failures requires include_ci_logs: true (the run fails at validation otherwise) and the actions: read scope below. It acts on CI results that already exist when the review runs, so on the first push of a pull request there is usually nothing recorded yet; it earns its keep on re-review after a push that broke something.
 #
 # A gate step first decides whether the triggering event changed anything worth reviewing, exactly as in examples/direct/claude-review.yml (a commit already reviewed and not dismissed, a title or body edit, and the merge commit of GitHub's "Update branch" button are skipped; a base-branch retarget is reviewed), and every later step runs only if it says to review.
 #
-# Requires the Claude Code GitHub App installed on the organisation (https://github.com/apps/claude) and a CLAUDE_CODE_OAUTH_TOKEN secret, exactly as examples/direct/claude-review.yml does. Do NOT pass github_token -- leaving it unset is what makes the review run as claude[bot]. Also requires the sync App's own vars.EXADEV_APP_ID and secrets.EXADEV_SYNC_PRIVATE_KEY, the same ones ci.yml's release job already relies on -- if this repository does not have that App installed, either install it first or drop the create-github-app-token step and the push_token input below and accept that fix commits will not retrigger checks.
+# Requires the Claude Code GitHub App installed on the organisation (https://github.com/apps/claude) and a CLAUDE_CODE_OAUTH_TOKEN secret, exactly as examples/direct/claude-review.yml does. Do NOT pass github_token -- leaving it unset is what makes the review run as claude[bot]. Also requires the sync App's own vars.EXADEV_APP_ID and secrets.EXADEV_SYNC_PRIVATE_KEY, the same App and private key dependabot.yml's investigate job mints a token from (it hardcodes the App ID, since a Dependabot run cannot read vars) -- if this repository does not have that App installed, either install it first or drop the create-github-app-token step and the push_token input below and accept that fix commits will not retrigger checks.
 
 name: Claude Review
 
@@ -119,7 +119,7 @@ jobs:
           fi
 
           skip "base branch merged in via the Update branch button; no new author changes"
-      # Mints this repository's own sync App's installation token, passed as push_token below so the fix pass's own push authenticates as that App rather than this job's own GITHUB_TOKEN, so a fix commit does start new workflow runs. Same App, same mechanism, as ci.yml's release job.
+      # Mints this repository's own sync App's installation token, passed as push_token below so the fix pass's own push authenticates as that App rather than this job's own GITHUB_TOKEN, so a fix commit does start new workflow runs. Same App, same mechanism, as dependabot.yml's investigate job.
       - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         if: steps.decide.outputs.should_review == 'true'
         id: app-token
