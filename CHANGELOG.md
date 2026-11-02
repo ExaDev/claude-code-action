@@ -1,3 +1,9 @@
+## [1.18.0](https://github.com/ExaDev/claude-code-action/compare/v1.17.2...v1.18.0) (2026-11-02)
+
+### Features
+
+- **review:** never add or change an issue reference or closing keyword in a PR description ([5bff32a](https://github.com/ExaDev/claude-code-action/commit/5bff32ad99933ecdfe3b5b7a432176048aa7fa07))
+
 ## [1.17.2](https://github.com/ExaDev/claude-code-action/compare/v1.17.1...v1.17.2) (2026-10-31)
 
 ## [1.17.1](https://github.com/ExaDev/claude-code-action/compare/v1.17.0...v1.17.1) (2026-10-29)
