@@ -356,5 +356,14 @@ else
   pass "the triage prompt gives no command that writes the description"
 fi
 
+# The review prompt
+review_prompt="$(cat "${repo_root}/prompts/review/base.md")"
+expect_contains "the review prompt forbids adding or changing a closing keyword" "Never add, change or remove an issue reference or a closing keyword" "$review_prompt"
+if [[ "$review_prompt" == *"- Closes #"* ]]; then
+  fail "the review prompt gives no closing-keyword bullet to add"
+else
+  pass "the review prompt gives no closing-keyword bullet to add"
+fi
+
 echo "${passes} passed, ${failures} failed"
 [ "$failures" -eq 0 ]
