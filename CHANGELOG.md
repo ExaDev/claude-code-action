@@ -1,3 +1,13 @@
+## [1.19.0](https://github.com/ExaDev/claude-code-action/compare/v1.18.0...v1.19.0) (2026-11-05)
+
+### Bug Fixes
+
+- describe intentional federation proxy bypass ([b5e7882](https://github.com/ExaDev/claude-code-action/commit/b5e78822593f8d31836e90421569d5298c73078c))
+
+### Features
+
+- support federated credential fallback ([c791fac](https://github.com/ExaDev/claude-code-action/commit/c791fac729bd87c69b2fcc5b1eefaa8abef911ab))
+
 ## [1.18.0](https://github.com/ExaDev/claude-code-action/compare/v1.17.2...v1.18.0) (2026-11-02)
 
 ### Features
