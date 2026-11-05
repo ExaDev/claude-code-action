@@ -345,8 +345,8 @@ inputs:
   headroom_enabled:
     description: |
       Run a local Headroom context-compression proxy in front of the Anthropic API for this job, and
-      point every anthropics/claude-code-action call in it at that proxy via ANTHROPIC_BASE_URL. On
-      by default. See the README's "Context compression (Headroom)" section.
+      point OAuth and API-key calls at that proxy via ANTHROPIC_BASE_URL. Federation fallback attempts
+      bypass it individually. On by default. See the README's "Context compression (Headroom)" section.
 
       Mutually exclusive with use_bedrock, use_vertex, use_foundry, and workload identity federation
       (anthropic_federation_rule_id) -- each of those routes Claude Code's requests to its own provider
@@ -2672,14 +2672,20 @@ runs:
           } >> "$GITHUB_STEP_SUMMARY"
         else
           echo "headroom_proxied=false" >> "$GITHUB_OUTPUT"
-          if [ "$WINNING_CRED_TYPE" = "oauth" ]; then
+          if [ "$WINNING_CRED_TYPE" = "wif" ]; then
+            echo "The winning federation attempt intentionally bypassed Headroom."
+          elif [ "$WINNING_CRED_TYPE" = "oauth" ]; then
             echo "::warning::Headroom recorded zero proxied requests this run, authenticated with a claude_code_oauth_token credential. This combination is confirmed to work (see headroom_enabled's own description), so this is a regression, not a known gap -- check the container logs below and this run's upstream anthropics/claude-code-action version."
           else
             echo "::warning::Headroom recorded zero proxied requests this run despite headroom_enabled: true. Compression did not happen -- check the container logs below."
           fi
           {
             echo "### Headroom context compression"
-            echo "⚠️ headroom_enabled was set, but zero requests were proxied this run -- no compression happened. See the workflow log for details."
+            if [ "$WINNING_CRED_TYPE" = "wif" ]; then
+              echo "The winning federation attempt intentionally bypassed Headroom."
+            else
+              echo "⚠️ headroom_enabled was set, but zero requests were proxied this run -- no compression happened. See the workflow log for details."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
         fi
         echo "::group::Headroom logs"
