@@ -56,6 +56,10 @@ inputs:
     description: "Claude Code OAuth token. Supply this or anthropic_api_key. One value, or several newline-separated values for fallback."
     required: false
     default: ""
+  anthropic_federation_fallbacks:
+    description: "JSON array of federation configurations to attempt after OAuth tokens and before API keys. Each object names rule_id, organization_id, service_account_id, workspace_id and optionally audience."
+    required: false
+    default: "[]"
   retry_on_rate_limit:
     description: |
       When a credential attempt fails with a 429 that looks like a genuine short-lived rate limit rather than a hard quota exhaustion (its error message names a multi-day-scale reset such as a weekly or monthly limit, which retrying cannot fix within this job), wait rate_limit_retry_wait_seconds and retry that same credential once before falling through to the next configured credential (or giving up). This is distinct from the credential-fallback chain above: fallback moves to a different account immediately regardless of cause, which is the right response to a quota exhaustion (a different wait will not help this one) but wastes a perfectly good, momentarily-throttled credential on a transient rate limit that a short wait would have cleared. On by default. This is a bounded, single retry per credential slot -- like the fallback chain itself, a composite action has no native loop, so "retry the same credential N times" is not something a single input can scale arbitrarily; one extra attempt per slot is what the static step graph below actually provides. Set to "false" to restore the previous behaviour (fall through immediately on any failure, genuine rate limit or not).
@@ -726,6 +730,7 @@ runs:
       env:
         OAUTH_TOKENS: ${{ inputs.claude_code_oauth_token }}
         API_KEYS: ${{ inputs.anthropic_api_key }}
+        FEDERATION_FALLBACKS: ${{ inputs.anthropic_federation_fallbacks }}
       run: |
         set -euo pipefail
 
@@ -745,6 +750,16 @@ runs:
           TYPES+=("oauth")
           TOKENS+=("$value")
         done <<<"$OAUTH_TOKENS"
+
+        if ! jq -e 'type == "array" and all(.[]; type == "object" and (.rule_id | type == "string" and length > 0) and (.organization_id | type == "string" and length > 0) and (.service_account_id | type == "string" and length > 0) and (.workspace_id | type == "string" and length > 0) and ((.audience // "") | type == "string"))' <<<"$FEDERATION_FALLBACKS" >/dev/null; then
+          echo '::error::anthropic_federation_fallbacks must be an array of complete federation configurations.' >&2
+          exit 1
+        fi
+        while IFS= read -r value; do
+          [ -z "$value" ] && continue
+          TYPES+=("wif")
+          TOKENS+=("$value")
+        done < <(jq -c '.[]' <<<"$FEDERATION_FALLBACKS")
 
         while IFS= read -r line; do
           value="$(trim "$line")"
@@ -767,6 +782,12 @@ runs:
           echo "::add-mask::${TOKENS[$i]}"
           echo "cred_${idx}_type=${TYPES[$i]}" >>"$GITHUB_OUTPUT"
           echo "cred_${idx}_token=${TOKENS[$i]}" >>"$GITHUB_OUTPUT"
+          if [ "${TYPES[$i]}" = wif ]; then
+            for field in rule_id organization_id service_account_id workspace_id audience; do
+              value="$(jq -r --arg field "$field" '.[$field] // ""' <<<"${TOKENS[$i]}")"
+              echo "cred_${idx}_${field}=${value}" >>"$GITHUB_OUTPUT"
+            done
+          fi
         done
 
         echo "credential_count=${COUNT}" >>"$GITHUB_OUTPUT"
@@ -1511,6 +1532,8 @@ runs:
       id: attempt_1
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@27be1cc5e5145f347f0b74255f11619eec3da4da # exadev/timeout-minutes: the base-action session bound plus the top-level timeout_minutes input that feeds it, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once upstream also wires the input at the top level
+      env:
+        ANTHROPIC_BASE_URL: ${{ steps.credentials.outputs.cred_1_type == 'wif' && 'https://api.anthropic.com' || env.ANTHROPIC_BASE_URL }}
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         claude_args: ${{ inputs.claude_args || steps.resume.outputs.claude_args || steps.args.outputs.claude_args }}
@@ -1543,11 +1566,11 @@ runs:
         use_bedrock: ${{ inputs.use_bedrock }}
         use_vertex: ${{ inputs.use_vertex }}
         use_foundry: ${{ inputs.use_foundry }}
-        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
-        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
-        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
-        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
-        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        anthropic_federation_rule_id: ${{ steps.credentials.outputs.cred_1_type == 'wif' && steps.credentials.outputs.cred_1_rule_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_federation_rule_id) || '' }}
+        anthropic_organization_id: ${{ steps.credentials.outputs.cred_1_type == 'wif' && steps.credentials.outputs.cred_1_organization_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_organization_id) || '' }}
+        anthropic_service_account_id: ${{ steps.credentials.outputs.cred_1_type == 'wif' && steps.credentials.outputs.cred_1_service_account_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_service_account_id) || '' }}
+        anthropic_workspace_id: ${{ steps.credentials.outputs.cred_1_type == 'wif' && steps.credentials.outputs.cred_1_workspace_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_workspace_id) || '' }}
+        anthropic_oidc_audience: ${{ steps.credentials.outputs.cred_1_type == 'wif' && steps.credentials.outputs.cred_1_audience || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_oidc_audience) || '' }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
         display_report: ${{ inputs.display_report }}
@@ -1594,6 +1617,8 @@ runs:
       if: steps.retry_gate_1.outputs.should_retry == 'true'
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@27be1cc5e5145f347f0b74255f11619eec3da4da # exadev/timeout-minutes: the base-action session bound plus the top-level timeout_minutes input that feeds it, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once upstream also wires the input at the top level
+      env:
+        ANTHROPIC_BASE_URL: ${{ steps.credentials.outputs.cred_1_type == 'wif' && 'https://api.anthropic.com' || env.ANTHROPIC_BASE_URL }}
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here -- see attempt_2's own comment further up: a same-credential retry within this same job run must always start fresh, never resume a session the failed first try in this run may have already written to.
@@ -1627,11 +1652,11 @@ runs:
         use_bedrock: ${{ inputs.use_bedrock }}
         use_vertex: ${{ inputs.use_vertex }}
         use_foundry: ${{ inputs.use_foundry }}
-        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
-        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
-        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
-        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
-        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        anthropic_federation_rule_id: ${{ steps.credentials.outputs.cred_1_type == 'wif' && steps.credentials.outputs.cred_1_rule_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_federation_rule_id) || '' }}
+        anthropic_organization_id: ${{ steps.credentials.outputs.cred_1_type == 'wif' && steps.credentials.outputs.cred_1_organization_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_organization_id) || '' }}
+        anthropic_service_account_id: ${{ steps.credentials.outputs.cred_1_type == 'wif' && steps.credentials.outputs.cred_1_service_account_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_service_account_id) || '' }}
+        anthropic_workspace_id: ${{ steps.credentials.outputs.cred_1_type == 'wif' && steps.credentials.outputs.cred_1_workspace_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_workspace_id) || '' }}
+        anthropic_oidc_audience: ${{ steps.credentials.outputs.cred_1_type == 'wif' && steps.credentials.outputs.cred_1_audience || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_oidc_audience) || '' }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
         display_report: ${{ inputs.display_report }}
@@ -1673,6 +1698,8 @@ runs:
       if: steps.credentials.outputs.cred_2_token != '' && steps.attempt_1.outcome == 'failure' && steps.attempt_1_retry.outcome != 'success' && steps.chain_stop_1.outputs.stop_reason == ''
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@27be1cc5e5145f347f0b74255f11619eec3da4da # exadev/timeout-minutes: the base-action session bound plus the top-level timeout_minutes input that feeds it, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once upstream also wires the input at the top level
+      env:
+        ANTHROPIC_BASE_URL: ${{ steps.credentials.outputs.cred_2_type == 'wif' && 'https://api.anthropic.com' || env.ANTHROPIC_BASE_URL }}
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
@@ -1705,11 +1732,11 @@ runs:
         use_bedrock: ${{ inputs.use_bedrock }}
         use_vertex: ${{ inputs.use_vertex }}
         use_foundry: ${{ inputs.use_foundry }}
-        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
-        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
-        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
-        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
-        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        anthropic_federation_rule_id: ${{ steps.credentials.outputs.cred_2_type == 'wif' && steps.credentials.outputs.cred_2_rule_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_federation_rule_id) || '' }}
+        anthropic_organization_id: ${{ steps.credentials.outputs.cred_2_type == 'wif' && steps.credentials.outputs.cred_2_organization_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_organization_id) || '' }}
+        anthropic_service_account_id: ${{ steps.credentials.outputs.cred_2_type == 'wif' && steps.credentials.outputs.cred_2_service_account_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_service_account_id) || '' }}
+        anthropic_workspace_id: ${{ steps.credentials.outputs.cred_2_type == 'wif' && steps.credentials.outputs.cred_2_workspace_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_workspace_id) || '' }}
+        anthropic_oidc_audience: ${{ steps.credentials.outputs.cred_2_type == 'wif' && steps.credentials.outputs.cred_2_audience || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_oidc_audience) || '' }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
         display_report: ${{ inputs.display_report }}
@@ -1756,6 +1783,8 @@ runs:
       if: steps.retry_gate_2.outputs.should_retry == 'true'
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@27be1cc5e5145f347f0b74255f11619eec3da4da # exadev/timeout-minutes: the base-action session bound plus the top-level timeout_minutes input that feeds it, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once upstream also wires the input at the top level
+      env:
+        ANTHROPIC_BASE_URL: ${{ steps.credentials.outputs.cred_2_type == 'wif' && 'https://api.anthropic.com' || env.ANTHROPIC_BASE_URL }}
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here -- see attempt_2's own comment further up: a same-credential retry within this same job run must always start fresh, never resume a session the failed first try in this run may have already written to.
@@ -1789,11 +1818,11 @@ runs:
         use_bedrock: ${{ inputs.use_bedrock }}
         use_vertex: ${{ inputs.use_vertex }}
         use_foundry: ${{ inputs.use_foundry }}
-        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
-        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
-        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
-        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
-        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        anthropic_federation_rule_id: ${{ steps.credentials.outputs.cred_2_type == 'wif' && steps.credentials.outputs.cred_2_rule_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_federation_rule_id) || '' }}
+        anthropic_organization_id: ${{ steps.credentials.outputs.cred_2_type == 'wif' && steps.credentials.outputs.cred_2_organization_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_organization_id) || '' }}
+        anthropic_service_account_id: ${{ steps.credentials.outputs.cred_2_type == 'wif' && steps.credentials.outputs.cred_2_service_account_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_service_account_id) || '' }}
+        anthropic_workspace_id: ${{ steps.credentials.outputs.cred_2_type == 'wif' && steps.credentials.outputs.cred_2_workspace_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_workspace_id) || '' }}
+        anthropic_oidc_audience: ${{ steps.credentials.outputs.cred_2_type == 'wif' && steps.credentials.outputs.cred_2_audience || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_oidc_audience) || '' }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
         display_report: ${{ inputs.display_report }}
@@ -1835,6 +1864,8 @@ runs:
       if: steps.credentials.outputs.cred_3_token != '' && steps.attempt_2.outcome == 'failure' && steps.attempt_2_retry.outcome != 'success' && steps.chain_stop_2.outputs.stop_reason == ''
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@27be1cc5e5145f347f0b74255f11619eec3da4da # exadev/timeout-minutes: the base-action session bound plus the top-level timeout_minutes input that feeds it, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once upstream also wires the input at the top level
+      env:
+        ANTHROPIC_BASE_URL: ${{ steps.credentials.outputs.cred_3_type == 'wif' && 'https://api.anthropic.com' || env.ANTHROPIC_BASE_URL }}
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
@@ -1867,11 +1898,11 @@ runs:
         use_bedrock: ${{ inputs.use_bedrock }}
         use_vertex: ${{ inputs.use_vertex }}
         use_foundry: ${{ inputs.use_foundry }}
-        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
-        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
-        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
-        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
-        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        anthropic_federation_rule_id: ${{ steps.credentials.outputs.cred_3_type == 'wif' && steps.credentials.outputs.cred_3_rule_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_federation_rule_id) || '' }}
+        anthropic_organization_id: ${{ steps.credentials.outputs.cred_3_type == 'wif' && steps.credentials.outputs.cred_3_organization_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_organization_id) || '' }}
+        anthropic_service_account_id: ${{ steps.credentials.outputs.cred_3_type == 'wif' && steps.credentials.outputs.cred_3_service_account_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_service_account_id) || '' }}
+        anthropic_workspace_id: ${{ steps.credentials.outputs.cred_3_type == 'wif' && steps.credentials.outputs.cred_3_workspace_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_workspace_id) || '' }}
+        anthropic_oidc_audience: ${{ steps.credentials.outputs.cred_3_type == 'wif' && steps.credentials.outputs.cred_3_audience || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_oidc_audience) || '' }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
         display_report: ${{ inputs.display_report }}
@@ -1918,6 +1949,8 @@ runs:
       if: steps.retry_gate_3.outputs.should_retry == 'true'
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@27be1cc5e5145f347f0b74255f11619eec3da4da # exadev/timeout-minutes: the base-action session bound plus the top-level timeout_minutes input that feeds it, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once upstream also wires the input at the top level
+      env:
+        ANTHROPIC_BASE_URL: ${{ steps.credentials.outputs.cred_3_type == 'wif' && 'https://api.anthropic.com' || env.ANTHROPIC_BASE_URL }}
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here -- see attempt_2's own comment further up: a same-credential retry within this same job run must always start fresh, never resume a session the failed first try in this run may have already written to.
@@ -1951,11 +1984,11 @@ runs:
         use_bedrock: ${{ inputs.use_bedrock }}
         use_vertex: ${{ inputs.use_vertex }}
         use_foundry: ${{ inputs.use_foundry }}
-        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
-        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
-        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
-        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
-        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        anthropic_federation_rule_id: ${{ steps.credentials.outputs.cred_3_type == 'wif' && steps.credentials.outputs.cred_3_rule_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_federation_rule_id) || '' }}
+        anthropic_organization_id: ${{ steps.credentials.outputs.cred_3_type == 'wif' && steps.credentials.outputs.cred_3_organization_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_organization_id) || '' }}
+        anthropic_service_account_id: ${{ steps.credentials.outputs.cred_3_type == 'wif' && steps.credentials.outputs.cred_3_service_account_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_service_account_id) || '' }}
+        anthropic_workspace_id: ${{ steps.credentials.outputs.cred_3_type == 'wif' && steps.credentials.outputs.cred_3_workspace_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_workspace_id) || '' }}
+        anthropic_oidc_audience: ${{ steps.credentials.outputs.cred_3_type == 'wif' && steps.credentials.outputs.cred_3_audience || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_oidc_audience) || '' }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
         display_report: ${{ inputs.display_report }}
@@ -1997,6 +2030,8 @@ runs:
       if: steps.credentials.outputs.cred_4_token != '' && steps.attempt_3.outcome == 'failure' && steps.attempt_3_retry.outcome != 'success' && steps.chain_stop_3.outputs.stop_reason == ''
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@27be1cc5e5145f347f0b74255f11619eec3da4da # exadev/timeout-minutes: the base-action session bound plus the top-level timeout_minutes input that feeds it, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once upstream also wires the input at the top level
+      env:
+        ANTHROPIC_BASE_URL: ${{ steps.credentials.outputs.cred_4_type == 'wif' && 'https://api.anthropic.com' || env.ANTHROPIC_BASE_URL }}
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
@@ -2029,11 +2064,11 @@ runs:
         use_bedrock: ${{ inputs.use_bedrock }}
         use_vertex: ${{ inputs.use_vertex }}
         use_foundry: ${{ inputs.use_foundry }}
-        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
-        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
-        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
-        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
-        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        anthropic_federation_rule_id: ${{ steps.credentials.outputs.cred_4_type == 'wif' && steps.credentials.outputs.cred_4_rule_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_federation_rule_id) || '' }}
+        anthropic_organization_id: ${{ steps.credentials.outputs.cred_4_type == 'wif' && steps.credentials.outputs.cred_4_organization_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_organization_id) || '' }}
+        anthropic_service_account_id: ${{ steps.credentials.outputs.cred_4_type == 'wif' && steps.credentials.outputs.cred_4_service_account_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_service_account_id) || '' }}
+        anthropic_workspace_id: ${{ steps.credentials.outputs.cred_4_type == 'wif' && steps.credentials.outputs.cred_4_workspace_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_workspace_id) || '' }}
+        anthropic_oidc_audience: ${{ steps.credentials.outputs.cred_4_type == 'wif' && steps.credentials.outputs.cred_4_audience || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_oidc_audience) || '' }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
         display_report: ${{ inputs.display_report }}
@@ -2080,6 +2115,8 @@ runs:
       if: steps.retry_gate_4.outputs.should_retry == 'true'
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@27be1cc5e5145f347f0b74255f11619eec3da4da # exadev/timeout-minutes: the base-action session bound plus the top-level timeout_minutes input that feeds it, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once upstream also wires the input at the top level
+      env:
+        ANTHROPIC_BASE_URL: ${{ steps.credentials.outputs.cred_4_type == 'wif' && 'https://api.anthropic.com' || env.ANTHROPIC_BASE_URL }}
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here -- see attempt_2's own comment further up: a same-credential retry within this same job run must always start fresh, never resume a session the failed first try in this run may have already written to.
@@ -2113,11 +2150,11 @@ runs:
         use_bedrock: ${{ inputs.use_bedrock }}
         use_vertex: ${{ inputs.use_vertex }}
         use_foundry: ${{ inputs.use_foundry }}
-        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
-        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
-        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
-        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
-        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        anthropic_federation_rule_id: ${{ steps.credentials.outputs.cred_4_type == 'wif' && steps.credentials.outputs.cred_4_rule_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_federation_rule_id) || '' }}
+        anthropic_organization_id: ${{ steps.credentials.outputs.cred_4_type == 'wif' && steps.credentials.outputs.cred_4_organization_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_organization_id) || '' }}
+        anthropic_service_account_id: ${{ steps.credentials.outputs.cred_4_type == 'wif' && steps.credentials.outputs.cred_4_service_account_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_service_account_id) || '' }}
+        anthropic_workspace_id: ${{ steps.credentials.outputs.cred_4_type == 'wif' && steps.credentials.outputs.cred_4_workspace_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_workspace_id) || '' }}
+        anthropic_oidc_audience: ${{ steps.credentials.outputs.cred_4_type == 'wif' && steps.credentials.outputs.cred_4_audience || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_oidc_audience) || '' }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
         display_report: ${{ inputs.display_report }}
@@ -2159,6 +2196,8 @@ runs:
       if: steps.credentials.outputs.cred_5_token != '' && steps.attempt_4.outcome == 'failure' && steps.attempt_4_retry.outcome != 'success' && steps.chain_stop_4.outputs.stop_reason == ''
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@27be1cc5e5145f347f0b74255f11619eec3da4da # exadev/timeout-minutes: the base-action session bound plus the top-level timeout_minutes input that feeds it, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once upstream also wires the input at the top level
+      env:
+        ANTHROPIC_BASE_URL: ${{ steps.credentials.outputs.cred_5_type == 'wif' && 'https://api.anthropic.com' || env.ANTHROPIC_BASE_URL }}
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         claude_args: ${{ inputs.claude_args || steps.args.outputs.claude_args }}
@@ -2191,11 +2230,11 @@ runs:
         use_bedrock: ${{ inputs.use_bedrock }}
         use_vertex: ${{ inputs.use_vertex }}
         use_foundry: ${{ inputs.use_foundry }}
-        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
-        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
-        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
-        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
-        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        anthropic_federation_rule_id: ${{ steps.credentials.outputs.cred_5_type == 'wif' && steps.credentials.outputs.cred_5_rule_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_federation_rule_id) || '' }}
+        anthropic_organization_id: ${{ steps.credentials.outputs.cred_5_type == 'wif' && steps.credentials.outputs.cred_5_organization_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_organization_id) || '' }}
+        anthropic_service_account_id: ${{ steps.credentials.outputs.cred_5_type == 'wif' && steps.credentials.outputs.cred_5_service_account_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_service_account_id) || '' }}
+        anthropic_workspace_id: ${{ steps.credentials.outputs.cred_5_type == 'wif' && steps.credentials.outputs.cred_5_workspace_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_workspace_id) || '' }}
+        anthropic_oidc_audience: ${{ steps.credentials.outputs.cred_5_type == 'wif' && steps.credentials.outputs.cred_5_audience || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_oidc_audience) || '' }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
         display_report: ${{ inputs.display_report }}
@@ -2242,6 +2281,8 @@ runs:
       if: steps.retry_gate_5.outputs.should_retry == 'true'
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@27be1cc5e5145f347f0b74255f11619eec3da4da # exadev/timeout-minutes: the base-action session bound plus the top-level timeout_minutes input that feeds it, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once upstream also wires the input at the top level
+      env:
+        ANTHROPIC_BASE_URL: ${{ steps.credentials.outputs.cred_5_type == 'wif' && 'https://api.anthropic.com' || env.ANTHROPIC_BASE_URL }}
       with:
         prompt: ${{ steps.prompt.outputs.text }}
         # No steps.resume.outputs.claude_args here -- see attempt_2's own comment further up: a same-credential retry within this same job run must always start fresh, never resume a session the failed first try in this run may have already written to.
@@ -2275,11 +2316,11 @@ runs:
         use_bedrock: ${{ inputs.use_bedrock }}
         use_vertex: ${{ inputs.use_vertex }}
         use_foundry: ${{ inputs.use_foundry }}
-        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
-        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
-        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
-        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
-        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        anthropic_federation_rule_id: ${{ steps.credentials.outputs.cred_5_type == 'wif' && steps.credentials.outputs.cred_5_rule_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_federation_rule_id) || '' }}
+        anthropic_organization_id: ${{ steps.credentials.outputs.cred_5_type == 'wif' && steps.credentials.outputs.cred_5_organization_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_organization_id) || '' }}
+        anthropic_service_account_id: ${{ steps.credentials.outputs.cred_5_type == 'wif' && steps.credentials.outputs.cred_5_service_account_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_service_account_id) || '' }}
+        anthropic_workspace_id: ${{ steps.credentials.outputs.cred_5_type == 'wif' && steps.credentials.outputs.cred_5_workspace_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_workspace_id) || '' }}
+        anthropic_oidc_audience: ${{ steps.credentials.outputs.cred_5_type == 'wif' && steps.credentials.outputs.cred_5_audience || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_oidc_audience) || '' }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
         display_report: ${{ inputs.display_report }}
@@ -2722,6 +2763,8 @@ runs:
       id: wrap-up
       if: ${{ !cancelled() && steps.detect-turn-limit.outputs.hit_limit == 'true' }}
       uses: ExaDev/claude-code-action-fork@27be1cc5e5145f347f0b74255f11619eec3da4da # exadev/timeout-minutes: the base-action session bound plus the top-level timeout_minutes input that feeds it, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once upstream also wires the input at the top level
+      env:
+        ANTHROPIC_BASE_URL: ${{ steps.claude.outputs.winning_cred_type == 'wif' && 'https://api.anthropic.com' || env.ANTHROPIC_BASE_URL }}
       with:
         prompt: |
           You may have been cut off by a turn limit in your previous run on this pull request or issue. Reply now, briefly and honestly: if your work is complete, say "Done." If you were interrupted, summarise what you found, what you completed, and what remains to be done. Do not start new work — this is a closing reply, not a continuation.
@@ -2732,11 +2775,11 @@ runs:
         use_bedrock: ${{ inputs.use_bedrock }}
         use_vertex: ${{ inputs.use_vertex }}
         use_foundry: ${{ inputs.use_foundry }}
-        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
-        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
-        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
-        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
-        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        anthropic_federation_rule_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).rule_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_federation_rule_id) || '' }}
+        anthropic_organization_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).organization_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_organization_id) || '' }}
+        anthropic_service_account_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).service_account_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_service_account_id) || '' }}
+        anthropic_workspace_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).workspace_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_workspace_id) || '' }}
+        anthropic_oidc_audience: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).audience || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_oidc_audience) || '' }}
         github_token: ${{ inputs.github_token }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
@@ -2779,6 +2822,8 @@ runs:
       if: ${{ !cancelled() && inputs.mode == 'review' && inputs.escalate_findings_to_issues == 'true' && steps.wrap-up.outcome == 'failure' }}
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@27be1cc5e5145f347f0b74255f11619eec3da4da # exadev/timeout-minutes: the base-action session bound plus the top-level timeout_minutes input that feeds it, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once upstream also wires the input at the top level
+      env:
+        ANTHROPIC_BASE_URL: ${{ steps.claude.outputs.winning_cred_type == 'wif' && 'https://api.anthropic.com' || env.ANTHROPIC_BASE_URL }}
       with:
         prompt: |
           Your last reply in this session could not be posted where it was meant to go -- most likely because that write was blocked, or because the pull request had already merged or closed underneath you. This is a further, final pass: decide whether anything you already found is worth a standing record even though your normal output channel is unavailable.
@@ -2797,11 +2842,11 @@ runs:
         use_bedrock: ${{ inputs.use_bedrock }}
         use_vertex: ${{ inputs.use_vertex }}
         use_foundry: ${{ inputs.use_foundry }}
-        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
-        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
-        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
-        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
-        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        anthropic_federation_rule_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).rule_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_federation_rule_id) || '' }}
+        anthropic_organization_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).organization_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_organization_id) || '' }}
+        anthropic_service_account_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).service_account_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_service_account_id) || '' }}
+        anthropic_workspace_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).workspace_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_workspace_id) || '' }}
+        anthropic_oidc_audience: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).audience || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_oidc_audience) || '' }}
         github_token: ${{ inputs.github_token }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
@@ -2898,6 +2943,8 @@ runs:
       if: ${{ steps.fix-args.outputs.can_push == 'true' }}
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@27be1cc5e5145f347f0b74255f11619eec3da4da # exadev/timeout-minutes: the base-action session bound plus the top-level timeout_minutes input that feeds it, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once upstream also wires the input at the top level
+      env:
+        ANTHROPIC_BASE_URL: ${{ steps.claude.outputs.winning_cred_type == 'wif' && 'https://api.anthropic.com' || env.ANTHROPIC_BASE_URL }}
       with:
         prompt: |
           You have just submitted your review of pull request #${{ inputs.pr_number || github.event.pull_request.number }} in ${{ github.repository }}, in this same session. This is a separate, final pass with a different job: apply the fixes you are confident about, and commit them. It does not change the review you already submitted, and you must not submit another one.
@@ -2941,11 +2988,11 @@ runs:
         use_bedrock: ${{ inputs.use_bedrock }}
         use_vertex: ${{ inputs.use_vertex }}
         use_foundry: ${{ inputs.use_foundry }}
-        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
-        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
-        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
-        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
-        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        anthropic_federation_rule_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).rule_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_federation_rule_id) || '' }}
+        anthropic_organization_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).organization_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_organization_id) || '' }}
+        anthropic_service_account_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).service_account_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_service_account_id) || '' }}
+        anthropic_workspace_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).workspace_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_workspace_id) || '' }}
+        anthropic_oidc_audience: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).audience || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_oidc_audience) || '' }}
         github_token: ${{ inputs.github_token }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
@@ -3027,6 +3074,8 @@ runs:
       if: ${{ inputs.mode == 'review' && inputs.structured_review_summary == 'true' && steps.claude.outputs.session_id != '' && steps.detect-turn-limit.outputs.hit_limit != 'true' }}
       continue-on-error: true
       uses: ExaDev/claude-code-action-fork@27be1cc5e5145f347f0b74255f11619eec3da4da # exadev/timeout-minutes: the base-action session bound plus the top-level timeout_minutes input that feeds it, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once upstream also wires the input at the top level
+      env:
+        ANTHROPIC_BASE_URL: ${{ steps.claude.outputs.winning_cred_type == 'wif' && 'https://api.anthropic.com' || env.ANTHROPIC_BASE_URL }}
       with:
         prompt: |
           You just finished reviewing pull request #${{ inputs.pr_number || github.event.pull_request.number }} in ${{ github.repository }} in this same session. Do not review anything further, and do not re-judge your findings from memory.
@@ -3043,11 +3092,11 @@ runs:
         use_bedrock: ${{ inputs.use_bedrock }}
         use_vertex: ${{ inputs.use_vertex }}
         use_foundry: ${{ inputs.use_foundry }}
-        anthropic_federation_rule_id: ${{ inputs.anthropic_federation_rule_id }}
-        anthropic_organization_id: ${{ inputs.anthropic_organization_id }}
-        anthropic_service_account_id: ${{ inputs.anthropic_service_account_id }}
-        anthropic_workspace_id: ${{ inputs.anthropic_workspace_id }}
-        anthropic_oidc_audience: ${{ inputs.anthropic_oidc_audience }}
+        anthropic_federation_rule_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).rule_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_federation_rule_id) || '' }}
+        anthropic_organization_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).organization_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_organization_id) || '' }}
+        anthropic_service_account_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).service_account_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_service_account_id) || '' }}
+        anthropic_workspace_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).workspace_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_workspace_id) || '' }}
+        anthropic_oidc_audience: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).audience || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_oidc_audience) || '' }}
         github_token: ${{ inputs.github_token }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}

@@ -4,7 +4,9 @@ How the multi-credential fallback chain works, when it retries the same credenti
 
 ## Credential fallback
 
-`anthropic_api_key` and `claude_code_oauth_token` each accept a single value — the default, and everything above assumes this — or several newline-separated values, tried in order, falling through to the next one if an earlier attempt fails. Useful when a subscription runs out of quota, hits a rate limit, or is otherwise unavailable and a second account should pick up the same run rather than the whole workflow failing outright. Every value found across both inputs flattens into one ordered chain — every OAuth token first, in the order given, then every API key — and the moment one succeeds, nothing further is attempted; every later step (the turn-limit wrap-up, the automatic fix pass, the structured review summary) authenticates against that same successful account, never whichever came first.
+`anthropic_federation_fallbacks` accepts a JSON array of federation configurations. Each object requires `rule_id`, `organization_id`, `service_account_id` and `workspace_id`, with an optional `audience`. The chain tries OAuth tokens first, then the federation entries in array order, then API keys. The calling job must have `id-token: write`; each federation attempt obtains and refreshes its own GitHub identity token. Federation bypasses Headroom for that attempt, and any follow-on call uses the winning configuration.
+
+`anthropic_api_key` and `claude_code_oauth_token` each accept a single value — the default, and everything above assumes this — or several newline-separated values, tried in order, falling through to the next one if an earlier attempt fails. Useful when a subscription runs out of quota, hits a rate limit, or is otherwise unavailable and a second account should pick up the same run rather than the whole workflow failing outright. Every OAuth token, federation configuration and API key becomes one ordered chain, and the moment one succeeds, nothing further is attempted; every later step (the turn-limit wrap-up, the automatic fix pass, the structured review summary) authenticates against that same successful account, never whichever came first.
 
 ```yaml
 claude_code_oauth_token: |
@@ -12,7 +14,7 @@ claude_code_oauth_token: |
   ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_BACKUP }}
 ```
 
-A composite action has no native loop construct, so this is implemented as five statically unrolled attempt steps in `action.yml` (`attempt_1` .. `attempt_5`) rather than a real loop — up to 5 credentials total, across both inputs combined, are supported; supplying more fails the run immediately with an explicit error rather than silently trying only the first 5. Supplying neither input at all (Bedrock/Vertex/Foundry, workload identity federation, or an org/repo-level environment variable instead) is unaffected: a single attempt runs with no explicit credential passed through, exactly as before this existed.
+A composite action has no native loop construct, so this is implemented as five statically unrolled attempt steps in `action.yml` (`attempt_1` .. `attempt_5`) rather than a real loop — up to 5 credentials total, across all three inputs combined, are supported; supplying more fails the run immediately with an explicit error rather than silently trying only the first 5. Supplying neither input at all (Bedrock/Vertex/Foundry, workload identity federation, or an org/repo-level environment variable instead) is unaffected: a single attempt runs with no explicit credential passed through, exactly as before this existed.
 
 Two things worth knowing before relying on it:
 
