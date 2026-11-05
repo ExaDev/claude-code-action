@@ -267,6 +267,23 @@ expect_equal "detection ignores a finished run whose transcript mentions limits"
 run_step detect-turn-limit SESSION_ID=11111111-1111-4111-8111-111111111111 EXEC_FILE="${fixtures}/success.json" > /dev/null
 expect_equal "detection ignores a finished run" "false" "$(output_value "${work_dir}/output" hit_limit)"
 
+# The fallback chain places each federation configuration between OAuth and API keys.
+status="$(run_step credentials OAUTH_TOKENS=synthetic-oauth API_KEYS=synthetic-api FEDERATION_FALLBACKS='[{"rule_id":"fdrl_one","organization_id":"org_one","service_account_id":"svc_one","workspace_id":"ws_one","audience":"aud_one"},{"rule_id":"fdrl_two","organization_id":"org_two","service_account_id":"svc_two","workspace_id":"ws_two","audience":"aud_two"}]')"
+expect_equal "credential parsing accepts both federation slots" "0" "$status"
+expect_equal "credential chain has four entries" "4" "$(output_value "${work_dir}/output" credential_count)"
+expect_equal "OAuth is first" "oauth" "$(output_value "${work_dir}/output" cred_1_type)"
+expect_equal "first federation rule is second" "fdrl_one" "$(output_value "${work_dir}/output" cred_2_rule_id)"
+expect_equal "second federation rule is third" "fdrl_two" "$(output_value "${work_dir}/output" cred_3_rule_id)"
+expect_equal "API key is fourth" "key" "$(output_value "${work_dir}/output" cred_4_type)"
+
+# Federation must be selected per attempt, not passed to every credential.
+for id in attempt_1 attempt_2 attempt_3 attempt_4 attempt_5; do
+  case "$(step_value "$id" anthropic_federation_rule_id)" in
+    *"steps.credentials.outputs.cred_"*"_type"*) pass "${id} selects federation per credential" ;;
+    *) fail "${id} selects federation per credential" ;;
+  esac
+done
+
 # The wrap-up and the steps around it.
 for id in detect-turn-limit wrap-up wrap-up-summary escalate; do
   case "$(step_value "$id" if)" in
@@ -279,8 +296,12 @@ case "$(step_value wrap-up claude_args)" in
 *) fail "the wrap-up resumes the session Resolve handed on" ;;
 esac
 for id in wrap-up escalate apply-fixes structured-summary; do
-  for input in use_bedrock use_vertex use_foundry anthropic_federation_rule_id anthropic_organization_id anthropic_service_account_id anthropic_workspace_id anthropic_oidc_audience; do
+  for input in use_bedrock use_vertex use_foundry; do
     expect_equal "${id} passes ${input} through" "\${{ inputs.${input} }}" "$(step_value "$id" "$input")"
+  done
+  for input in anthropic_federation_rule_id anthropic_organization_id anthropic_service_account_id anthropic_workspace_id anthropic_oidc_audience; do
+    expect_contains "${id} selects winning federation for ${input}" 'steps.claude.outputs.winning_cred_type' "$(step_value "$id" "$input")"
+    expect_contains "${id} retains standalone federation for ${input}" "inputs.${input}" "$(step_value "$id" "$input")"
   done
 done
 
