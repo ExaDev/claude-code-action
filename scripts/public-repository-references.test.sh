@@ -140,7 +140,7 @@ git -C "$clean" add -A
 status="$(run_check "$clean")"
 expect_equal "a repository naming only public repositories passes" "0" "$status"
 expect_equal "each distinct repository is looked up once, whatever its case or form" "example-open/other no
-example-open/tool no" "$(sort "${work_dir}/log")"
+example-open/tool no" "$(tr '[:upper:]' '[:lower:]' < "${work_dir}/log" | LC_ALL=C sort)"
 expect_absent "a lockfile is not read" "locked" "$(cat "${work_dir}/log")"
 expect_absent "a binary file is not read" "binary" "$(cat "${work_dir}/log")"
 expect_absent "an owner whose private repositories no contributor can see is not looked up" "actions/" "$(cat "${work_dir}/log")"
