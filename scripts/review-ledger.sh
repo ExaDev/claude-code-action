@@ -9,8 +9,9 @@
 # - `review-ledger.sh check <ledger-file>` exits non-zero, naming every problem on stderr, unless the file is a valid ledger whose ids are the ones its class keys and instances produce.
 # - `review-ledger.sh update-block <execution-file>` prints the JSON between the last <review-ledger-update> and </review-ledger-update> tags of a run's final result message, or, when that message has none, of the newest of the run's own assistant messages (text or tool call input) that has one, naming on stderr which it read; prints nothing when the run wrote no block.
 # - `review-ledger.sh apply <update-file> <facts-file> [<previous-ledger-file>]` prints the ledger after this round: the previous ledger (if any) with the reviewer's update merged in and the runner's facts (pullRequest, reviewedHead, baseSha, patchId, reviewedFiles, scope) set.
+# - `review-ledger.sh scope <head> <reviewed-files-file> <previous-ledger-file> <delta-file>` decides what a re-review is given, prints the scope as JSON and writes the delta diff to <delta-file>: the diff from the previous reviewed head to <head> over the paths either round's diff touched, when the previous head is an ancestor of <head>, and otherwise the whole pull request with the reason (a force push or rebase moved the branch past it, or it is no longer fetchable), leaving <delta-file> empty. Runs in the repository holding the commits.
 # - `review-ledger.sh prepare <commit> <facts-file> [<previous-ledger-file>]` prints what a round starts from, for `context`: its round number, the previous reviewed head, the invariants to check with every instance their grep enumerators find at the commit, and the findings on record, each open grep-enumerated one marked with whether its instance still matches. Runs in the repository holding the commit.
-# - `review-ledger.sh context <prepared-file>` prints the "Review ledger" section of the review prompt from what `prepare` printed.
+# - `review-ledger.sh context <prepared-file> [<delta-file>]` prints the "Review ledger" section of the review prompt from what `prepare` printed, with the delta diff embedded when the scope is a delta.
 # - `review-ledger.sh enumerate-ledger <commit> <ledger-file>` prints the ledger with every invariant's instances found at the commit, every open grep-enumerated finding whose instance no longer matches marked fixed, and every one marked fixed whose instance still matches reopened. A finding reported this round whose instance its own grep enumerator does not find is an error. Runs in the repository holding the commit.
 # - `review-ledger.sh render <ledger-file>` prints the comment body that stores the ledger.
 #
@@ -288,6 +289,29 @@ case "$command" in
     ' "$update_file" || die "the update could not be applied (see the message above)"
     ;;
 
+  scope)
+    [ "$#" -eq 4 ] || die "usage: review-ledger.sh scope <head> <reviewed-files-file> <previous-ledger-file> <delta-file>"
+    head="$1"
+    files_file="$2"
+    validate ledger "$3"
+    delta_file="$4"
+    : > "$delta_file"
+    since="$(jq -r '.reviewedHead' "$3")"
+    # A head the checkout lacks is fetched by its id; GitHub serves one that a force push has left unreferenced only until it is collected, after which it is unreachable.
+    if ! git cat-file -e "${since}^{commit}" 2> /dev/null && ! git fetch --no-tags --quiet origin "$since" 2> /dev/null; then
+      jq -n -c '{kind: "full", since: null, reason: "the last reviewed head \($since[0:12]) can no longer be fetched, so the whole pull request is reviewed again"}' --arg since "$since"
+    elif ! git merge-base --is-ancestor "$since" "$head"; then
+      jq -n -c '{kind: "full", since: null, reason: "the last reviewed head \($since[0:12]) is not an ancestor of this head (a force push or rebase), so the whole pull request is reviewed again"}' --arg since "$since"
+    else
+      paths=()
+      while IFS= read -r -d '' path; do
+        paths+=("$path")
+      done < <(jq -j --slurpfile previous "$3" '(. + $previous[0].reviewedFiles) | unique | .[] | (., "\u0000")' "$files_file")
+      git diff --no-color --no-ext-diff "$since" "$head" -- ${paths[@]+"${paths[@]}"} > "$delta_file"
+      jq -n -c '{kind: "delta", since: $since, reason: "the head moved forward from the last reviewed head, so only the changes since it are reviewed"}' --arg since "$since"
+    fi
+    ;;
+
   prepare)
     [ "$#" -ge 2 ] && [ "$#" -le 3 ] || die "usage: review-ledger.sh prepare <commit> <facts-file> [<previous-ledger-file>]"
     commit="$1"
@@ -306,17 +330,21 @@ case "$command" in
       | $repository + (($previous.invariants // []) | map(select(.source == "review" and (.classKey as $class | $repository_classes | index($class) | not))) | map({classKey, statement, enumerator, source}))
     ' "$facts_file" | enumerate_invariants "$commit")"
     matches="$(jq -c --argjson previous "$previous" -n '($previous.findings // []) | map(select(.status == "open"))' | grep_finding_matches "$commit")"
-    jq -n -c --argjson previous "$previous" --argjson invariants "$invariants" --argjson matches "$matches" '{
+    jq -n -c --argjson previous "$previous" --argjson invariants "$invariants" --argjson matches "$matches" --slurpfile facts "$facts_file" '{
       round: (($previous.round // 0) + 1),
       previousHead: $previous.reviewedHead,
+      scope: $facts[0].scope,
       invariants: $invariants,
       findings: (($previous.findings // []) | map(. + {stillMatched: $matches[.id]}))
     }'
     ;;
 
   context)
-    [ "$#" -eq 1 ] || die "usage: review-ledger.sh context <prepared-file>"
-    jq -r '
+    [ "$#" -ge 1 ] && [ "$#" -le 2 ] || die "usage: review-ledger.sh context <prepared-file> [<delta-file>]"
+    delta_file="${2:-/dev/null}"
+    jq -r --rawfile delta "$delta_file" '
+      # A fence one backtick longer than the longest run of backticks in the diff, and never shorter than three, so no line of the diff can close it.
+      def fence: "`" * ([3, ([$delta | match("`+"; "g") | .length] | max // 0) + 1] | max);
       def enumerator_text:
         if .type == "grep" then "grep `\(.pattern)` in \(if (.paths | length) == 0 then "the whole tree" else (.paths | map("`\(.)`") | join(", ")) end)"
         elif .type == "test" then "test `\(.name)`"
@@ -340,6 +368,22 @@ case "$command" in
               (.findings[] | "- `\(.id)` `\(.classKey)` \(.severity), \(.status): \(.instance | tojson). \(.summary | tojson)\(check_text)")
             end) )
         end,
+        (if .previousHead == null then empty
+         elif .scope.kind == "delta" then
+           ( "",
+             "## What this round reviews",
+             "",
+             "This round reviews the delta since the last reviewed head, `\(.scope.since)`: \(.scope.reason). The delta below is every change since that head to the files the pull request touches, and it is your input in place of the whole diff.",
+             "",
+             (if ($delta | length) == 0 then "The delta is empty: nothing in the pull request'"'"'s files changed since the last reviewed head." else
+               (fence as $fence | "\($fence)diff\n\($delta | sub("\n$"; ""))\n\($fence)")
+             end) )
+         else
+           ( "",
+             "## What this round reviews",
+             "",
+             "This round reviews the whole pull request: \(.scope.reason)." )
+         end),
         "",
         "Invariants to check this round, with every instance their enumerator finds at this head (class, where it came from, statement, enumerator, instances):",
         "",

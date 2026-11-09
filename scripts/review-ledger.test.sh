@@ -29,9 +29,10 @@ status_of() {
 # A repository for the pull request under review: a base commit, a first head that renames the old-build script without updating the documents that name it, and a second head that fixes one document and pushes the other's line further down. The repository's own invariants file is on the base commit; the first head tries to empty it.
 fixture_repo="${work_dir}/repo"
 mkdir -p "$fixture_repo"
-# The hook's repository variables are dropped so these commands act on the fixture, never on a repository around the test.
+# The hook's repository variables are dropped so these commands act on the fixture, never on a repository around the test. The identity and dates are fixed so every commit id, and so every output docs/review-ledger.md quotes, is the same on every run.
 fixture_git() {
-  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE git -C "$fixture_repo" -c user.name=Test -c user.email=test@example.com -c commit.gpgsign=false "$@"
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE GIT_AUTHOR_DATE="2026-01-01T00:00:00Z" GIT_COMMITTER_DATE="2026-01-01T00:00:00Z" \
+    git -C "$fixture_repo" -c user.name=Test -c user.email=test@example.com -c commit.gpgsign=false -c init.defaultBranch=main "$@"
 }
 fixture_write() {
   mkdir -p "$(dirname "${fixture_repo}/$1")"
@@ -51,7 +52,10 @@ fixture_write .github/claude/invariants.json '{"invariants": []}'
 fixture_git commit -q -a -m "rename the build script"
 sha_a="$(fixture_git rev-parse HEAD)"
 fixture_write docs/setup.md $'# Setup\n\nnpm run build\n'
-fixture_write README.md $'# Example\n\nFour new lines\nabove the command\nmove it down\nthe file.\n\nBuild it:\n\nnpm run old-build\n'
+fixture_write README.md $'# Example\n\nFour new lines\nabove the command\nmove it down\nthe file.\n\nBuild it:\n\n```sh\nnpm run old-build\n```\n'
+# A file outside the pull request's own diff, as a merge from the base branch would bring in.
+fixture_write CHANGELOG.md $'Merged in from the base branch.\n'
+fixture_git add CHANGELOG.md
 fixture_git commit -q -a -m "fix the setup document"
 sha_c="$(fixture_git rev-parse HEAD)"
 repository_invariants="$(fixture_git show "${sha_b}:.github/claude/invariants.json" | jq -c '.invariants')"
@@ -175,7 +179,7 @@ expect_equal "a class promoted from the review to the repository is recorded onc
 readme_id_round_1="$(in_fixture ledger prepare "$sha_a" "${work_dir}/facts-1.json" "${work_dir}/ledger-1.json" | jq -r '.invariants[] | select(.classKey == "stale-reference") | .instances[] | select(.path == "README.md") | "\(.id) \(.line)"')"
 readme_id_round_2="$(in_fixture ledger prepare "$sha_c" "${work_dir}/facts-2.json" "${work_dir}/ledger-1.json" | jq -r '.invariants[] | select(.classKey == "stale-reference") | .instances[] | select(.path == "README.md") | "\(.id) \(.line)"')"
 expect_equal "an enumerated instance's id is the finding's id for the same instance" "${id_one} 5" "$readme_id_round_1"
-expect_equal "an enumerated instance keeps its id when lines above it move" "${id_one} 10" "$readme_id_round_2"
+expect_equal "an enumerated instance keeps its id when lines above it move" "${id_one} 11" "$readme_id_round_2"
 fixture_write duplicate.md $'npm run old-build\nother\n  npm run old-build\n'
 fixture_git add duplicate.md
 fixture_git commit -q -m "add a duplicate"
@@ -224,7 +228,48 @@ for given in "$context_2" "$(cat "${repo_root}/prompts/review/base.md")"; do
     pass "nothing the reviewer is given offers reporting a gone instance again as a way to keep it open"
   fi
 done
-expect_contains "a later round's context lists the invariants with their instances at this head" "  - \"README.md :: npm run old-build\" (README.md, line 10)" "$context_2"
+expect_contains "a later round's context lists the invariants with their instances at this head" "  - \"README.md :: npm run old-build\" (README.md, line 11)" "$context_2"
+
+# Delta re-review: what a later round is given.
+jq -c '["README.md", "docs/setup.md", "package.json"]' -n > "${work_dir}/reviewed-files.json"
+scope_2="$(in_fixture ledger scope "$sha_c" "${work_dir}/reviewed-files.json" "${work_dir}/ledger-1-enumerated.json" "${work_dir}/delta-2.diff")"
+expect_equal "a head that moved forward from the last reviewed head is reviewed as a delta since it" "delta ${sha_a}" "$(jq -r '"\(.kind) \(.since)"' <<< "$scope_2")"
+expect_equal "the delta is the diff since the last reviewed head over the pull request's files" "$(fixture_git diff "$sha_a" "$sha_c" -- README.md docs/setup.md package.json)" "$(cat "${work_dir}/delta-2.diff")"
+expect_equal "the delta leaves out a file the pull request's diff does not touch" "absent" "$(grep -q 'CHANGELOG.md' "${work_dir}/delta-2.diff" && echo present || echo absent)"
+fixture_git checkout -q "$sha_b"
+fixture_write docs/setup.md $'# Setup\n\nnpm run build\n'
+fixture_git commit -q -a -m "the same fix, rebased onto the base"
+rebased_head="$(fixture_git rev-parse HEAD)"
+fixture_git checkout -q "$sha_c"
+scope_rebased="$(in_fixture ledger scope "$rebased_head" "${work_dir}/reviewed-files.json" "${work_dir}/ledger-1-enumerated.json" "${work_dir}/delta-rebased.diff")"
+expect_equal "a head the last reviewed head is not an ancestor of falls back to the whole pull request" "full null" "$(jq -r '"\(.kind) \(.since)"' <<< "$scope_rebased")"
+expect_contains "the fallback says why" "is not an ancestor of this head (a force push or rebase)" "$(jq -r '.reason' <<< "$scope_rebased")"
+expect_equal "the fallback writes no delta" "0" "$(wc -c < "${work_dir}/delta-rebased.diff" | tr -d ' ')"
+jq --arg head "$(printf 'd%.0s' {1..40})" '.reviewedHead = $head' "${work_dir}/ledger-1-enumerated.json" > "${work_dir}/ledger-gone-head.json"
+scope_gone="$(in_fixture ledger scope "$sha_c" "${work_dir}/reviewed-files.json" "${work_dir}/ledger-gone-head.json" "${work_dir}/delta-gone.diff")"
+expect_equal "a last reviewed head that cannot be fetched falls back to the whole pull request" "full" "$(jq -r '.kind' <<< "$scope_gone")"
+expect_contains "that fallback says why" "can no longer be fetched" "$(jq -r '.reason' <<< "$scope_gone")"
+
+jq -c --argjson scope "$scope_2" '.scope = $scope' "${work_dir}/facts-2.json" > "${work_dir}/facts-2-delta.json"
+in_fixture ledger prepare "$sha_c" "${work_dir}/facts-2-delta.json" "${work_dir}/ledger-1-enumerated.json" > "${work_dir}/prepared-2-delta.json"
+context_delta="$(ledger context "${work_dir}/prepared-2-delta.json" "${work_dir}/delta-2.diff")"
+expect_contains "a delta round's context says it reviews the delta since the last reviewed head" "This round reviews the delta since the last reviewed head, \`${sha_a}\`" "$context_delta"
+expect_contains "a delta round's context carries the delta" "+npm run build" "$context_delta"
+expect_contains "the delta's fence is longer than any run of backticks in it" $'````diff\ndiff --git' "$context_delta"
+jq -c --argjson scope "$scope_rebased" '.scope = $scope' "${work_dir}/facts-2.json" > "${work_dir}/facts-2-full.json"
+in_fixture ledger prepare "$rebased_head" "${work_dir}/facts-2-full.json" "${work_dir}/ledger-1-enumerated.json" > "${work_dir}/prepared-2-full.json"
+expect_contains "a fallback round's context says it reviews the whole pull request, and why" "This round reviews the whole pull request: the last reviewed head" "$(ledger context "${work_dir}/prepared-2-full.json" "${work_dir}/delta-rebased.diff")"
+
+# Round 3's input is the delta since round 2's head, not everything since round 1: it does not grow with the rounds.
+ledger apply "${work_dir}/update-2.json" "${work_dir}/facts-2-delta.json" "${work_dir}/ledger-1-enumerated.json" > "${work_dir}/applied-2.json"
+in_fixture ledger enumerate-ledger "$sha_c" "${work_dir}/applied-2.json" > "${work_dir}/ledger-2-enumerated.json"
+fixture_write package.json $'{"scripts": {"build": "tsc --strict"}}\n'
+fixture_git commit -q -a -m "tighten the build"
+sha_d="$(fixture_git rev-parse HEAD)"
+in_fixture ledger scope "$sha_d" "${work_dir}/reviewed-files.json" "${work_dir}/ledger-2-enumerated.json" "${work_dir}/delta-3.diff" > /dev/null
+expect_contains "round 3's delta holds round 3's change" "tsc --strict" "$(cat "${work_dir}/delta-3.diff")"
+expect_equal "round 3's delta holds none of round 2's changes" "absent" "$(grep -q 'npm run build' "${work_dir}/delta-3.diff" && echo present || echo absent)"
+fixture_git checkout -q "$sha_c"
 
 # The steps in action.yml, against a stub gh.
 stub_bin="${work_dir}/stub-bin"
@@ -307,6 +352,7 @@ expect_equal "the read step takes the head and base from GitHub" "${sha_a} ${sha
 expect_equal "the read step records the patch id of the pull request's diff" "$(ledger patch-id < "${work_dir}/one.diff")" "$(jq -r '.patchId' "$facts_file")"
 expect_equal "the read step records every path the diff touched, renamed ones under both names" '["README.md","docs/setup.md","package.json","package.old.json"]' "$(jq -c '.reviewedFiles' "$facts_file")"
 expect_contains "the read step's context starts round 1" "This is round 1" "$(cat "$(output_value "${work_dir}/read-output" context)")"
+cp "$(output_value "${work_dir}/read-output" context)" "${work_dir}/example-round-1-input.md"
 expect_equal "the read step takes the repository's invariants from the base commit, not the head that empties them" "no-console-log" "$(jq -r '[.repositoryInvariants[].classKey] | join(" ")' "$facts_file")"
 expect_contains "the read step's context lists the repository invariant's instances at the head" "src/index.js :: console.log" "$(cat "$(output_value "${work_dir}/read-output" context)")"
 
@@ -327,6 +373,9 @@ cp "${work_dir}/output" "${work_dir}/read-output"
 expect_equal "the read step succeeds on a pull request with a ledger" "0" "$status"
 expect_equal "the read step names the comment holding the ledger" "42" "$(output_value "${work_dir}/read-output" comment_id)"
 expect_contains "the read step's context is round 2 with round 1's findings" "This is round 2" "$(cat "$(output_value "${work_dir}/read-output" context)")"
+expect_equal "the read step records round 2 as a delta since round 1's head" "delta ${sha_a}" "$(jq -r '.scope | "\(.kind) \(.since)"' "$(output_value "${work_dir}/read-output" facts)")"
+expect_contains "the read step gives the reviewer the delta" "+npm run build" "$(cat "$(output_value "${work_dir}/read-output" context)")"
+cp "$(output_value "${work_dir}/read-output" context)" "${work_dir}/example-round-2-input.md"
 status="$(run_write "${ledger_fixtures}/round-2.json")"
 expect_equal "the round 2 write step succeeds" "0" "$status"
 expect_equal "with a ledger comment the write step edits it in place" "PATCH repos/owner/repo/issues/comments/42" "$(cat "${stub_dir}/writes.log")"
@@ -438,6 +487,17 @@ status="$(run_read)"
 expect_equal "the read step fails on a ledger comment whose data block cannot be read" "1" "$status"
 expect_contains "the read step says the marker comment's data could not be read" "::error::A comment on pull request #7 carries the review ledger marker but its data could not be read" "$(cat "${work_dir}/stdout")"
 
+# Resume prior session: a review with a ledger starts fresh; without one it resumes as before.
+home_dir="${work_dir}/home"
+workspace="/home/runner/work/repo/repo"
+mkdir -p "${home_dir}/.claude/projects/${workspace//\//-}"
+printf '{}\n' > "${home_dir}/.claude/projects/${workspace//\//-}/0123abcd-0000-4000-8000-000000000000.jsonl"
+run_step resume HOME="$home_dir" GITHUB_WORKSPACE="$workspace" BASE_ARGS="--model x" LEDGER_PREVIOUS= > /dev/null
+expect_equal "with no ledger on record a review resumes the cached session" "--resume 0123abcd-0000-4000-8000-000000000000 --model x" "$(output_value "${work_dir}/output" claude_args)"
+run_step resume HOME="$home_dir" GITHUB_WORKSPACE="$workspace" BASE_ARGS="--model x" LEDGER_PREVIOUS="${work_dir}/ledger-1.json" > /dev/null
+expect_equal "with a ledger on record a review starts a fresh session" "--model x" "$(output_value "${work_dir}/output" claude_args)"
+expect_equal "Resume prior session reads whether the ledger step found a ledger" "\${{ steps.review-ledger.outputs.previous }}" "$(step_value resume LEDGER_PREVIOUS)"
+
 # Compose prompt places the ledger context in the review prompt.
 printf '# Review ledger\n\nThis is round 9.\n' > "${work_dir}/context.md"
 reset_runner_temp
@@ -458,11 +518,42 @@ for doc in docs/review-conventions.md docs/review-ledger.md; do
   fi
 done
 
+# The worked example in docs/review-ledger.md quotes this run's own inputs and outputs; each quoted block must match what the steps produce now.
+# Prints the fenced block that follows the marker line <!-- worked-example: $1 --> in the document.
+example_block() {
+  awk -v marker="<!-- worked-example: $1 -->" '
+    $0 == marker { found = 1; next }
+    found && fence == "" && /^`+/ { match($0, /^`+/); fence = substr($0, 1, RLENGTH); next }
+    found && fence != "" && $0 == fence { exit }
+    found && fence != "" { print }
+  ' "${repo_root}/docs/review-ledger.md"
+}
+# Trailing whitespace is compared away: a diff's blank context line is a single space, which Markdown tooling strips from the document.
+expect_example() {
+  local name="$1" actual expected
+  actual="$(printf '%s\n' "$2" | sed 's/[[:space:]]*$//')"
+  expected="$(example_block "$name" | sed 's/[[:space:]]*$//')"
+  if [ "$expected" = "$actual" ]; then
+    pass "the worked example's ${name} is what the action produces"
+  else
+    fail "the worked example's ${name} is what the action produces; diff of the document against the action:"
+    diff <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") || true
+  fi
+}
+expect_example round-1-input "$(cat "${work_dir}/example-round-1-input.md")"
+expect_example round-1-update "$(ledger update-block "${ledger_fixtures}/round-1.json")"
+expect_example round-2-input "$(cat "${work_dir}/example-round-2-input.md")"
+expect_example round-2-update "$(ledger update-block "${ledger_fixtures}/round-2.json")"
+expect_example round-2-comment "$(sed -n '1,/^<!-- claude-review-ledger-data$/p' "${work_dir}/posted-2.md" | sed '$d')"
+
 # The review prompt
 review_prompt="$(cat "${repo_root}/prompts/review/base.md")"
 expect_contains "the review prompt asks for the update block" "<review-ledger-update>" "$review_prompt"
 expect_contains "the review prompt forbids line numbers in an instance" "never by a line number" "$review_prompt"
 expect_contains "the review prompt asks for invariants before the review" "### Invariants first, then enumerate" "$review_prompt"
+expect_contains "the review prompt bounds a delta re-review" "### Re-reviewing a delta" "$review_prompt"
+expect_contains "the review prompt makes the fresh sweep a single one" "Make one sweep, not one per finding." "$review_prompt"
+expect_contains "the review prompt gives the delta budget an escape" "run \`gh pr diff\` once, review the whole pull request, and say in your review body that you did and why" "$review_prompt"
 expect_contains "the review prompt gives the action's key format for a grep instance" "\`<path> :: <matched line>\`" "$review_prompt"
 
 
@@ -557,7 +648,8 @@ usage: review-ledger.sh id <class-key> <instance>	the id subcommand refuses too 
 usage: review-ledger.sh check <ledger-file>	the check subcommand refuses too many arguments with its usage
 usage: review-ledger.sh update-block <execution-file>	the update-block subcommand refuses too many arguments with its usage
 usage: review-ledger.sh apply <update-file> <facts-file> [<previous-ledger-file>]	the apply subcommand refuses too many arguments with its usage
-usage: review-ledger.sh context <prepared-file>	the context subcommand refuses too many arguments with its usage
+usage: review-ledger.sh context <prepared-file> [<delta-file>]	the context subcommand refuses too many arguments with its usage
+usage: review-ledger.sh scope <head> <reviewed-files-file> <previous-ledger-file> <delta-file>	the scope subcommand refuses too many arguments with its usage
 usage: review-ledger.sh validate <definition> <file>	the validate subcommand refuses too many arguments with its usage
 usage: review-ledger.sh prepare <commit> <facts-file> [<previous-ledger-file>]	the prepare subcommand refuses too many arguments with its usage
 usage: review-ledger.sh enumerate-ledger <commit> <ledger-file>	the enumerate-ledger subcommand refuses too many arguments with its usage

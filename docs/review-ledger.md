@@ -1,6 +1,6 @@
 # Review ledger
 
-Review mode keeps a ledger of each pull request's review rounds: the head each round reviewed, the patch id of the pull request's diff at that head, every finding with a stable id, its class and its status, and the invariants the change was checked against. A review reads the ledger before anything else and writes it after, so a later round starts from what earlier rounds found instead of from nothing.
+Review mode keeps a ledger of each pull request's review rounds: the head each round reviewed, the patch id of the pull request's diff at that head, every finding with a stable id, its class and its status, and the invariants the change was checked against. A review reads the ledger before anything else and writes it after, so a later round starts from what earlier rounds found instead of from nothing, and is given only what changed since the last reviewed head.
 
 ## What the ledger holds
 
@@ -70,13 +70,224 @@ A comment body is limited to 65,536 characters. A ledger that would render longe
 ## How a round uses it
 
 1. **Read the review ledger** (before the prompt is composed) takes the pull request's head, base, changed files and diff from GitHub, computes the patch id, and reads the ledger from the newest bot-authored comment that carries the marker. It checks the ledger against the schema and recomputes every id from its class key and instance. A marker comment whose data block cannot be found or parsed, or a ledger that fails either check, stops the run with an error naming the comment: it was edited into a state this action never wrote. Deleting the comment starts the ledger again; restoring its previous version from the comment's edit history keeps it.
-2. The read step reads the repository's invariants from the base commit, runs every grep enumerator on record over the head commit's tree, and checks each open grep-enumerated finding against it. The composed prompt gains a "Review ledger" section: the round number, the head the last round reviewed, every finding on record with its id, class, severity, status, instance, summary and that check, and the invariants to check with every instance found at this head.
+2. The read step decides the round's scope (the delta since the last reviewed head, or the whole pull request and why; see [Delta re-review](#delta-re-review)), reads the repository's invariants from the base commit, runs every grep enumerator on record over the head commit's tree, and checks each open grep-enumerated finding against it. The composed prompt gains a "Review ledger" section: the round number, the head the last round reviewed, every finding on record with its id, class, severity, status, instance, summary and that check, and the invariants to check with every instance found at this head.
 3. The reviewer ends its run with a `<review-ledger-update>` block of JSON (the `update` definition in the schema) in its final message, never in the review it posts: the findings it reports this round, a status for every open finding on record it does not report again, and the invariants it checked. The write step reads the block from the execution file of the attempt that succeeded (an attempt that failed first, on a usage limit or a rejected credential, is never read), from its final result message, or, when that message has none, from the newest of the run's own messages that has one, such as the body of the review it submitted; the log says which.
 4. **Write the review ledger** (after the review) validates the block, merges it into the ledger under the facts the read step took from GitHub, runs every grep enumerator again at the reviewed head to record the instance lists and settle the status of grep-enumerated findings, checks the result, and posts the comment or edits it in place. A finding reported again keeps its id and first round; a status change names a finding by id; a new finding gets its id from its class key and instance. The step adds one line to the job's step summary with the round, the reviewed head and the open findings.
 
 When GitHub does not return the pull request, its changed files or its comments after the read step's retries, the ledger is unavailable for that round rather than the review failing: the reviewer is told the ledger could not be read and reviews the whole pull request, the round is not recorded, and the step adds a warning and a line to the step summary. Comments that could not be read are never taken to mean there is no ledger comment, since that would start the record again over the one already there. When only the diff is refused, as GitHub does for a very large pull request, the round is recorded with its patch id unknown.
 
 A successful review that wrote no valid update block fails the write step and leaves the ledger as it was, so the next round still starts from the last head recorded in full. When no attempt succeeded, the write step fails with an error saying so, and a review a failed attempt posted before failing is not recorded. A run that stopped at its turn limit is not recorded either, because its wrap-up review is partial, and the step says so in a notice.
+
+## Delta re-review
+
+Once the ledger records a round, a later round is given the delta since the last reviewed head plus the ledger, not the whole pull request, and starts a fresh session instead of resuming the earlier rounds' transcript. Its input is therefore the delta and the ledger, and does not grow with the number of earlier rounds.
+
+- **The delta.** When the last reviewed head is an ancestor of the new head, the read step diffs the two with `git diff`, over the paths either round's pull request diff touched, so a file that only a merge from the base branch brought in is left out. The prompt carries the delta in full, fenced so no line of it can close the fence.
+- **The fallback.** When the last reviewed head is not an ancestor of the new head (a force push or rebase) or can no longer be fetched, the round reviews the whole pull request instead. The reason is recorded in the ledger's `scope`, shown in the prompt, written in the ledger comment and the step summary, and the reviewer is told to state it in its review body.
+- **No resumed transcript.** With a ledger on record, "Resume prior session" passes no `--resume`; the session is still saved, as `resume_sessions` describes. Without a ledger, as on a pull request's first round, resuming works as before.
+- **The budget.** The prompt bounds a delta round: verify every open finding on record once (the action has already checked the grep-enumerated ones), review the delta reading outside it only what a changed line needs, and make one fresh sweep for a class no finding or invariant on record covers. The one escape is a delta that cannot be judged without the rest of the change, such as a sweeping rename: the reviewer then reads the whole diff once and says so in its review body.
+
+## Worked example
+
+The test file `scripts/review-ledger.test.sh` builds this example and checks that every block below matches what the action produces line for line, so the example cannot drift from the code. A pull request renames the `old-build` script to `build` without updating the two documents that name it. The repository's `.github/claude/invariants.json` on the base branch declares one invariant of its own, `no-console-log`.
+
+### Round 1
+
+No ledger exists yet, so the read step gives the reviewer the whole pull request and the repository's invariant with its instances at the head. This section is appended to the review prompt:
+
+<!-- worked-example: round-1-input -->
+
+```text
+# Review ledger
+
+This is round 1: no earlier review round of this pull request is on record. Review the whole pull request.
+
+Invariants to check this round, with every instance their enumerator finds at this head (class, where it came from, statement, enumerator, instances):
+
+- `no-console-log` (repository): "Source code logs through the logger, never console.log."; grep `console\.log` in `src`
+  - "src/index.js :: console.log(\"ready\");" (src/index.js, line 1)
+```
+
+The reviewer derives an invariant from the change (no document names the removed script), finds both instances with its grep enumerator, and ends its run with this update block:
+
+<!-- worked-example: round-1-update -->
+
+```text
+{
+  "invariants": [
+    {
+      "classKey": "stale-reference",
+      "statement": "No document names the removed old-build script.",
+      "enumerator": {
+        "type": "grep",
+        "pattern": "old-build",
+        "paths": [
+          "README.md",
+          "docs"
+        ]
+      }
+    }
+  ],
+  "findings": [
+    {
+      "classKey": "stale-reference",
+      "instance": "docs/setup.md :: npm run old-build",
+      "path": "docs/setup.md",
+      "severity": "Should fix",
+      "summary": "Names the old-build script, which this change removes.",
+      "enumerator": {
+        "type": "grep",
+        "pattern": "old-build",
+        "paths": [
+          "README.md",
+          "docs"
+        ]
+      }
+    },
+    {
+      "classKey": "stale-reference",
+      "instance": "README.md :: npm run old-build",
+      "path": "README.md",
+      "severity": "Should fix",
+      "summary": "Names the old-build script, which this change removes.",
+      "enumerator": {
+        "type": "grep",
+        "pattern": "old-build",
+        "paths": [
+          "README.md",
+          "docs"
+        ]
+      }
+    }
+  ],
+  "statuses": []
+}
+```
+
+The write step records round 1: the head, both findings with ids made from their class key and instance, and the invariant with the instance list its enumerator finds.
+
+### Round 2
+
+The author pushes a commit that fixes `docs/setup.md`, adds lines above the command in `README.md`, and brings in a `CHANGELOG.md` change from the base branch. The last reviewed head is an ancestor of the new one, so the read step gives the reviewer the delta since it plus the ledger. The `README.md` instance has moved down the file and keeps its id; the `docs/setup.md` instance no longer matches, and the prompt says so; `CHANGELOG.md` is not in the pull request's own diff and is left out of the delta. This is the section appended to the review prompt, and the reviewer is not given the earlier round's transcript:
+
+<!-- worked-example: round-2-input -->
+
+`````text
+# Review ledger
+
+This is round 2. The ledger records 1 earlier round(s); the last one reviewed head `86b6931e50e14aacdd46d3583aac955f3157bb96`.
+
+Findings on record (id, class, severity, status, instance, summary):
+
+- `2449c27b65901a25` `stale-reference` Should fix, open: "docs/setup.md :: npm run old-build". "Names the old-build script, which this change removes." Its enumerator no longer matches this instance at this head, so the action records it as fixed: do not report it again, since a grep-enumerated finding whose instance the action cannot find fails the run.
+- `3e892ed7cc6e0bdc` `stale-reference` Should fix, open: "README.md :: npm run old-build". "Names the old-build script, which this change removes." Its enumerator still matches this instance at this head.
+
+## What this round reviews
+
+This round reviews the delta since the last reviewed head, `86b6931e50e14aacdd46d3583aac955f3157bb96`: the head moved forward from the last reviewed head, so only the changes since it are reviewed. The delta below is every change since that head to the files the pull request touches, and it is your input in place of the whole diff.
+
+````diff
+diff --git a/README.md b/README.md
+index 0a1f49d..245769b 100644
+--- a/README.md
++++ b/README.md
+@@ -1,5 +1,12 @@
+ # Example
+
++Four new lines
++above the command
++move it down
++the file.
++
+ Build it:
+
++```sh
+ npm run old-build
++```
+diff --git a/docs/setup.md b/docs/setup.md
+index e868c4b..8a6ff6a 100644
+--- a/docs/setup.md
++++ b/docs/setup.md
+@@ -1,3 +1,3 @@
+ # Setup
+
+-npm run old-build
++npm run build
+````
+
+Invariants to check this round, with every instance their enumerator finds at this head (class, where it came from, statement, enumerator, instances):
+
+- `no-console-log` (repository): "Source code logs through the logger, never console.log."; grep `console\.log` in `src`
+  - "src/index.js :: console.log(\"ready\");" (src/index.js, line 1)
+- `stale-reference` (review): "No document names the removed old-build script."; grep `old-build` in `README.md`, `docs`
+  - "README.md :: npm run old-build" (README.md, line 11)
+`````
+
+The reviewer verifies the two findings on record, reviews the delta, makes its one sweep for a new class, and ends with:
+
+<!-- worked-example: round-2-update -->
+
+```text
+{
+  "invariants": [
+    {
+      "classKey": "stale-reference",
+      "statement": "No document names the removed old-build script.",
+      "enumerator": {
+        "type": "grep",
+        "pattern": "old-build",
+        "paths": [
+          "README.md",
+          "docs"
+        ]
+      }
+    }
+  ],
+  "findings": [
+    {
+      "classKey": "stale-reference",
+      "instance": "README.md :: npm run old-build",
+      "path": "README.md",
+      "severity": "Should fix",
+      "summary": "Still names the old-build script after the second push.",
+      "enumerator": {
+        "type": "grep",
+        "pattern": "old-build",
+        "paths": [
+          "README.md",
+          "docs"
+        ]
+      }
+    }
+  ],
+  "statuses": [
+    {
+      "id": "2449c27b65901a25",
+      "status": "fixed",
+      "reason": "docs/setup.md now names npm run build."
+    }
+  ]
+}
+```
+
+The write step re-runs the enumerators at the new head, keeps the `README.md` finding open under its round 1 id, records the `docs/setup.md` finding as fixed, and edits the ledger comment in place. Its visible part reads:
+
+<!-- worked-example: round-2-comment -->
+
+```text
+<!-- claude-review-ledger:v1 -->
+**Review ledger**: round 2, reviewed head `2fef4ec7b3ae`, a delta review since `86b6931e50e1` (the head moved forward from the last reviewed head, so only the changes since it are reviewed).
+
+Findings: 1 open, 1 fixed, 0 retracted.
+
+| Class | Open |
+| --- | --- |
+| `stale-reference` | 1 |
+
+This comment is the record review mode keeps between rounds. Editing it changes what the next review is told.
+```
+
+A third push is given only what changed since round 2's head, whatever rounds 1 and 2 covered.
 
 ## Every failure path has a test
 

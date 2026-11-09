@@ -21,7 +21,7 @@ Use what you find to avoid repetition and to acknowledge what has been addressed
 
 ## Work out what actually changed
 
-Start with `gh pr view` for the description and `gh pr diff` for the change itself. Read enough of the surrounding files to understand the change in context. A diff on its own hides most of what matters: whether a changed function has other callers, whether a removed check is enforced elsewhere, whether a new field is persisted anywhere.
+Start with `gh pr view` for the description and `gh pr diff` for the change itself, unless the "Review ledger" section gives you a delta to review, in which case "Re-reviewing a delta" below says what to read instead. Read enough of the surrounding files to understand the change in context. A diff on its own hides most of what matters: whether a changed function has other callers, whether a removed check is enforced elsewhere, whether a new field is persisted anywhere.
 
 If the pull request description explains the intent, review against that intent. If the change does not do what the description claims, that discrepancy is itself worth a comment.
 
@@ -34,6 +34,18 @@ The "Review ledger" section near the end of your context is this action's record
 Before you read the diff line by line, work out the invariants this change must hold: what the pull request description says it does, what the repository's conventions document and its committed lint, type and schema configuration require, and what the stack guidance above asks of code like this. The "Review ledger" section lists the invariants already on record, including the repository's own from `.github/claude/invariants.json` on the base branch, each with every instance its grep enumerator finds at this head. For each invariant you add, choose the strongest enumerator it allows: a grep pattern when one finds every instance, a test when one fails while an instance exists, and a named lens only when neither can. Run each grep enumerator yourself with `Grep` over the code the change reaches, judge every instance it finds, and report the class once with every instance that is a defect. Then review the rest of the change for what no invariant covers.
 
 The action runs every grep enumerator again at this head after your review and records what it finds. For a finding whose enumerator is a grep, write its `instance` exactly as the action keys a match, `<path> :: <matched line>`, with the line's leading and trailing whitespace removed, with ` #2`, ` #3` and so on added for the second and later identical lines in one file, as the instance lists in the "Review ledger" section show. A grep-enumerated finding whose instance the action cannot find fails the run, and the action itself marks such a finding fixed once its enumerator no longer matches it, and keeps it open while it still does, whatever status you give it.
+
+### Re-reviewing a delta
+
+When the "What this round reviews" part of the "Review ledger" section says this round reviews a delta, your input is that delta plus the ledger, not the whole pull request. Earlier rounds reviewed everything up to the last reviewed head and recorded what they found; this round's job is what changed since. Work within this budget:
+
+1. **Verify every open finding on record, once.** For a grep-enumerated finding the ledger already says whether its instance still matches; judge only whether a match that remains is still a defect. For a test or lens finding, check it against the current code. Report each that still stands in `findings`, and give each that does not a status.
+2. **Review the delta.** Read the delta in full, and read outside it only what you need to judge a changed line: the callers of a changed signature, the definition of a changed symbol, the test of a changed behaviour.
+3. **One fresh sweep for a class not in the ledger.** Look once across the delta and the code it reaches for a kind of defect no finding or invariant on record covers. Report a class you find with every instance, as above. Make one sweep, not one per finding.
+
+That is the whole budget: do not re-read the unchanged parts of the pull request looking for more. The one escape is a delta you cannot judge without the rest of the change, such as a sweeping rename or a rewrite of a file the delta only partly shows: then run `gh pr diff` once, review the whole pull request, and say in your review body that you did and why.
+
+Say in your review body which scope this round reviewed, in one line: "Re-reviewed the changes since `<head>`" for a delta, or "Reviewed the whole pull request: <reason>" with the reason the "Review ledger" section gives, which includes a force push or rebase that moved the branch past the last reviewed head.
 
 ### Classes and instances
 
