@@ -250,6 +250,21 @@ scope_gone="$(in_fixture ledger scope "$sha_c" "${work_dir}/reviewed-files.json"
 expect_equal "a last reviewed head that cannot be fetched falls back to the whole pull request" "full" "$(jq -r '.kind' <<< "$scope_gone")"
 expect_contains "that fallback says why" "can no longer be fetched" "$(jq -r '.reason' <<< "$scope_gone")"
 
+# A shallow checkout of the head itself has the head's parents cut off. The scope is still a delta: the head's history is fetched before the ancestry check.
+fixture_git branch -f shallow-head "$sha_c"
+shallow_head_repo="${work_dir}/shallow-head"
+env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE git clone -q --depth 1 --no-local --branch shallow-head "file://${fixture_repo}" "$shallow_head_repo"
+scope_shallow="$(cd "$shallow_head_repo" && ledger scope "$sha_c" "${work_dir}/reviewed-files.json" "${work_dir}/ledger-1-enumerated.json" "${work_dir}/delta-shallow.diff")"
+expect_equal "a shallow checkout of the head is reviewed as a delta since the last reviewed head" "delta ${sha_a}" "$(jq -r '"\(.kind) \(.since)"' <<< "$scope_shallow")"
+expect_equal "the delta from a shallow checkout is the same as from a full one" "$(cat "${work_dir}/delta-2.diff")" "$(cat "${work_dir}/delta-shallow.diff")"
+# A shallow checkout that has the last reviewed head but whose origin cannot serve the history joining it to the head stops with an error, rather than calling the push a force push.
+shallow_offline_repo="${work_dir}/shallow-offline"
+env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE git clone -q --depth 1 --no-local --branch shallow-head "file://${fixture_repo}" "$shallow_offline_repo"
+# The last reviewed head is fetched on its own, so the checkout has it but still not the history joining it to the head.
+env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE git -C "$shallow_offline_repo" fetch -q --depth 1 --no-tags origin "$sha_a"
+env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE git -C "$shallow_offline_repo" remote set-url origin "file://${work_dir}/no-such-origin"
+expect_contains "a shallow checkout that cannot fetch the head's history stops instead of falling back" "review-ledger: the checkout is shallow and fetching the history of ${sha_c} from origin failed" "$(cd "$shallow_offline_repo" && ledger scope "$sha_c" "${work_dir}/reviewed-files.json" "${work_dir}/ledger-1-enumerated.json" "${work_dir}/delta-offline.diff" 2>&1 || true)"
+
 jq -c --argjson scope "$scope_2" '.scope = $scope' "${work_dir}/facts-2.json" > "${work_dir}/facts-2-delta.json"
 in_fixture ledger prepare "$sha_c" "${work_dir}/facts-2-delta.json" "${work_dir}/ledger-1-enumerated.json" > "${work_dir}/prepared-2-delta.json"
 context_delta="$(ledger context "${work_dir}/prepared-2-delta.json" "${work_dir}/delta-2.diff")"
@@ -657,6 +672,7 @@ the repository invariants list a class key more than once (	the read step names 
 no schema definition named 	validate refuses a definition the schema does not have
 .github/claude/invariants.json on the base branch is not a valid repository invariants file: it must match the repositoryInvariants definition in the action's schemas/review-ledger.schema.json and list each class key once (see the log above).	the read step names the invariants file that does not match the schema
 Could not fetch commit 	the read step names the commit it could not fetch
+the checkout is shallow and fetching the history of 	a shallow checkout that cannot fetch the head's history stops instead of falling back
 the grep enumerator of 	a pattern git grep rejects stops the run
 findings reported this round name an instance their own grep enumerator does not find at 	a finding reported with an instance its grep enumerator does not find is refused
 the ledger could not be enumerated (see the message above)	a finding reported with an instance its grep enumerator does not find is refused

@@ -300,6 +300,9 @@ case "$command" in
     # A head the checkout lacks is fetched by its id; GitHub serves one that a force push has left unreferenced only until it is collected, after which it is unreachable.
     if ! git cat-file -e "${since}^{commit}" 2> /dev/null && ! git fetch --no-tags --quiet origin "$since" 2> /dev/null; then
       jq -n -c '{kind: "full", since: null, reason: "the last reviewed head \($since[0:12]) can no longer be fetched, so the whole pull request is reviewed again"}' --arg since "$since"
+    # In a shallow checkout whose boundary is at or below the head, the head's parents are cut off, so the ancestry check would call every head a force push. The head's whole history is fetched first, as a full-depth checkout already has it.
+    elif [ "$(git rev-parse --is-shallow-repository)" = "true" ] && ! git fetch --no-tags --quiet --unshallow origin "$head"; then
+      die "the checkout is shallow and fetching the history of ${head} from origin failed, so whether the last reviewed head ${since} is its ancestor cannot be decided"
     elif ! git merge-base --is-ancestor "$since" "$head"; then
       jq -n -c '{kind: "full", since: null, reason: "the last reviewed head \($since[0:12]) is not an ancestor of this head (a force push or rebase), so the whole pull request is reviewed again"}' --arg since "$since"
     else
