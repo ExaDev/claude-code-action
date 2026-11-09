@@ -71,6 +71,7 @@ retry/credential-
 security/sql-injection
 Should-fix/Blocker
 source/main
+src/index.js
 sub-issue/blocker
 test/probe
 text/JSON

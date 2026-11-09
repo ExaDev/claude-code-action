@@ -39,6 +39,8 @@ Deliberately emoji rather than an external badge image (the kind rendered via a 
 
 ## Adding repository-local instructions
 
+A repository can also declare invariants every review checks, each with a mechanical enumerator the action runs itself, in `.github/claude/invariants.json` on its default branch; see [Invariants first, then enumerate](review-ledger.md#invariants-first-then-enumerate).
+
 To extend the prompts for one repository, without forking anything, add either or both of:
 
 | File in the calling repository                                             | Applies to      |

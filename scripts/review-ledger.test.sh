@@ -26,13 +26,42 @@ status_of() {
   echo "$status"
 }
 
-sha_a="$(printf 'a%.0s' {1..40})"
-sha_b="$(printf 'b%.0s' {1..40})"
-sha_c="$(printf 'c%.0s' {1..40})"
+# A repository for the pull request under review: a base commit, a first head that renames the old-build script without updating the documents that name it, and a second head that fixes one document and pushes the other's line further down. The repository's own invariants file is on the base commit; the first head tries to empty it.
+fixture_repo="${work_dir}/repo"
+mkdir -p "$fixture_repo"
+# The hook's repository variables are dropped so these commands act on the fixture, never on a repository around the test.
+fixture_git() {
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE git -C "$fixture_repo" -c user.name=Test -c user.email=test@example.com -c commit.gpgsign=false "$@"
+}
+fixture_write() {
+  mkdir -p "$(dirname "${fixture_repo}/$1")"
+  printf '%s' "$2" > "${fixture_repo}/$1"
+}
+fixture_git init -q
+fixture_write README.md $'# Example\n\nBuild it:\n\nnpm run old-build\n'
+fixture_write docs/setup.md $'# Setup\n\nnpm run old-build\n'
+fixture_write package.json $'{"scripts": {"old-build": "tsc"}}\n'
+fixture_write src/index.js $'console.log("ready");\n'
+fixture_write .github/claude/invariants.json '{"invariants": [{"classKey": "no-console-log", "statement": "Source code logs through the logger, never console.log.", "enumerator": {"type": "grep", "pattern": "console\\.log", "paths": ["src"]}}]}'
+fixture_git add -A
+fixture_git commit -q -m base
+sha_b="$(fixture_git rev-parse HEAD)"
+fixture_write package.json $'{"scripts": {"build": "tsc"}}\n'
+fixture_write .github/claude/invariants.json '{"invariants": []}'
+fixture_git commit -q -a -m "rename the build script"
+sha_a="$(fixture_git rev-parse HEAD)"
+fixture_write docs/setup.md $'# Setup\n\nnpm run build\n'
+fixture_write README.md $'# Example\n\nFour new lines\nabove the command\nmove it down\nthe file.\n\nBuild it:\n\nnpm run old-build\n'
+fixture_git commit -q -a -m "fix the setup document"
+sha_c="$(fixture_git rev-parse HEAD)"
+repository_invariants="$(fixture_git show "${sha_b}:.github/claude/invariants.json" | jq -c '.invariants')"
 
 facts_for() {
   local head="$1"
-  jq -n -c --arg head "$head" --arg base "$sha_b" '{pullRequest: 7, reviewedHead: $head, baseSha: $base, patchId: null, reviewedFiles: ["README.md", "docs/setup.md", "package.json"], scope: {kind: "full", since: null, reason: "first recorded round"}}'
+  jq -n -c --arg head "$head" --arg base "$sha_b" --argjson repository "$repository_invariants" '{pullRequest: 7, reviewedHead: $head, baseSha: $base, patchId: null, reviewedFiles: ["README.md", "docs/setup.md", "package.json"], scope: {kind: "full", since: null, reason: "first recorded round"}, repositoryInvariants: $repository}'
+}
+in_fixture() {
+  (cd "$fixture_repo" && "$@")
 }
 
 # Stable ids
@@ -70,7 +99,7 @@ ledger apply "${work_dir}/update-1.json" "${work_dir}/facts-1.json" > "${work_di
 expect_equal "round 1 records the head and round the runner supplied" "1 ${sha_a}" "$(jq -r '"\(.round) \(.reviewedHead)"' "${work_dir}/ledger-1.json")"
 expect_equal "round 1 records both reported instances as open" "open open" "$(jq -r '[.findings[].status] | join(" ")' "${work_dir}/ledger-1.json")"
 expect_equal "each finding's id is its class key and instance's id" "$(ledger id stale-reference 'README.md :: npm run old-build')" "$(jq -r '.findings[] | select(.path == "README.md") | .id' "${work_dir}/ledger-1.json")"
-expect_equal "round 1 records the invariant the reviewer checked" "stale-reference review 1" "$(jq -r '.invariants[] | "\(.classKey) \(.source) \(.checkedRound)"' "${work_dir}/ledger-1.json")"
+expect_equal "round 1 records the repository's invariant and the one the reviewer checked" "no-console-log repository 1, stale-reference review 1" "$(jq -r '[.invariants[] | "\(.classKey) \(.source) \(.checkedRound)"] | join(", ")' "${work_dir}/ledger-1.json")"
 expect_equal "a ledger the action wrote passes its own check" "0" "$(status_of ledger check "${work_dir}/ledger-1.json")"
 
 # render and extract: the round trip through a comment
@@ -133,15 +162,54 @@ expect_equal "round 2 follows round 1 and records the new head" "2 ${sha_c}" "$(
 expect_equal "a re-reported instance adds no new finding" "2" "$(jq '.findings | length' "${work_dir}/ledger-2.json")"
 expect_equal "a re-reported instance keeps its id and first round and is still open" "${id_one} 1 2 open" "$(jq -r '.findings[] | select(.path == "README.md") | "\(.id) \(.firstRound) \(.lastRound) \(.status)"' "${work_dir}/ledger-2.json")"
 expect_equal "a finding marked fixed records the reason" "fixed docs/setup.md now names npm run build." "$(jq -r '.findings[] | select(.path == "docs/setup.md") | "\(.status) \(.statusReason)"' "${work_dir}/ledger-2.json")"
-expect_equal "a re-declared invariant is recorded once, checked this round" "1 2" "$(jq -r '"\(.invariants | length) \(.invariants[0].checkedRound)"' "${work_dir}/ledger-2.json")"
+expect_equal "a re-declared invariant is recorded once, checked this round" "1 2" "$(jq -r '[.invariants[] | select(.source == "review")] | "\(length) \(.[0].checkedRound)"' "${work_dir}/ledger-2.json")"
 expect_equal "the round 2 ledger passes its own check" "0" "$(status_of ledger check "${work_dir}/ledger-2.json")"
 
+# Enumerators: what the action runs itself.
+readme_id_round_1="$(in_fixture ledger prepare "$sha_a" "${work_dir}/facts-1.json" "${work_dir}/ledger-1.json" | jq -r '.invariants[] | select(.classKey == "stale-reference") | .instances[] | select(.path == "README.md") | "\(.id) \(.line)"')"
+readme_id_round_2="$(in_fixture ledger prepare "$sha_c" "${work_dir}/facts-2.json" "${work_dir}/ledger-1.json" | jq -r '.invariants[] | select(.classKey == "stale-reference") | .instances[] | select(.path == "README.md") | "\(.id) \(.line)"')"
+expect_equal "an enumerated instance's id is the finding's id for the same instance" "${id_one} 5" "$readme_id_round_1"
+expect_equal "an enumerated instance keeps its id when lines above it move" "${id_one} 10" "$readme_id_round_2"
+fixture_write duplicate.md $'npm run old-build\nother\n  npm run old-build\n'
+fixture_git add duplicate.md
+fixture_git commit -q -m "add a duplicate"
+duplicate_head="$(fixture_git rev-parse HEAD)"
+jq -n -c '[{classKey: "stale-reference", statement: "s", enumerator: {type: "grep", pattern: "old-build", paths: ["duplicate.md"]}, source: "review"}]' > "${work_dir}/duplicate-invariant.json"
+jq -c --argjson invariants "$(cat "${work_dir}/duplicate-invariant.json")" '.repositoryInvariants = $invariants' "${work_dir}/facts-1.json" > "${work_dir}/facts-duplicate.json"
+expect_equal "identical lines in one file get distinct keys, numbered in file order" '["duplicate.md :: npm run old-build","duplicate.md :: npm run old-build #2"]' "$(in_fixture ledger prepare "$duplicate_head" "${work_dir}/facts-duplicate.json" | jq -c '[.invariants[0].instances[].key]')"
+jq -c '.repositoryInvariants[0].enumerator.pattern = "("' "${work_dir}/facts-duplicate.json" > "${work_dir}/facts-bad-pattern.json"
+expect_equal "a pattern git grep rejects stops the run" "1" "$(status_of in_fixture ledger prepare "$sha_a" "${work_dir}/facts-bad-pattern.json")"
+expect_equal "the repository's invariant is enumerated from the head's tree" '["src/index.js :: console.log(\"ready\");"]' "$(in_fixture ledger prepare "$sha_a" "${work_dir}/facts-1.json" | jq -c '[.invariants[] | select(.classKey == "no-console-log") | .instances[].key]')"
+
+in_fixture ledger enumerate-ledger "$sha_a" "${work_dir}/ledger-1.json" > "${work_dir}/ledger-1-enumerated.json"
+expect_equal "enumerate-ledger keeps round 1's findings open while their instances match" "open open" "$(jq -r '[.findings[].status] | join(" ")' "${work_dir}/ledger-1-enumerated.json")"
+expect_equal "enumerate-ledger records each invariant's instances" "1 2" "$(jq -r '[.invariants[].instances | length] | join(" ")' "${work_dir}/ledger-1-enumerated.json")"
+expect_equal "an enumerated ledger passes its own check" "0" "$(status_of ledger check "${work_dir}/ledger-1-enumerated.json")"
+# A round 2 update that says nothing about docs/setup.md: the action finds its instance gone and marks it fixed itself.
+jq -c '.statuses = []' "${work_dir}/update-2.json" > "${work_dir}/update-2-silent.json"
+ledger apply "${work_dir}/update-2-silent.json" "${work_dir}/facts-2.json" "${work_dir}/ledger-1-enumerated.json" > "${work_dir}/applied-2-silent.json"
+in_fixture ledger enumerate-ledger "$sha_c" "${work_dir}/applied-2-silent.json" > "${work_dir}/ledger-2-silent.json"
+expect_equal "a grep-enumerated finding whose instance no longer matches is marked fixed by the action" "fixed" "$(jq -r '.findings[] | select(.path == "docs/setup.md") | .status' "${work_dir}/ledger-2-silent.json")"
+# A round 2 update that calls the README finding fixed although its line is still there.
+jq -c --arg id "$id_one" '.findings = [] | .statuses = [{id: $id, status: "fixed", reason: "claimed"}]' "${work_dir}/update-2.json" > "${work_dir}/update-2-false-fix.json"
+ledger apply "${work_dir}/update-2-false-fix.json" "${work_dir}/facts-2.json" "${work_dir}/ledger-1-enumerated.json" > "${work_dir}/applied-2-false-fix.json"
+in_fixture ledger enumerate-ledger "$sha_c" "${work_dir}/applied-2-false-fix.json" > "${work_dir}/ledger-2-false-fix.json"
+expect_equal "a grep-enumerated finding called fixed while its instance still matches stays open" "open" "$(jq -r --arg id "$id_one" '.findings[] | select(.id == $id) | .status' "${work_dir}/ledger-2-false-fix.json")"
+# A finding whose instance is not one of its enumerator's keys.
+jq -c '.findings[0].instance = "README.md :: a line that is not there"' "${work_dir}/update-2.json" > "${work_dir}/update-2-unmatched.json"
+ledger apply "${work_dir}/update-2-unmatched.json" "${work_dir}/facts-2.json" "${work_dir}/ledger-1-enumerated.json" > "${work_dir}/applied-2-unmatched.json"
+expect_equal "a finding reported with an instance its grep enumerator does not find is refused" "1" "$(status_of in_fixture ledger enumerate-ledger "$sha_c" "${work_dir}/applied-2-unmatched.json")"
+
 # context: what the reviewer is told
-expect_contains "the first round's context says there is no earlier round" "This is round 1" "$(ledger context)"
-context_2="$(ledger context "${work_dir}/ledger-1.json")"
+in_fixture ledger prepare "$sha_a" "${work_dir}/facts-1.json" > "${work_dir}/prepared-1.json"
+expect_contains "the first round's context says there is no earlier round" "This is round 1" "$(ledger context "${work_dir}/prepared-1.json")"
+expect_contains "the first round's context lists the repository's invariant with its instances" '"src/index.js :: console.log(\"ready\");" (src/index.js, line 1)' "$(ledger context "${work_dir}/prepared-1.json")"
+in_fixture ledger prepare "$sha_c" "${work_dir}/facts-2.json" "${work_dir}/ledger-1-enumerated.json" > "${work_dir}/prepared-2.json"
+context_2="$(ledger context "${work_dir}/prepared-2.json")"
 expect_contains "a later round's context names the round" "This is round 2" "$context_2"
-expect_contains "a later round's context lists each finding by id" "\`${id_one}\` \`stale-reference\` Should fix, open" "$context_2"
-expect_contains "a later round's context lists the invariants checked" "grep \`old-build\` in \`README.md\`, \`docs\`" "$context_2"
+expect_contains "a later round's context lists each finding by id with the action's own check" "\`${id_one}\` \`stale-reference\` Should fix, open: \"README.md :: npm run old-build\". \"Names the old-build script, which this change removes.\" Its enumerator still matches this instance at this head." "$context_2"
+expect_contains "a later round's context says when a finding's instance is gone" "no longer matches this instance at this head" "$context_2"
+expect_contains "a later round's context lists the invariants with their instances at this head" "  - \"README.md :: npm run old-build\" (README.md, line 10)" "$context_2"
 
 # The steps in action.yml, against a stub gh.
 stub_bin="${work_dir}/stub-bin"
@@ -195,12 +263,12 @@ reset_stub() {
 }
 run_read() {
   reset_runner_temp
-  run_step review-ledger GITHUB_STEP_SUMMARY="${work_dir}/read-summary.md" PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 WORK_ROOT="$runner_temp"
+  in_fixture run_step review-ledger GITHUB_STEP_SUMMARY="${work_dir}/read-summary.md" PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 WORK_ROOT="$runner_temp"
 }
 # Runs the write step on an execution file, with the outcome of Resolve Claude Code result (success unless given) and whether the run hit its turn limit.
 run_write() {
   local execution_file="$1" outcome="${2:-success}" hit_limit="${3:-}"
-  run_step review-ledger-write STUB_FAIL_WRITES="${STUB_FAIL_WRITES:-}" GITHUB_STEP_SUMMARY="${work_dir}/step-summary.md" PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 EXECUTION_FILE="$execution_file" \
+  in_fixture run_step review-ledger-write STUB_FAIL_WRITES="${STUB_FAIL_WRITES:-}" GITHUB_STEP_SUMMARY="${work_dir}/step-summary.md" PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 EXECUTION_FILE="$execution_file" \
     CLAUDE_OUTCOME="$outcome" HIT_TURN_LIMIT="$hit_limit" \
     WORK="$(output_value "${work_dir}/read-output" work_dir)" PREVIOUS="$(output_value "${work_dir}/read-output" previous)" \
     COMMENT_ID="$(output_value "${work_dir}/read-output" comment_id)" FACTS="$(output_value "${work_dir}/read-output" facts)"
@@ -224,6 +292,8 @@ expect_equal "the read step takes the head and base from GitHub" "${sha_a} ${sha
 expect_equal "the read step records the patch id of the pull request's diff" "$(ledger patch-id < "${work_dir}/one.diff")" "$(jq -r '.patchId' "$facts_file")"
 expect_equal "the read step records every path the diff touched, renamed ones under both names" '["README.md","docs/setup.md","package.json","package.old.json"]' "$(jq -c '.reviewedFiles' "$facts_file")"
 expect_contains "the read step's context starts round 1" "This is round 1" "$(cat "$(output_value "${work_dir}/read-output" context)")"
+expect_equal "the read step takes the repository's invariants from the base commit, not the head that empties them" "no-console-log" "$(jq -r '[.repositoryInvariants[].classKey] | join(" ")' "$facts_file")"
+expect_contains "the read step's context lists the repository invariant's instances at the head" "src/index.js :: console.log" "$(cat "$(output_value "${work_dir}/read-output" context)")"
 
 : > "${work_dir}/step-summary.md"
 status="$(run_write "${ledger_fixtures}/round-1.json")"
@@ -341,9 +411,27 @@ expect_contains "the composed review prompt carries the ledger context" "This is
 review_prompt="$(cat "${repo_root}/prompts/review/base.md")"
 expect_contains "the review prompt asks for the update block" "<review-ledger-update>" "$review_prompt"
 expect_contains "the review prompt forbids line numbers in an instance" "never by a line number" "$review_prompt"
+expect_contains "the review prompt asks for invariants before the review" "### Invariants first, then enumerate" "$review_prompt"
+expect_contains "the review prompt gives the action's key format for a grep instance" "\`<path> :: <matched line>\`" "$review_prompt"
 
 
 # Error paths with no other test.
+expect_contains "validate refuses a definition the schema does not have" "review-ledger: no schema definition named no-such-definition" "$(ledger validate no-such-definition "${work_dir}/ledger-1.json" 2>&1 || true)"
+# A repository invariants file on the base commit that does not match the schema stops the read step. The fixture gains a base commit holding one and a head on top of it.
+fixture_git checkout -q "$sha_b"
+fixture_write .github/claude/invariants.json '{"invariants": [{"classKey": "Not Kebab Case", "statement": "s", "enumerator": {"type": "grep", "pattern": "x", "paths": []}}]}'
+fixture_git commit -q -a -m "an invariants file that does not match the schema"
+invalid_base="$(fixture_git rev-parse HEAD)"
+fixture_write README.md $'# Example\n\nA head on the invalid base.\n'
+fixture_git commit -q -a -m "a head on the invalid base"
+invalid_head="$(fixture_git rev-parse HEAD)"
+fixture_git checkout -q "$sha_c"
+reset_stub "$invalid_head"
+jq -c --arg base "$invalid_base" '.base.sha = $base' "${work_dir}/pull.json" > "${work_dir}/pull-invalid-base.json"
+serve repos/owner/repo/pulls/7 "${work_dir}/pull-invalid-base.json"
+status="$(run_read)"
+expect_equal "the read step fails when the base commit's invariants file does not match the schema" "1" "$status"
+expect_contains "the read step names the invariants file that does not match the schema" "::error::.github/claude/invariants.json on the base branch does not match the repositoryInvariants definition" "$(cat "${work_dir}/stdout")"
 # Every subcommand that takes a fixed number of arguments refuses too many, naming its own usage; the subcommands are read from the script, so a new one is covered without an edit here.
 too_many_arguments=(one two three four five six seven eight nine)
 while IFS= read -r subcommand; do
@@ -400,7 +488,15 @@ usage: review-ledger.sh id <class-key> <instance>	the id subcommand refuses too 
 usage: review-ledger.sh check <ledger-file>	the check subcommand refuses too many arguments with its usage
 usage: review-ledger.sh update-block <execution-file>	the update-block subcommand refuses too many arguments with its usage
 usage: review-ledger.sh apply <update-file> <facts-file> [<previous-ledger-file>]	the apply subcommand refuses too many arguments with its usage
-usage: review-ledger.sh context [<previous-ledger-file>]	the context subcommand refuses too many arguments with its usage
+usage: review-ledger.sh context <prepared-file>	the context subcommand refuses too many arguments with its usage
+usage: review-ledger.sh validate <definition> <file>	the validate subcommand refuses too many arguments with its usage
+usage: review-ledger.sh prepare <commit> <facts-file> [<previous-ledger-file>]	the prepare subcommand refuses too many arguments with its usage
+usage: review-ledger.sh enumerate-ledger <commit> <ledger-file>	the enumerate-ledger subcommand refuses too many arguments with its usage
+no schema definition named 	validate refuses a definition the schema does not have
+.github/claude/invariants.json on the base branch does not match the repositoryInvariants definition in the action's schemas/review-ledger.schema.json (see the log above).	the read step names the invariants file that does not match the schema
+the grep enumerator of 	a pattern git grep rejects stops the run
+findings reported this round name an instance their own grep enumerator does not find at 	a finding reported with an instance its grep enumerator does not find is refused
+the ledger could not be enumerated (see the message above)	a finding reported with an instance its grep enumerator does not find is refused
 usage: review-ledger.sh render <ledger-file>	the render subcommand refuses too many arguments with its usage
 usage: review-ledger.sh <subcommand> [<argument>...], with the subcommands the header of this script lists	an unknown subcommand is refused with the general usage
 no readable data block in the ledger comment 	extract names the comment whose data block is missing
