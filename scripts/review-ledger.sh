@@ -5,13 +5,19 @@
 # - `review-ledger.sh id <class-key> <instance>` prints the stable id of one instance of a class.
 # - `review-ledger.sh patch-id < diff` prints git patch-id --stable of a diff, or nothing for an empty diff.
 # - `review-ledger.sh extract < comments` reads a JSON array of issue comments and prints {"commentId": <id>, "ledger": <ledger>} for the newest comment written by a bot that carries the ledger marker, or nothing when there is none; a marker comment whose data block is missing or not JSON is an error.
+# - `review-ledger.sh validate <definition> <file>` exits non-zero, naming every violation on stderr, unless the file matches the schema definition named (`ledger` for the ledger itself, or a name under $defs such as `repositoryInvariants`).
 # - `review-ledger.sh check <ledger-file>` exits non-zero, naming every problem on stderr, unless the file is a valid ledger whose ids are the ones its class keys and instances produce.
 # - `review-ledger.sh update-block <execution-file>` prints the JSON between the last <review-ledger-update> and </review-ledger-update> tags of a run's final result message, or, when that message has none, of the newest of the run's own assistant messages (text or tool call input) that has one, naming on stderr which it read; prints nothing when the run wrote no block.
 # - `review-ledger.sh apply <update-file> <facts-file> [<previous-ledger-file>]` prints the ledger after this round: the previous ledger (if any) with the reviewer's update merged in and the runner's facts (pullRequest, reviewedHead, baseSha, patchId, reviewedFiles, scope) set.
+# - `review-ledger.sh prepare <commit> <facts-file> [<previous-ledger-file>]` prints what a round starts from, for `context`: its round number, the previous reviewed head, the invariants to check with every instance their grep enumerators find at the commit, and the findings on record, each open grep-enumerated one marked with whether its instance still matches. Runs in the repository holding the commit.
+# - `review-ledger.sh context <prepared-file>` prints the "Review ledger" section of the review prompt from what `prepare` printed.
+# - `review-ledger.sh enumerate-ledger <commit> <ledger-file>` prints the ledger with every invariant's instances found at the commit, every open grep-enumerated finding whose instance no longer matches marked fixed, and every one marked fixed whose instance still matches reopened. A finding reported this round whose instance its own grep enumerator does not find is an error. Runs in the repository holding the commit.
 # - `review-ledger.sh render <ledger-file>` prints the comment body that stores the ledger.
 #
 # A command that finds invalid input prints why on stderr and exits 1; nothing is skipped silently.
 set -euo pipefail
+# A failure inside $(...) stops the script too, so an enumerator error deep in a pipeline is never read as an empty result.
+shopt -s inherit_errexit
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 schema="${script_dir}/../schemas/review-ledger.schema.json"
@@ -65,6 +71,69 @@ validate() {
   [ -z "$errors" ] || die "not a valid ${definition}: ${file}"$'\n'"${errors}"
 }
 
+# Prints, as a JSON array of instance records (id, key, path, line), every match of a grep enumerator in the tree of a commit. Takes the class key, the enumerator JSON and the commit; runs in the repository holding the commit. An instance's key is its path and its matched line with surrounding whitespace trimmed, with " #2", " #3" and so on appended to the second and later identical lines in one file, so a key, and the id made from it, stays the same when lines are added or removed around it. A pattern or pathspec git grep rejects stops with its error.
+grep_instances() {
+  local class_key="$1" enumerator="$2" commit="$3" pattern matches status=0
+  pattern="$(jq -r '.pattern' <<< "$enumerator")"
+  local paths=()
+  while IFS= read -r -d '' path; do
+    paths+=("$path")
+  done < <(jq -j '.paths[] | (., "\u0000")' <<< "$enumerator")
+  matches="$(mktemp)"
+  # -z separates the path, line number and text with NUL bytes, so a path holding ":" parses correctly; NUL bytes cannot pass through a shell variable, hence the file.
+  git grep -n -I -E -z -e "$pattern" "$commit" -- ${paths[@]+"${paths[@]}"} > "$matches" || status=$?
+  # git grep exits 1 when nothing matches, which is an empty list of instances; anything higher is an error.
+  if [ "$status" -gt 1 ]; then
+    rm -f "$matches"
+    die "the grep enumerator of ${class_key} (pattern ${pattern}) failed: git grep exited ${status}"
+  fi
+  jq -R -s -c --arg prefix "${commit}:" --arg classKey "$class_key" '
+    split("\n")
+    | map(select(. != "") | split("\u0000") | {path: (.[0] | ltrimstr($prefix)), line: (.[1] | tonumber), text: (.[2:] | join("\u0000") | gsub("^\\s+|\\s+$"; ""))})
+    | sort_by(.path, .line)
+    | reduce .[] as $match ({seen: {}, instances: []};
+        "\($match.path) :: \($match.text)" as $base
+        | (.seen[$base] // 0) as $earlier
+        | .seen[$base] = $earlier + 1
+        | .instances += [{classKey: $classKey, key: (if $earlier == 0 then $base else "\($base) #\($earlier + 1)" end), path: $match.path, line: $match.line}])
+    | .instances
+  ' "$matches" | with_ids key | jq -c 'map({id, key, path, line})'
+  rm -f "$matches"
+}
+
+# Reads a JSON array of invariants on stdin and prints it with each one's instances in the tree of the commit $1: a grep enumerator's matches, and none for a test or lens enumerator, which the action cannot run.
+enumerate_invariants() {
+  local commit="$1" invariants count index invariant found
+  invariants="$(cat)"
+  count="$(jq 'length' <<< "$invariants")"
+  local results=()
+  for ((index = 0; index < count; index++)); do
+    invariant="$(jq -c --argjson index "$index" '.[$index]' <<< "$invariants")"
+    if [ "$(jq -r '.enumerator.type' <<< "$invariant")" = "grep" ]; then
+      found="$(grep_instances "$(jq -r '.classKey' <<< "$invariant")" "$(jq -c '.enumerator' <<< "$invariant")" "$commit")"
+      results+=("$found")
+    else
+      results+=("[]")
+    fi
+  done
+  jq -c --args '[., ($ARGS.positional | map(fromjson))] | transpose | map(.[0] + {instances: .[1]})' ${results[@]+"${results[@]}"} <<< "$invariants"
+}
+
+# Reads a JSON array of findings on stdin and prints an object mapping the id of each finding with a grep enumerator to whether its instance is still among the enumerator's matches in the tree of the commit $1. Findings with a test or lens enumerator are left out: only the reviewer can check those.
+grep_finding_matches() {
+  local commit="$1" findings count index finding instances
+  findings="$(cat)"
+  count="$(jq 'length' <<< "$findings")"
+  local pairs=()
+  for ((index = 0; index < count; index++)); do
+    finding="$(jq -c --argjson index "$index" '.[$index]' <<< "$findings")"
+    [ "$(jq -r '.enumerator.type' <<< "$finding")" = "grep" ] || continue
+    instances="$(grep_instances "$(jq -r '.classKey' <<< "$finding")" "$(jq -c '.enumerator' <<< "$finding")" "$commit")"
+    pairs+=("$(jq -c -n --argjson finding "$finding" --argjson instances "$instances" '{key: $finding.id, value: ([$instances[].key] | index($finding.instance) != null)}')")
+  done
+  jq -c -n --args '$ARGS.positional | map(fromjson) | from_entries' ${pairs[@]+"${pairs[@]}"}
+}
+
 command="${1:-}"
 shift || true
 
@@ -89,6 +158,12 @@ case "$command" in
       | ([.body | capture("(?s)" + $open + "\n(?<data>.*?)\n" + $close)] | first // error("no readable data block in the ledger comment \($id), which carries the marker"))
       | {commentId: $id, ledger: (.data | try fromjson catch error("the data block of the ledger comment \($id) is not valid JSON"))}
     ' || die "the ledger comment could not be read (see the message above)"
+    ;;
+
+  validate)
+    [ "$#" -eq 2 ] || die "usage: review-ledger.sh validate <definition> <file>"
+    [ "$1" = "ledger" ] || jq -e --arg definition "$1" '."$defs" | has($definition)' "$schema" > /dev/null || die "no schema definition named ${1}; use ledger or a name under \$defs in ${schema}"
+    validate "$1" "$2"
     ;;
 
   check)
@@ -180,7 +255,7 @@ case "$command" in
         )) as $carried
       | ($reported | map(select(.id as $id | $prior_ids | index($id) | not)) | unique_by(.id)
           | map({id, classKey, instance, path, severity, summary, enumerator, status: "open", statusReason: "", firstRound: $round, lastRound: $round})) as $new
-      | (($previous.invariants // []) | map(select(.source == "repository"))) as $repository_invariants
+      | ($facts.repositoryInvariants | map(. + {source: "repository", checkedRound: $round, instances: []})) as $repository_invariants
       | ([$repository_invariants[].classKey]) as $repository_classes
       | (($previous.invariants // []) | map(select(.source == "review"))
           | map(select(.classKey as $class | [$update.invariants[].classKey] | index($class) | not))) as $kept_review_invariants
@@ -201,41 +276,92 @@ case "$command" in
     ' "$update_file" || die "the update could not be applied (see the message above)"
     ;;
 
-  context)
-    [ "$#" -le 1 ] || die "usage: review-ledger.sh context [<previous-ledger-file>]"
-    if [ "$#" -eq 1 ]; then
-      validate ledger "$1"
-      previous="$(cat "$1")"
+  prepare)
+    [ "$#" -ge 2 ] && [ "$#" -le 3 ] || die "usage: review-ledger.sh prepare <commit> <facts-file> [<previous-ledger-file>]"
+    commit="$1"
+    facts_file="$2"
+    if [ "$#" -eq 3 ]; then
+      validate ledger "$3"
+      previous="$(cat "$3")"
     else
       previous='null'
     fi
-    jq -n -r --argjson previous "$previous" '
+    # The invariants this round starts from: the repository's own, then those earlier rounds derived that the repository's do not replace.
+    invariants="$(jq -c --argjson previous "$previous" '
+      (.repositoryInvariants | map(. + {source: "repository"})) as $repository
+      | ([$repository[].classKey]) as $repository_classes
+      | $repository + (($previous.invariants // []) | map(select(.source == "review" and (.classKey as $class | $repository_classes | index($class) | not))) | map({classKey, statement, enumerator, source}))
+    ' "$facts_file" | enumerate_invariants "$commit")"
+    matches="$(jq -c --argjson previous "$previous" -n '($previous.findings // []) | map(select(.status == "open"))' | grep_finding_matches "$commit")"
+    jq -n -c --argjson previous "$previous" --argjson invariants "$invariants" --argjson matches "$matches" '{
+      round: (($previous.round // 0) + 1),
+      previousHead: $previous.reviewedHead,
+      invariants: $invariants,
+      findings: (($previous.findings // []) | map(. + {stillMatched: $matches[.id]}))
+    }'
+    ;;
+
+  context)
+    [ "$#" -eq 1 ] || die "usage: review-ledger.sh context <prepared-file>"
+    jq -r '
       def enumerator_text:
         if .type == "grep" then "grep `\(.pattern)` in \(if (.paths | length) == 0 then "the whole tree" else (.paths | map("`\(.)`") | join(", ")) end)"
         elif .type == "test" then "test `\(.name)`"
         else "lens `\(.name)`" end;
+      def check_text:
+        if .status != "open" then ""
+        elif .stillMatched == true then " Its enumerator still matches this instance at this head."
+        elif .stillMatched == false then " Its enumerator no longer matches this instance at this head, so the action records it as fixed unless you report it again."
+        else "" end;
       [
         "# Review ledger",
         "",
-        if $previous == null then
+        if .previousHead == null then
           "This is round 1: no earlier review round of this pull request is on record. Review the whole pull request."
         else
-          ( "This is round \($previous.round + 1). The ledger records \($previous.round) earlier round(s); the last one reviewed head `\($previous.reviewedHead)`.",
+          ( "This is round \(.round). The ledger records \(.round - 1) earlier round(s); the last one reviewed head `\(.previousHead)`.",
             "",
             "Findings on record (id, class, severity, status, instance, summary):",
             "",
-            (if ($previous.findings | length) == 0 then "- none" else
-              ($previous.findings[] | "- `\(.id)` `\(.classKey)` \(.severity), \(.status): \(.instance | tojson). \(.summary | tojson)")
-            end),
-            "",
-            "Invariants on record (class, statement, enumerator):",
-            "",
-            (if ($previous.invariants | length) == 0 then "- none" else
-              ($previous.invariants[] | "- `\(.classKey)` (\(.source)): \(.statement | tojson); \(.enumerator | enumerator_text)")
+            (if (.findings | length) == 0 then "- none" else
+              (.findings[] | "- `\(.id)` `\(.classKey)` \(.severity), \(.status): \(.instance | tojson). \(.summary | tojson)\(check_text)")
             end) )
-        end
+        end,
+        "",
+        "Invariants to check this round, with every instance their enumerator finds at this head (class, where it came from, statement, enumerator, instances):",
+        "",
+        (if (.invariants | length) == 0 then "- none on record yet: derive them before you review, as the review instructions say" else
+          (.invariants[]
+            | "- `\(.classKey)` (\(.source)): \(.statement | tojson); \(.enumerator | enumerator_text)",
+              (if .enumerator.type != "grep" then "  - not run by the action: check it yourself"
+               elif (.instances | length) == 0 then "  - no instances"
+               else (.instances[] | "  - \(.key | tojson) (\(.path), line \(.line))") end))
+        end)
       ] | join("\n")
-    '
+    ' "$1"
+    ;;
+
+  enumerate-ledger)
+    [ "$#" -eq 2 ] || die "usage: review-ledger.sh enumerate-ledger <commit> <ledger-file>"
+    commit="$1"
+    file="$2"
+    validate ledger "$file"
+    invariants="$(jq -c '.invariants | map(del(.instances))' "$file" | enumerate_invariants "$commit")"
+    matches="$(jq -c '.findings | map(select(.status != "retracted"))' "$file" | grep_finding_matches "$commit")"
+    jq -c --argjson invariants "$invariants" --argjson matches "$matches" '
+      .round as $round
+      | .reviewedHead as $head
+      | ([.findings[] | select(.lastRound == $round and .status == "open" and $matches[.id] == false) | .id]) as $unmatched
+      | if ($unmatched | length) > 0 then
+          error("findings reported this round name an instance their own grep enumerator does not find at \($head): \($unmatched | join(", ")); an instance of a grep-enumerated class must be one of the instance keys its enumerator lists")
+        else . end
+      | .invariants = $invariants
+      | .findings |= map(
+          if $matches[.id] == null then .
+          elif .status == "open" and $matches[.id] == false then .status = "fixed" | .statusReason = "Its grep enumerator no longer matches this instance at \($head)."
+          elif .status == "fixed" and $matches[.id] == true then .status = "open" | .statusReason = "Its grep enumerator matches this instance at \($head), so it is not fixed."
+          else . end)
+    ' "$file" || die "the ledger could not be enumerated (see the message above)"
     ;;
 
   render)

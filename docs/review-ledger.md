@@ -21,9 +21,38 @@ A finding is one instance of a class. The class key is a short kebab-case name f
 
 Each finding and invariant says how every instance of its class is found:
 
-- `{"type": "grep", "pattern": "...", "paths": ["..."]}`: a mechanical enumerator, `git grep -E` with this pattern over these pathspecs.
-- `{"type": "test", "name": "..."}`: a test, named as the repository runs it, that fails while an instance exists.
-- `{"type": "lens", "name": "..."}`: a named review lens, for a class that needs judgement.
+- `{"type": "grep", "pattern": "...", "paths": ["..."]}`: a mechanical enumerator, `git grep -E` with this pattern over these pathspecs (the whole tree when the list is empty). The action runs it itself.
+- `{"type": "test", "name": "..."}`: a test, named as the repository runs it, that fails while an instance exists. The reviewer checks it; the action does not run the repository's tests.
+- `{"type": "lens", "name": "..."}`: a named review lens, for a class that needs judgement. The reviewer checks it.
+
+## Invariants first, then enumerate
+
+Before reviewing, the reviewer works out the invariants the change must hold, from the pull request description, the repository's conventions document and committed configuration, and the stack guidance, and gives each the strongest enumerator it allows. The action does every part of this that a machine can:
+
+- **The repository's own invariants** come from `.github/claude/invariants.json` on the base commit, never the head, so a pull request cannot change the invariants it is reviewed against; a change to the file takes effect once it is merged. The file holds `{"invariants": [...]}`, each entry a `classKey`, a one-sentence `statement` and an `enumerator`, as the `repositoryInvariants` definition in the schema says. A file that does not match stops the run with an error naming it. For example:
+
+  ```json
+  {
+    "invariants": [
+      {
+        "classKey": "no-console-log",
+        "statement": "Source code logs through the logger, never console.log.",
+        "enumerator": {
+          "type": "grep",
+          "pattern": "console\\.log",
+          "paths": ["src"]
+        }
+      }
+    ]
+  }
+  ```
+
+- **Before the review**, the action runs the grep enumerator of every invariant on record (the repository's, then those earlier rounds derived) over the head commit's tree and puts every instance it finds in the prompt, so the reviewer judges a class once with its whole instance list. It also checks each open grep-enumerated finding on record and says whether its instance still matches.
+- **After the review**, the action runs every grep enumerator again at the reviewed head, the reviewer's new ones included, and records each invariant's instance list. A grep-enumerated finding whose instance no longer matches is marked fixed by the action, and one whose instance still matches stays open, whatever status the reviewer gave it. A finding reported this round whose instance its own enumerator does not find fails the run: the instance must be written as the action keys a match.
+
+An instance of a grep match is keyed as `<path> :: <matched line>`, the line with its leading and trailing whitespace removed; the second and later identical lines in one file get ` #2`, ` #3` and so on, in file order. The key holds no line number, so its id stays the same when lines are added or removed above it. Every instance record also notes the line where it was found that round, for the reader; the line takes no part in any id.
+
+A pattern `git grep` rejects stops the run with the class key and pattern named. The repository's tests are not run by the action: a test enumerator is checked by the reviewer, and running them is the repository's own CI's job.
 
 ## Where it is stored, and why
 
@@ -41,9 +70,9 @@ A comment body is limited to 65,536 characters. A ledger that would render longe
 ## How a round uses it
 
 1. **Read the review ledger** (before the prompt is composed) takes the pull request's head, base, changed files and diff from GitHub, computes the patch id, and reads the ledger from the newest bot-authored comment that carries the marker. It checks the ledger against the schema and recomputes every id from its class key and instance. A marker comment whose data block cannot be found or parsed, or a ledger that fails either check, stops the run with an error naming the comment: it was edited into a state this action never wrote. Deleting the comment starts the ledger again; restoring its previous version from the comment's edit history keeps it.
-2. The composed prompt gains a "Review ledger" section: the round number, the head the last round reviewed, every finding on record with its id, class, severity, status, instance and summary, and the invariants checked so far.
+2. The read step reads the repository's invariants from the base commit, runs every grep enumerator on record over the head commit's tree, and checks each open grep-enumerated finding against it. The composed prompt gains a "Review ledger" section: the round number, the head the last round reviewed, every finding on record with its id, class, severity, status, instance, summary and that check, and the invariants to check with every instance found at this head.
 3. The reviewer ends its run with a `<review-ledger-update>` block of JSON (the `update` definition in the schema) in its final message, never in the review it posts: the findings it reports this round, a status for every open finding on record it does not report again, and the invariants it checked. The write step reads the block from the execution file of the attempt that succeeded (an attempt that failed first, on a usage limit or a rejected credential, is never read), from its final result message, or, when that message has none, from the newest of the run's own messages that has one, such as the body of the review it submitted; the log says which.
-4. **Write the review ledger** (after the review) validates the block, merges it into the ledger under the facts the read step took from GitHub, checks the result, and posts the comment or edits it in place. A finding reported again keeps its id and first round; a status change names a finding by id; a new finding gets its id from its class key and instance. The step adds one line to the job's step summary with the round, the reviewed head and the open findings.
+4. **Write the review ledger** (after the review) validates the block, merges it into the ledger under the facts the read step took from GitHub, runs every grep enumerator again at the reviewed head to record the instance lists and settle the status of grep-enumerated findings, checks the result, and posts the comment or edits it in place. A finding reported again keeps its id and first round; a status change names a finding by id; a new finding gets its id from its class key and instance. The step adds one line to the job's step summary with the round, the reviewed head and the open findings.
 
 When GitHub does not return the pull request, its changed files or its comments after the read step's retries, the ledger is unavailable for that round rather than the review failing: the reviewer is told the ledger could not be read and reviews the whole pull request, the round is not recorded, and the step adds a warning and a line to the step summary. Comments that could not be read are never taken to mean there is no ledger comment, since that would start the record again over the one already there. When only the diff is refused, as GitHub does for a very large pull request, the round is recorded with its patch id unknown.
 
@@ -59,4 +88,4 @@ Everything the ledger records about the pull request itself (head, base, patch i
 
 Only a comment written by a bot account is read. Anyone who can comment on the pull request can post text that looks like a ledger, but not as a bot. Editing the action's own comment needs write access to the repository, and an edit that changes an instance without its id, or the other way round, fails the id check on the next read.
 
-What the reviewer reports is still the model's judgement over content that may come from the pull request's author: a review subverted by its own pull request can report a finding fixed when it is not. The ledger records that claim; it does not make it true. See [security.md](security.md#security-notes).
+What the reviewer reports is still the model's judgement over content that may come from the pull request's author. For a grep-enumerated finding the action settles fixed or open itself, so a review subverted by its own pull request cannot close one whose instance is still there; for a test or lens finding the ledger records the reviewer's claim, and does not make it true. A grep enumerator the reviewer declares runs only `git grep`, which reads the tree and executes nothing from it. See [security.md](security.md#security-notes).

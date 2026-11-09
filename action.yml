@@ -1055,7 +1055,7 @@ runs:
         echo "disallowed_tools=${DISALLOWED}" >> "$GITHUB_OUTPUT"
         echo "Mode '${MODE}' allowlist: ${ALLOWED}"
 
-    # Review mode's ledger (docs/review-ledger.md) is read here, before the prompt is composed, so the review starts from what earlier rounds recorded instead of from nothing. It lives in a comment the action itself writes on the pull request, because that is the one store that outlives both a cache miss and job-log expiry and needs no scope beyond the pull-requests: write review mode already holds (a check run would need checks: write, which the reusable review workflow does not grant). Only a comment written by a bot account is read, since anyone who can comment could otherwise post a ledger of their own, and the ledger is rejected unless it matches the schema and every id matches what it identifies. A comment that carries the marker but whose data cannot be read, or a ledger that fails either check, stops the run: it means the record was edited into a state this action did not write, and reviewing on top of it would carry that edit forward. The facts this round will be recorded under (head, base, patch id, files) are taken from GitHub here, in the runner, so nothing the model reads or writes can set them.
+    # Review mode's ledger (docs/review-ledger.md) is read here, before the prompt is composed, so the review starts from what earlier rounds recorded instead of from nothing. It lives in a comment the action itself writes on the pull request, because that is the one store that outlives both a cache miss and job-log expiry and needs no scope beyond the pull-requests: write review mode already holds (a check run would need checks: write, which the reusable review workflow does not grant). Only a comment written by a bot account is read, since anyone who can comment could otherwise post a ledger of their own, and the ledger is rejected unless it matches the schema and every id matches what it identifies. A comment that carries the marker but whose data cannot be read, or a ledger that fails either check, stops the run: it means the record was edited into a state this action did not write, and reviewing on top of it would carry that edit forward. The facts this round will be recorded under (head, base, patch id, files) are taken from GitHub here, in the runner, so nothing the model reads or writes can set them. The step also reads the repository's own invariants from the base commit and runs every grep enumerator on record over the head commit's tree, so the prompt carries each class's whole instance list and says which open findings still match.
     - name: Read the review ledger
       id: review-ledger
       if: ${{ inputs.mode == 'review' }}
@@ -1140,6 +1140,24 @@ runs:
           reason="first recorded round"
         fi
 
+        # git grep and git show need the head and base commits; a checkout made for the pull request has them, and any other is given them here.
+        for commit in "$head" "$base"; do
+          if ! git cat-file -e "${commit}^{commit}" 2> /dev/null; then
+            git fetch --no-tags --quiet origin "$commit"
+          fi
+        done
+
+        # The repository's own invariants come from the base commit, never the head, so a pull request cannot change the invariants it is reviewed against; a change to the file takes effect once it is merged.
+        if git cat-file -e "${base}:.github/claude/invariants.json" 2> /dev/null; then
+          git show "${base}:.github/claude/invariants.json" > "${work}/repository-invariants.json"
+          if ! bash "$script" validate repositoryInvariants "${work}/repository-invariants.json"; then
+            echo "::error::.github/claude/invariants.json on the base branch does not match the repositoryInvariants definition in the action's schemas/review-ledger.schema.json (see the log above)." >&2
+            exit 1
+          fi
+        else
+          printf '{"invariants": []}' > "${work}/repository-invariants.json"
+        fi
+
         jq -n -c \
           --argjson pullRequest "$PR_NUMBER" \
           --arg head "$head" \
@@ -1147,14 +1165,16 @@ runs:
           --arg patchId "$patch_id" \
           --slurpfile files "${work}/reviewed-files.json" \
           --arg reason "$reason" \
-          '{pullRequest: $pullRequest, reviewedHead: $head, baseSha: $base, patchId: (if $patchId == "" then null else $patchId end), reviewedFiles: $files[0], scope: {kind: "full", since: null, reason: $reason}}' \
+          --slurpfile repository "${work}/repository-invariants.json" \
+          '{pullRequest: $pullRequest, reviewedHead: $head, baseSha: $base, patchId: (if $patchId == "" then null else $patchId end), reviewedFiles: $files[0], scope: {kind: "full", since: null, reason: $reason}, repositoryInvariants: $repository[0].invariants}' \
           > "${work}/facts.json"
 
         if [ -n "$previous" ]; then
-          bash "$script" context "$previous" > "${work}/context.md"
+          bash "$script" prepare "$head" "${work}/facts.json" "$previous" > "${work}/prepared.json"
         else
-          bash "$script" context > "${work}/context.md"
+          bash "$script" prepare "$head" "${work}/facts.json" > "${work}/prepared.json"
         fi
+        bash "$script" context "${work}/prepared.json" > "${work}/context.md"
 
         {
           echo "available=true"
@@ -3265,10 +3285,12 @@ runs:
         fi
 
         if [ -n "${PREVIOUS:-}" ]; then
-          bash "$script" apply "${WORK}/update.json" "$FACTS" "$PREVIOUS" > "${WORK}/ledger.json"
+          bash "$script" apply "${WORK}/update.json" "$FACTS" "$PREVIOUS" > "${WORK}/applied.json"
         else
-          bash "$script" apply "${WORK}/update.json" "$FACTS" > "${WORK}/ledger.json"
+          bash "$script" apply "${WORK}/update.json" "$FACTS" > "${WORK}/applied.json"
         fi
+        # The action, not the reviewer, decides whether a grep-enumerated finding is fixed: its enumerator is run again at the reviewed head, and every invariant's instance list is recorded from the same run.
+        bash "$script" enumerate-ledger "$(jq -r '.reviewedHead' "$FACTS")" "${WORK}/applied.json" > "${WORK}/ledger.json"
         bash "$script" check "${WORK}/ledger.json"
         bash "$script" render "${WORK}/ledger.json" > "${WORK}/comment.md"
         jq -n --rawfile body "${WORK}/comment.md" '{body: $body}' > "${WORK}/payload.json"
