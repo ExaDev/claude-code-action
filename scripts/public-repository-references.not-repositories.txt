@@ -8,6 +8,7 @@ and/or
 App-identity/OIDC
 application/vnd.docker.distribution.manifest.list.v2
 application/vnd.docker.distribution.manifest.v2
+application/vnd.github
 application/vnd.oci.image.index.v1
 application/vnd.oci.image.manifest.v1
 assigned/labeled

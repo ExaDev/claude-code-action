@@ -3,7 +3,7 @@
 #
 # A reference passes only when the API returns the repository with "visibility": "public". A 404 fails, because unauthenticated (or to a token without access) a private repository and an absent one are indistinguishable, and both must go. A token in GITHUB_TOKEN is sent only to raise the rate limit: a token that can read a private repository gets it back with its real visibility, which fails too, so what the token can reach never lets a private repository pass. Unauthenticated, the API allows 60 requests an hour per address; each repository is looked up once per run, and a 403 or 429 stops the run with an error rather than passing what it could not check.
 #
-# Skipped without a lookup: lockfiles and binary files; a slug that is a run of path components of a tracked file (docs/security.md, prompts/triage/base.md) or that ends in a documentation or configuration file extension (.md, .yml, .toml); a slug whose owner or repository is not a valid GitHub name; a github.com URL whose first path segment is one of GitHub's own routes (github.com/apps/..., github.com/orgs/...), which no account can take; an owner in PUBLIC_ONLY_OWNERS; and a term listed in scripts/public-repository-references.not-repositories.txt.
+# Skipped without a lookup: lockfiles, binary files and this check's own test; a slug that is a run of path components of a tracked file (docs/security.md, prompts/triage/base.md) or that ends in a documentation or configuration file extension (.md, .yml, .toml); a slug whose owner or repository is not a valid GitHub name; a github.com URL whose first path segment is one of GitHub's own routes (github.com/apps/..., github.com/orgs/...), which no account can take; an owner in PUBLIC_ONLY_OWNERS; and a term listed in scripts/public-repository-references.not-repositories.txt.
 #
 # Usage: bash scripts/public-repository-references.sh [repository root]
 #
@@ -21,7 +21,8 @@ PUBLIC_ONLY_OWNERS="actions anthropics dependabot github"
 work_dir="$(mktemp -d)"
 trap 'rm -rf "$work_dir"' EXIT
 
-pathspecs=(. ':(exclude,glob)**/package-lock.json' ':(exclude,glob)**/pnpm-lock.yaml' ':(exclude,glob)**/yarn.lock' ':(exclude,glob)**/npm-shrinkwrap.json')
+# The check's own test is excluded: it is made of made-up repository names, which its stub curl answers and the real API does not.
+pathspecs=(. ':(exclude)scripts/public-repository-references.test.sh' ':(exclude,glob)**/package-lock.json' ':(exclude,glob)**/pnpm-lock.yaml' ':(exclude,glob)**/yarn.lock' ':(exclude,glob)**/npm-shrinkwrap.json')
 
 # Every match of one pattern as `kind<TAB>file:line<TAB>match`; -I skips binary files.
 matches() {
