@@ -413,6 +413,16 @@ status="$(run_step prompt MODE=review STACK_FRAGMENTS= STACK_NAMES= REPOSITORY=o
 expect_equal "Compose prompt succeeds with a ledger context" "0" "$status"
 expect_contains "the composed review prompt carries the ledger context" "This is round 9." "$(output_value "${work_dir}/output" text)"
 
+# Every document that says where .github/claude/invariants.json is read names the pull request's base commit, which the read step uses, and none names the default branch, which a stacked pull request does not target.
+for doc in docs/review-conventions.md docs/review-ledger.md; do
+  expect_contains "${doc} says invariants.json is read from the pull request's base commit" "\`.github/claude/invariants.json\`, read from the pull request's base commit" "$(cat "${repo_root}/${doc}")"
+  if grep -q 'invariants\.json` on its default branch' "${repo_root}/${doc}"; then
+    fail "${doc} does not say invariants.json is read from the default branch"
+  else
+    pass "${doc} does not say invariants.json is read from the default branch"
+  fi
+done
+
 # The review prompt
 review_prompt="$(cat "${repo_root}/prompts/review/base.md")"
 expect_contains "the review prompt asks for the update block" "<review-ledger-update>" "$review_prompt"
