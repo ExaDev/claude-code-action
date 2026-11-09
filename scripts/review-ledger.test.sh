@@ -324,6 +324,24 @@ expect_equal "with a ledger comment the write step edits it in place" "PATCH rep
 jq -r '.body' "${stub_dir}/write-1.json" > "${work_dir}/posted-2.md"
 expect_equal "the edited comment holds round 2 with no finding counted twice" "2 ${sha_c} 2" "$(comments_with "${work_dir}/posted-2.md" Bot | ledger extract | jq -r '.ledger | "\(.round) \(.reviewedHead) \(.findings | length)"')"
 
+# A shallow checkout, as actions/checkout makes by default, holds only the newest commit, so the read step fetches the head and base commits from origin by id. The fixture repository serves as origin over file://, which runs the same fetch protocol GitHub does, and allows a want by commit id as GitHub does for any reachable commit.
+fixture_git config uploadpack.allowReachableSHA1InWant true
+shallow_repo="${work_dir}/shallow"
+# The clone takes a branch at a commit after the head under review, whatever the fixture has checked out, so the head and base are both outside its single commit.
+fixture_git branch -f shallow-tip "$duplicate_head"
+env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE git clone -q --depth 1 --no-local --branch shallow-tip "file://${fixture_repo}" "$shallow_repo"
+shallow_has() {
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE git -C "$shallow_repo" cat-file -e "${1}^{commit}" 2> /dev/null && echo present || echo absent
+}
+expect_equal "the shallow checkout starts without the head and base commits" "absent absent" "$(shallow_has "$sha_c") $(shallow_has "$sha_b")"
+reset_stub "$sha_c"
+reset_runner_temp
+status="$(cd "$shallow_repo" && run_step review-ledger GITHUB_STEP_SUMMARY="${work_dir}/read-summary.md" PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 WORK_ROOT="$runner_temp")"
+expect_equal "the read step succeeds in a shallow checkout" "0" "$status"
+expect_equal "the read step fetched the head and base commits into the shallow checkout" "present present" "$(shallow_has "$sha_c") $(shallow_has "$sha_b")"
+expect_equal "in a shallow checkout the repository's invariants are read from the fetched base commit" "no-console-log" "$(jq -r '[.repositoryInvariants[].classKey] | join(" ")' "$(output_value "${work_dir}/output" facts)")"
+expect_contains "in a shallow checkout the enumerators run over the fetched head commit" "src/index.js :: console.log" "$(cat "$(output_value "${work_dir}/output" context)")"
+
 # A run that ends without an update block fails and leaves the ledger alone.
 reset_stub "$sha_c"
 status="$(run_read)"
