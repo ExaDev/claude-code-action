@@ -1,0 +1,258 @@
+#!/usr/bin/env bash
+# Tests for review mode's ledger: scripts/review-ledger.sh, the schema it validates against, and the action.yml steps that read the ledger before a review and write it after. The steps run as written in action.yml, against a stub gh that serves fixture responses, so what is tested is what the action runs. Needs bash, jq, awk, git and openssl, which every GitHub-hosted runner has.
+#
+# Usage: bash scripts/review-ledger.test.sh
+set -euo pipefail
+
+source "$(dirname "${BASH_SOURCE[0]}")/test-helpers.sh"
+
+ledger_script="${repo_root}/scripts/review-ledger.sh"
+ledger_fixtures="${fixtures}/review-ledger"
+ledger() {
+  bash "$ledger_script" "$@"
+}
+
+# Exits with the status of a command, its output discarded, so a test can assert that a check fails.
+status_of() {
+  local status=0
+  "$@" > /dev/null 2>&1 || status=$?
+  echo "$status"
+}
+
+sha_a="$(printf 'a%.0s' {1..40})"
+sha_b="$(printf 'b%.0s' {1..40})"
+sha_c="$(printf 'c%.0s' {1..40})"
+
+facts_for() {
+  local head="$1"
+  jq -n -c --arg head "$head" --arg base "$sha_b" '{pullRequest: 7, reviewedHead: $head, baseSha: $base, patchId: null, reviewedFiles: ["README.md", "docs/setup.md", "package.json"], scope: {kind: "full", since: null, reason: "first recorded round"}}'
+}
+
+# Stable ids
+id_one="$(ledger id stale-reference 'README.md :: npm run old-build')"
+expect_equal "an id is the same each time it is computed" "$id_one" "$(ledger id stale-reference 'README.md :: npm run old-build')"
+expect_equal "an id is sixteen hex digits" "yes" "$([[ "$id_one" =~ ^[0-9a-f]{16}$ ]] && echo yes || echo no)"
+if [ "$id_one" != "$(ledger id stale-reference 'docs/setup.md :: npm run old-build')" ] && [ "$id_one" != "$(ledger id other-class 'README.md :: npm run old-build')" ]; then
+  pass "a different instance or class gets a different id"
+else
+  fail "a different instance or class gets a different id"
+fi
+expect_equal "a class key and instance cannot be confused with another split of the same text" "different" "$([ "$(ledger id stale reference)" != "$(ledger id stal ereference)" ] && echo different || echo same)"
+
+# patch-id
+printf 'diff --git a/x b/x\nindex 1..2 100644\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n' > "${work_dir}/one.diff"
+printf 'diff --git a/x b/x\nindex 3..4 100644\n--- a/x\n+++ b/x\n@@ -10 +10 @@\n-a\n+b\n' > "${work_dir}/one-shifted.diff"
+expect_equal "the patch id ignores where a hunk sits and the blob ids" "$(ledger patch-id < "${work_dir}/one.diff")" "$(ledger patch-id < "${work_dir}/one-shifted.diff")"
+expect_equal "an empty diff has no patch id" "" "$(ledger patch-id < /dev/null)"
+
+# update-block
+expect_equal "update-block reads the last block of the final result, without its code fence" "stale-reference" "$(ledger update-block "${ledger_fixtures}/round-1.json" | jq -r '.findings[0].classKey')"
+expect_equal "update-block prints nothing when the result has no block" "" "$(ledger update-block "${fixtures}/success.json")"
+expect_equal "update-block prints nothing for a missing file" "" "$(ledger update-block "${work_dir}/missing.json")"
+
+# apply, round 1
+ledger update-block "${ledger_fixtures}/round-1.json" > "${work_dir}/update-1.json"
+facts_for "$sha_a" > "${work_dir}/facts-1.json"
+ledger apply "${work_dir}/update-1.json" "${work_dir}/facts-1.json" > "${work_dir}/ledger-1.json"
+expect_equal "round 1 records the head and round the runner supplied" "1 ${sha_a}" "$(jq -r '"\(.round) \(.reviewedHead)"' "${work_dir}/ledger-1.json")"
+expect_equal "round 1 records both reported instances as open" "open open" "$(jq -r '[.findings[].status] | join(" ")' "${work_dir}/ledger-1.json")"
+expect_equal "each finding's id is its class key and instance's id" "$(ledger id stale-reference 'README.md :: npm run old-build')" "$(jq -r '.findings[] | select(.path == "README.md") | .id' "${work_dir}/ledger-1.json")"
+expect_equal "round 1 records the invariant the reviewer checked" "stale-reference review 1" "$(jq -r '.invariants[] | "\(.classKey) \(.source) \(.checkedRound)"' "${work_dir}/ledger-1.json")"
+expect_equal "a ledger the action wrote passes its own check" "0" "$(status_of ledger check "${work_dir}/ledger-1.json")"
+
+# render and extract: the round trip through a comment
+ledger render "${work_dir}/ledger-1.json" > "${work_dir}/comment-1.md"
+comments_with() {
+  jq -n -c --rawfile body "$1" --arg type "$2" '[{id: 41, user: {type: "User"}, updated_at: "2026-01-01T00:00:00Z", body: "unrelated"}, {id: 42, user: {type: $type}, updated_at: "2026-01-02T00:00:00Z", body: $body}]'
+}
+comments_with "${work_dir}/comment-1.md" Bot | ledger extract > "${work_dir}/found-1.json"
+expect_equal "a rendered ledger reads back exactly from a bot's comment" "true" "$(jq --slurpfile written "${work_dir}/ledger-1.json" '.ledger == $written[0]' "${work_dir}/found-1.json")"
+expect_equal "extract reports which comment holds the ledger" "42" "$(jq -r '.commentId' "${work_dir}/found-1.json")"
+expect_equal "a ledger in a comment by a user account is never read" "" "$(comments_with "${work_dir}/comment-1.md" User | ledger extract)"
+expect_equal "no comment with a ledger reads as no ledger" "" "$(printf '[]' | ledger extract)"
+
+# The data block cannot be closed early by text inside it.
+jq '.findings[0].summary = "closes --> early and <!-- opens"' "${work_dir}/ledger-1.json" > "${work_dir}/ledger-arrow.json"
+ledger render "${work_dir}/ledger-arrow.json" > "${work_dir}/comment-arrow.md"
+expect_equal "a summary containing --> stays inside the hidden data block" "1" "$(grep -c -- '-->' "${work_dir}/comment-arrow.md" | awk '{ print $1 - 1 }')"
+expect_equal "a summary containing --> reads back unchanged" "closes --> early and <!-- opens" "$(comments_with "${work_dir}/comment-arrow.md" Bot | ledger extract | jq -r '.ledger.findings[0].summary')"
+if grep -q 'closes' <(sed -n '1,/claude-review-ledger-data/p' "${work_dir}/comment-arrow.md"); then
+  fail "the visible part of the comment shows no text the reviewer wrote"
+else
+  pass "the visible part of the comment shows no text the reviewer wrote"
+fi
+
+# A ledger too large for one comment fails loudly instead of being cut.
+jq --arg big "$(head -c 70000 /dev/zero | tr '\0' 'x')" '.findings[0].summary = $big' "${work_dir}/ledger-1.json" > "${work_dir}/ledger-big.json"
+expect_equal "a ledger over the comment size limit is refused" "1" "$(status_of ledger render "${work_dir}/ledger-big.json")"
+
+# check refuses a ledger edited into a state the action never wrote.
+jq '.findings[0].id = "0000000000000000"' "${work_dir}/ledger-1.json" > "${work_dir}/tampered-id.json"
+expect_equal "check refuses a finding whose id does not match its instance" "1" "$(status_of ledger check "${work_dir}/tampered-id.json")"
+jq '.findings[0].instance = "somewhere else"' "${work_dir}/ledger-1.json" > "${work_dir}/tampered-instance.json"
+expect_equal "check refuses an instance edited under an existing id" "1" "$(status_of ledger check "${work_dir}/tampered-instance.json")"
+jq '.reviewedHead = "main"' "${work_dir}/ledger-1.json" > "${work_dir}/tampered-head.json"
+expect_equal "check refuses a reviewed head that is not a commit id" "1" "$(status_of ledger check "${work_dir}/tampered-head.json")"
+jq '.version = 2' "${work_dir}/ledger-1.json" > "${work_dir}/other-version.json"
+expect_equal "check refuses a ledger of another version" "1" "$(status_of ledger check "${work_dir}/other-version.json")"
+jq '.findings += [.findings[0]]' "${work_dir}/ledger-1.json" > "${work_dir}/duplicate.json"
+expect_equal "check refuses a finding recorded twice" "1" "$(status_of ledger check "${work_dir}/duplicate.json")"
+
+# The reviewer's update cannot set what the runner owns.
+ledger update-block "${ledger_fixtures}/trusted-fields.json" > "${work_dir}/update-trusted.json"
+expect_equal "an update that sets a head or an id is refused" "1" "$(status_of ledger apply "${work_dir}/update-trusted.json" "${work_dir}/facts-1.json" "${work_dir}/ledger-1.json")"
+ledger update-block "${ledger_fixtures}/line-number-instance.json" > "${work_dir}/update-line.json"
+expect_equal "an update naming an instance by its line number is refused" "1" "$(status_of ledger apply "${work_dir}/update-line.json" "${work_dir}/facts-1.json" "${work_dir}/ledger-1.json")"
+jq -c '.statuses = [{id: "0123456789abcdef", status: "fixed", reason: "gone"}]' "${work_dir}/update-1.json" > "${work_dir}/update-unknown.json"
+expect_equal "an update changing a finding the ledger does not hold is refused" "1" "$(status_of ledger apply "${work_dir}/update-unknown.json" "${work_dir}/facts-1.json" "${work_dir}/ledger-1.json")"
+
+# apply, round 2: a finding that still stands keeps its id, a fixed one is marked fixed, nothing is counted twice.
+ledger update-block "${ledger_fixtures}/round-2.json" > "${work_dir}/update-2.json"
+facts_for "$sha_c" > "${work_dir}/facts-2.json"
+ledger apply "${work_dir}/update-2.json" "${work_dir}/facts-2.json" "${work_dir}/ledger-1.json" > "${work_dir}/ledger-2.json"
+expect_equal "round 2 follows round 1 and records the new head" "2 ${sha_c}" "$(jq -r '"\(.round) \(.reviewedHead)"' "${work_dir}/ledger-2.json")"
+expect_equal "a re-reported instance adds no new finding" "2" "$(jq '.findings | length' "${work_dir}/ledger-2.json")"
+expect_equal "a re-reported instance keeps its id and first round and is still open" "${id_one} 1 2 open" "$(jq -r '.findings[] | select(.path == "README.md") | "\(.id) \(.firstRound) \(.lastRound) \(.status)"' "${work_dir}/ledger-2.json")"
+expect_equal "a finding marked fixed records the reason" "fixed docs/setup.md now names npm run build." "$(jq -r '.findings[] | select(.path == "docs/setup.md") | "\(.status) \(.statusReason)"' "${work_dir}/ledger-2.json")"
+expect_equal "a re-declared invariant is recorded once, checked this round" "1 2" "$(jq -r '"\(.invariants | length) \(.invariants[0].checkedRound)"' "${work_dir}/ledger-2.json")"
+expect_equal "the round 2 ledger passes its own check" "0" "$(status_of ledger check "${work_dir}/ledger-2.json")"
+
+# context: what the reviewer is told
+expect_contains "the first round's context says there is no earlier round" "This is round 1" "$(ledger context)"
+context_2="$(ledger context "${work_dir}/ledger-1.json")"
+expect_contains "a later round's context names the round" "This is round 2" "$context_2"
+expect_contains "a later round's context lists each finding by id" "\`${id_one}\` \`stale-reference\` Should fix, open" "$context_2"
+expect_contains "a later round's context lists the invariants checked" "grep \`old-build\` in \`README.md\`, \`docs\`" "$context_2"
+
+# The steps in action.yml, against a stub gh.
+stub_bin="${work_dir}/stub-bin"
+stub_dir="${work_dir}/stub-gh"
+mkdir -p "$stub_bin" "$stub_dir"
+cat > "${stub_bin}/gh" <<'STUB'
+#!/usr/bin/env bash
+# A gh that serves `gh api` reads from files in $STUB_DIR named after the endpoint (slashes as underscores, ".diff" appended when a diff is asked for) and records each write in $STUB_DIR/writes.log with its payload in $STUB_DIR/write-<n>.json.
+[ "$1" = "api" ] || exit 1
+shift
+method="GET" accept="" input="" endpoint=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -X) method="$2"; shift 2 ;;
+    -H) accept="$2"; shift 2 ;;
+    --input) input="$2"; shift 2 ;;
+    --paginate | --slurp) shift ;;
+    *) endpoint="$1"; shift ;;
+  esac
+done
+if [ "$method" != "GET" ]; then
+  count="$(wc -l < "${STUB_DIR}/writes.log" 2> /dev/null || echo 0)"
+  count=$((count + 1))
+  echo "${method} ${endpoint}" >> "${STUB_DIR}/writes.log"
+  cp "$input" "${STUB_DIR}/write-${count}.json"
+  echo '{}'
+  exit 0
+fi
+file="${STUB_DIR}/${endpoint//\//_}"
+case "$accept" in *diff*) file="${file}.diff" ;; esac
+[ -f "$file" ] || exit 1
+cat "$file"
+STUB
+chmod +x "${stub_bin}/gh"
+
+serve() {
+  local endpoint="$1" source="$2"
+  cp "$source" "${stub_dir}/${endpoint//\//_}"
+}
+reset_stub() {
+  rm -rf "$stub_dir"
+  mkdir -p "$stub_dir"
+  jq -n -c --arg head "$1" --arg base "$sha_b" '{head: {sha: $head}, base: {sha: $base}}' > "${work_dir}/pull.json"
+  serve repos/owner/repo/pulls/7 "${work_dir}/pull.json"
+  jq -n -c '[[{filename: "README.md"}, {filename: "docs/setup.md"}], [{filename: "package.json", previous_filename: "package.old.json"}]]' > "${work_dir}/files.json"
+  serve repos/owner/repo/pulls/7/files "${work_dir}/files.json"
+  cp "${work_dir}/one.diff" "${stub_dir}/repos_owner_repo_pulls_7.diff"
+  printf '[[]]' > "${work_dir}/no-comments.json"
+  serve repos/owner/repo/issues/7/comments "${work_dir}/no-comments.json"
+}
+run_read() {
+  reset_runner_temp
+  run_step review-ledger PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 WORK_ROOT="$runner_temp"
+}
+run_write() {
+  local execution_file="$1"
+  run_step review-ledger-write PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 EXECUTION_FILE="$execution_file" \
+    WORK="$(output_value "${work_dir}/read-output" work_dir)" PREVIOUS="$(output_value "${work_dir}/read-output" previous)" \
+    COMMENT_ID="$(output_value "${work_dir}/read-output" comment_id)" FACTS="$(output_value "${work_dir}/read-output" facts)"
+}
+
+expect_equal "the ledger is read only in review mode" "\${{ inputs.mode == 'review' }}" "$(step_value review-ledger if)"
+expect_equal "the ledger is written only after a successful review that did not stop at its turn limit" "\${{ inputs.mode == 'review' && steps.claude.outcome == 'success' && steps.detect-turn-limit.outputs.hit_limit != 'true' }}" "$(step_value review-ledger-write if)"
+expect_equal "the ledger is written from the winning attempt's execution file" "\${{ steps.claude.outputs.execution_file }}" "$(step_value review-ledger-write EXECUTION_FILE)"
+expect_equal "Compose prompt takes the ledger context the read step wrote" "\${{ steps.review-ledger.outputs.context }}" "$(step_value prompt LEDGER_CONTEXT)"
+
+# Round 1: no ledger on the pull request yet.
+reset_stub "$sha_a"
+status="$(run_read)"
+cp "${work_dir}/output" "${work_dir}/read-output"
+expect_equal "the read step succeeds on a pull request with no ledger" "0" "$status"
+expect_equal "with no ledger there is no previous ledger and no comment to update" " " "$(output_value "${work_dir}/read-output" previous) $(output_value "${work_dir}/read-output" comment_id)"
+facts_file="$(output_value "${work_dir}/read-output" facts)"
+expect_equal "the read step takes the head and base from GitHub" "${sha_a} ${sha_b}" "$(jq -r '"\(.reviewedHead) \(.baseSha)"' "$facts_file")"
+expect_equal "the read step records the patch id of the pull request's diff" "$(ledger patch-id < "${work_dir}/one.diff")" "$(jq -r '.patchId' "$facts_file")"
+expect_equal "the read step records every path the diff touched, renamed ones under both names" '["README.md","docs/setup.md","package.json","package.old.json"]' "$(jq -c '.reviewedFiles' "$facts_file")"
+expect_contains "the read step's context starts round 1" "This is round 1" "$(cat "$(output_value "${work_dir}/read-output" context)")"
+
+status="$(run_write "${ledger_fixtures}/round-1.json")"
+expect_equal "the write step succeeds" "0" "$status"
+expect_equal "with no ledger comment the write step posts a new one" "POST repos/owner/repo/issues/7/comments" "$(cat "${stub_dir}/writes.log")"
+jq -r '.body' "${stub_dir}/write-1.json" > "${work_dir}/posted-1.md"
+expect_equal "the posted comment holds round 1 for the head GitHub reported" "1 ${sha_a}" "$(comments_with "${work_dir}/posted-1.md" Bot | ledger extract | jq -r '.ledger | "\(.round) \(.reviewedHead)"')"
+
+# Round 2: the ledger from round 1 is on the pull request.
+reset_stub "$sha_c"
+comments_with "${work_dir}/posted-1.md" Bot | jq -c '[.]' > "${work_dir}/comments-1.json"
+serve repos/owner/repo/issues/7/comments "${work_dir}/comments-1.json"
+status="$(run_read)"
+cp "${work_dir}/output" "${work_dir}/read-output"
+expect_equal "the read step succeeds on a pull request with a ledger" "0" "$status"
+expect_equal "the read step names the comment holding the ledger" "42" "$(output_value "${work_dir}/read-output" comment_id)"
+expect_contains "the read step's context is round 2 with round 1's findings" "This is round 2" "$(cat "$(output_value "${work_dir}/read-output" context)")"
+status="$(run_write "${ledger_fixtures}/round-2.json")"
+expect_equal "the round 2 write step succeeds" "0" "$status"
+expect_equal "with a ledger comment the write step edits it in place" "PATCH repos/owner/repo/issues/comments/42" "$(cat "${stub_dir}/writes.log")"
+jq -r '.body' "${stub_dir}/write-1.json" > "${work_dir}/posted-2.md"
+expect_equal "the edited comment holds round 2 with no finding counted twice" "2 ${sha_c} 2" "$(comments_with "${work_dir}/posted-2.md" Bot | ledger extract | jq -r '.ledger | "\(.round) \(.reviewedHead) \(.findings | length)"')"
+
+# A run that ends without an update block fails and leaves the ledger alone.
+reset_stub "$sha_c"
+status="$(run_read)"
+cp "${work_dir}/output" "${work_dir}/read-output"
+status="$(run_write "${fixtures}/success.json")"
+expect_equal "the write step fails when the review ended without an update block" "1" "$status"
+expect_contains "the write step says why it failed" "::error::The review ended without a <review-ledger-update> block" "$(cat "${work_dir}/stdout")"
+expect_equal "the write step writes nothing when the review ended without an update block" "absent" "$([ -e "${stub_dir}/writes.log" ] && echo present || echo absent)"
+
+# A ledger comment edited into a state the action never wrote stops the run.
+reset_stub "$sha_c"
+ledger render "${work_dir}/tampered-instance.json" > "${work_dir}/comment-tampered.md"
+comments_with "${work_dir}/comment-tampered.md" Bot | jq -c '[.]' > "${work_dir}/comments-tampered.json"
+serve repos/owner/repo/issues/7/comments "${work_dir}/comments-tampered.json"
+status="$(run_read)"
+expect_equal "the read step fails on a ledger whose ids do not match" "1" "$status"
+expect_contains "the read step names the comment it refused" "::error::The review ledger in comment 42" "$(cat "${work_dir}/stdout")"
+
+# Compose prompt places the ledger context in the review prompt.
+printf '# Review ledger\n\nThis is round 9.\n' > "${work_dir}/context.md"
+reset_runner_temp
+status="$(run_step prompt MODE=review STACK_FRAGMENTS= STACK_NAMES= REPOSITORY=owner/repo EVENT_NAME=pull_request EVENT_ACTION=synchronize ENTITY_NUMBER=7 BASE_REF=main HEAD_SHA="$sha_a" \
+  SEVERITY_RATINGS=optional ALLOWED_REVIEW_STATES=comment INCLUDE_SUGGESTIONS=true RESOLVE_STALE_THREADS=true FIX_PR_METADATA=true MARK_DRAFT_IF_UNREADY=false VERIFY_PRIOR_FINDINGS=true \
+  FIX_CI_FAILURES=false FIX_DIFF_FINDINGS=false ADD_REGRESSION_TESTS=false PROMPT_DIR= PROMPT_FILE= TRIAGE_LABEL= UPDATE_ISSUE_BODY=false ALLOWED_TOOLS=Read DISALLOWED_TOOLS=Write \
+  CLAUDE_ARGS_OVERRIDE= EXTRA_CLAUDE_ARGS= LEDGER_CONTEXT="${work_dir}/context.md")"
+expect_equal "Compose prompt succeeds with a ledger context" "0" "$status"
+expect_contains "the composed review prompt carries the ledger context" "This is round 9." "$(output_value "${work_dir}/output" text)"
+
+# The review prompt
+review_prompt="$(cat "${repo_root}/prompts/review/base.md")"
+expect_contains "the review prompt asks for the update block" "<review-ledger-update>" "$review_prompt"
+expect_contains "the review prompt forbids line numbers in an instance" "never by a line number" "$review_prompt"
+
+finish

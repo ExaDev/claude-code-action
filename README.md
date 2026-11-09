@@ -73,6 +73,8 @@ Review mode looks for `CLAUDE.md`, then `AGENTS.md`, then `README.md` at the rep
 
 Full detection table, severity labels, and the repository-local instruction files: [docs/review-conventions.md](docs/review-conventions.md).
 
+Review mode keeps a ledger of each pull request's review rounds in a comment of its own: the reviewed head and patch id, every finding with a stable id, its class and its status, and the invariants checked. Each round reads it first and records itself after; see [docs/review-ledger.md](docs/review-ledger.md).
+
 ## Versioning
 
 Releases are automated by [`semantic-release`](https://semantic-release.gitbook.io/), triggered on every push to `main` that passes CI, and the moving `v1` tag is what consuming repositories reference. The upstream `anthropics/claude-code-action` dependency is pinned by commit SHA in `action.yml`, not by a tag, so an upstream tag move cannot change behaviour here without a commit in this repository.
@@ -91,7 +93,7 @@ Automated Dependabot bumps of the pinned upstream SHA, the moving-`v1`-tag mecha
 
 `npm run lint` / `npm run typecheck` / `npm run format:check` are the underlying commands; `turbo.json` wraps each in [Turborepo](https://turborepo.com)'s local task cache (single-package mode — this repository has no workspaces, just one `package.json`), so a rerun with nothing relevant changed completes from cache instead of re-executing `eslint`/`tsc`/`prettier` from scratch. `.github/workflows/ci.yml`'s `typecheck`/`lint`/`format` jobs route through `npx turbo run <task>` for the same reason. Invoke a task directly with `npx turbo run <task>` (or a plain `npm run <task>`, which skips the cache).
 
-`npm test` runs `scripts/execution-scripts.test.sh`, which runs the execution-file scripts and the `action.yml` steps built on them (the credential chain's stop check, Resolve Claude Code result and turn-limit detection) against the fixture execution files in `scripts/test-fixtures/`, then `scripts/public-repository-references.test.sh` and `scripts/public-repository-references.sh`, which fails when a tracked file names a GitHub repository that is not public (a public repository naming a private one discloses that it exists); CI's `test` job runs it too, with the workflow's own token for the lookups' rate limit. A term in prose that looks like `owner/repo` but is not a repository, and does not resolve to a public one, goes in `scripts/public-repository-references.not-repositories.txt`.
+`npm test` runs `scripts/execution-scripts.test.sh`, which runs the execution-file scripts and the `action.yml` steps built on them (the credential chain's stop check, Resolve Claude Code result and turn-limit detection) against the fixture execution files in `scripts/test-fixtures/`, then `scripts/review-ledger.test.sh`, which runs the review ledger script and the steps that read and write the ledger against a stub `gh`, then `scripts/public-repository-references.test.sh` and `scripts/public-repository-references.sh`, which fails when a tracked file names a GitHub repository that is not public (a public repository naming a private one discloses that it exists); CI's `test` job runs it too, with the workflow's own token for the lookups' rate limit. A term in prose that looks like `owner/repo` but is not a repository, and does not resolve to a public one, goes in `scripts/public-repository-references.not-repositories.txt`.
 
 `action.yml`'s own `runs.steps` array cannot be linted by `actionlint` directly — that tool only understands workflow files (`on:`/`jobs:`), not a composite action's `inputs:`/`runs:` shape. To validate it anyway, wrap the steps array in a synthetic `workflow_call` reusable workflow whose `on.workflow_call.inputs` mirror `action.yml`'s own `inputs:` (giving `actionlint` a real `inputs.*`/`steps.*` context to resolve against, not just the file's raw YAML), then run `actionlint` against that synthetic file. There's no committed script for this — it's a five-line Python/PyYAML snippet run by hand (or by a reviewing agent) before a change to `action.yml` ships; see the git history of this repository's own review comments for a worked example if you need one.
 
@@ -110,7 +112,12 @@ scripts/attempt-stop.sh        Decides whether a failed attempt stops the creden
                                run, a result the fork failed) and which session the turn-limit
                                wrap-up resumes
 scripts/execution-file.sh      Clears the shared execution file and keeps each attempt's own copy
+scripts/review-ledger.sh      Reads, checks, updates and renders review mode's ledger
+                               (docs/review-ledger.md)
+scripts/json-schema.jq        Validates JSON against the schemas under schemas/ in the runner
+scripts/test-helpers.sh       Shared setup and step-extraction helpers for the test files
 scripts/execution-scripts.test.sh  npm test: the scripts and steps above, over scripts/test-fixtures/
+scripts/review-ledger.test.sh      npm test: the review ledger and its steps
 scripts/public-repository-references.sh  npm test: fails when a tracked file names a repository that
                                is not public; .test.sh tests it against a stub curl
 commitlint.config.ts           Conventional-commit enforcement (local hook + CI)
@@ -135,10 +142,11 @@ prompts/
   interactive/base.md          Interactive instructions
 examples/                      Caller workflows to copy into a consuming repository
   direct/                      Direct (composite-action-step) form of the same examples
-schemas/                       JSON schema for structured_review_summary's --json-schema
+schemas/                       JSON schemas: structured_review_summary's --json-schema, and the
+                               review ledger
 ```
 
-Prompt layering order, in full: `prompts/shared/base.md`, then the mode's `base.md`, then any matched stack fragments (review only), then a generated section stating which conventions document exists and how to tag findings, then `.github/claude/shared.md` and `.github/claude/<mode>.md` from the calling repository, then a generated section of facts about the run.
+Prompt layering order, in full: `prompts/shared/base.md`, then the mode's `base.md`, then any matched stack fragments (review only), then a generated section stating which conventions document exists and how to tag findings, then `.github/claude/shared.md` and `.github/claude/<mode>.md` from the calling repository, then a generated section of facts about the run, then (review mode only) the review ledger's record of earlier rounds.
 
 `mode: generic` skips all of the above: its `prompt_file` input becomes the entire prompt, verbatim — see [`prompt_file`](docs/calling-and-options.md#extended-options) on `action.yml`.
 
@@ -150,5 +158,6 @@ Prompt layering order, in full: `prompts/shared/base.md`, then the mode's `base.
 - [docs/modes-and-permissions.md](docs/modes-and-permissions.md): full token scopes and tool allowlists per mode, review states, automatic fixes, and escalating blocked findings to issues.
 - [docs/security.md](docs/security.md): the full security model behind the Security section above.
 - [docs/review-conventions.md](docs/review-conventions.md): policy-versus-stack-default tagging, severity labels, repository-local instructions, and the stack-detection table.
+- [docs/review-ledger.md](docs/review-ledger.md): the record review mode keeps between rounds, where it is stored and why, and what the reviewer can and cannot change in it.
 - [docs/calling-and-options.md](docs/calling-and-options.md): calling the composite action directly, every extended input, and triage's native-metadata behaviour.
 - [docs/release-pipeline.md](docs/release-pipeline.md): the automated Dependabot upstream-bump pipeline and the organisation's SHA-pinning stance.

@@ -1,0 +1,19 @@
+[
+  {
+    "type": "system",
+    "subtype": "init",
+    "session_id": "22222222-2222-4222-8222-222222222222"
+  },
+  {
+    "type": "assistant",
+    "message": {
+      "content": []
+    }
+  },
+  {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "result": "<review-ledger-update>\n{\"invariants\":[{\"classKey\":\"stale-reference\",\"statement\":\"No document names the removed old-build script.\",\"enumerator\":{\"type\":\"grep\",\"pattern\":\"old-build\",\"paths\":[\"README.md\",\"docs\"]}}],\"findings\":[{\"classKey\":\"stale-reference\",\"instance\":\"README.md :: npm run old-build\",\"path\":\"README.md\",\"severity\":\"Should fix\",\"summary\":\"Still names the old-build script after the second push.\",\"enumerator\":{\"type\":\"grep\",\"pattern\":\"old-build\",\"paths\":[\"README.md\",\"docs\"]},\"id\":\"0000000000000000\"}],\"statuses\":[{\"id\":\"2449c27b65901a25\",\"status\":\"fixed\",\"reason\":\"docs/setup.md now names npm run build.\"}],\"reviewedHead\":\"0000000000000000000000000000000000000000\"}\n</review-ledger-update>"
+  }
+]

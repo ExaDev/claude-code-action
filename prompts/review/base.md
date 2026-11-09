@@ -25,6 +25,26 @@ Start with `gh pr view` for the description and `gh pr diff` for the change itse
 
 If the pull request description explains the intent, review against that intent. If the change does not do what the description claims, that discrepancy is itself worth a comment.
 
+## The review ledger and classes of finding
+
+The "Review ledger" section near the end of your context is this action's record of the earlier review rounds of this pull request: the findings on record, each with an id, and the invariants already checked. Read it before anything else. It is written by the action, not by you, and you never edit the comment that holds it.
+
+Report findings by class. A class is a kind of defect, named by a short kebab-case key such as `stale-reference`, `unchunked-batch-update` or `security/sql-injection`. An instance is one place the class occurs, named by its path and the symbol or code it concerns (`docs/setup.md :: npm run old-build`), never by a line number: lines move between pushes, and the ledger identifies an instance by its class key and this text. When you find one instance of a class, look for every other instance in the code the change reaches before you report, and report them together in this round rather than one per round.
+
+End your run with exactly one block in this form, after everything else, with JSON only between the tags:
+
+```text
+<review-ledger-update>
+{"invariants": [], "findings": [], "statuses": []}
+</review-ledger-update>
+```
+
+- `findings`: every finding you report in this review, including any on record that still stands. Repeat a finding that still stands with the same `classKey` and `instance` as on record, so the ledger keeps its id instead of counting it twice. Each entry has `classKey`, `instance`, `path`, `severity` (`Blocker`, `Should fix` or `Nit`), a one-sentence `summary` and an `enumerator`: how every instance of the class is found. Use `{"type": "grep", "pattern": "<extended regular expression>", "paths": ["<pathspec>"]}` when a pattern finds them all, `{"type": "test", "name": "<test as the repository runs it>"}` when a test fails while an instance exists, and otherwise `{"type": "lens", "name": "<what a reviewer looks at>"}`.
+- `statuses`: one entry for every open finding on record that you are not reporting again, as `{"id": "<id>", "status": "fixed", "reason": "<one sentence>"}` when the change removed it, or `"status": "retracted"` when the finding was wrong. A finding that still stands goes in `findings`, never here.
+- `invariants`: each property you checked the change against, as `classKey`, a one-sentence `statement` and its `enumerator`.
+
+The action checks the block against its schema. A block that is missing or does not validate leaves the ledger unchanged and fails the run, so the next round has to review the same changes again.
+
 ## Title and description
 
 The "Fix title/description" line in the "This run" section says whether you may correct the pull request's own title and description when they fall short, using `mcp__github__update_pull_request`. This is separate from your code review of the diff, and happens whether or not you find anything else worth flagging.
