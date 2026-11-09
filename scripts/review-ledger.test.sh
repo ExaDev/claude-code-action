@@ -179,7 +179,7 @@ run_read() {
 }
 run_write() {
   local execution_file="$1"
-  run_step review-ledger-write PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 EXECUTION_FILE="$execution_file" \
+  run_step review-ledger-write GITHUB_STEP_SUMMARY="${work_dir}/step-summary.md" PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 EXECUTION_FILE="$execution_file" \
     WORK="$(output_value "${work_dir}/read-output" work_dir)" PREVIOUS="$(output_value "${work_dir}/read-output" previous)" \
     COMMENT_ID="$(output_value "${work_dir}/read-output" comment_id)" FACTS="$(output_value "${work_dir}/read-output" facts)"
 }
@@ -201,8 +201,10 @@ expect_equal "the read step records the patch id of the pull request's diff" "$(
 expect_equal "the read step records every path the diff touched, renamed ones under both names" '["README.md","docs/setup.md","package.json","package.old.json"]' "$(jq -c '.reviewedFiles' "$facts_file")"
 expect_contains "the read step's context starts round 1" "This is round 1" "$(cat "$(output_value "${work_dir}/read-output" context)")"
 
+: > "${work_dir}/step-summary.md"
 status="$(run_write "${ledger_fixtures}/round-1.json")"
 expect_equal "the write step succeeds" "0" "$status"
+expect_contains "the write step adds the round to the step summary" "Review ledger: round 1 recorded for head ${sha_a}" "$(cat "${work_dir}/step-summary.md")"
 expect_equal "with no ledger comment the write step posts a new one" "POST repos/owner/repo/issues/7/comments" "$(cat "${stub_dir}/writes.log")"
 jq -r '.body' "${stub_dir}/write-1.json" > "${work_dir}/posted-1.md"
 expect_equal "the posted comment holds round 1 for the head GitHub reported" "1 ${sha_a}" "$(comments_with "${work_dir}/posted-1.md" Bot | ledger extract | jq -r '.ledger | "\(.round) \(.reviewedHead)"')"
