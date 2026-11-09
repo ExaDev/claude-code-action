@@ -258,7 +258,8 @@ case "$command" in
       | ($facts.repositoryInvariants | map(. + {source: "repository", checkedRound: $round, instances: []})) as $repository_invariants
       | ([$repository_invariants[].classKey]) as $repository_classes
       | (($previous.invariants // []) | map(select(.source == "review"))
-          | map(select(.classKey as $class | [$update.invariants[].classKey] | index($class) | not))) as $kept_review_invariants
+          # A class the repository now declares belongs to the repository from this round on, so a copy an earlier round derived is dropped rather than kept beside it.
+          | map(select(.classKey as $class | ([$update.invariants[].classKey] + $repository_classes) | index($class) | not))) as $kept_review_invariants
       | ($update.invariants | map(select(.classKey as $class | $repository_classes | index($class) | not)) | unique_by(.classKey)
           | map(. + {source: "review", checkedRound: $round, instances: []})) as $declared
       | {

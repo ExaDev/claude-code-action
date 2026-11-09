@@ -165,6 +165,12 @@ expect_equal "a finding marked fixed records the reason" "fixed docs/setup.md no
 expect_equal "a re-declared invariant is recorded once, checked this round" "1 2" "$(jq -r '[.invariants[] | select(.source == "review")] | "\(length) \(.[0].checkedRound)"' "${work_dir}/ledger-2.json")"
 expect_equal "the round 2 ledger passes its own check" "0" "$(status_of ledger check "${work_dir}/ledger-2.json")"
 
+# A class an earlier round derived that the repository later declares in its own invariants file is recorded once, as the repository's.
+jq -c --argjson repository "$repository_invariants" '.repositoryInvariants = $repository + [{classKey: "stale-reference", statement: "No document names a removed script.", enumerator: {type: "grep", pattern: "old-build", paths: ["README.md", "docs"]}}]' "${work_dir}/facts-2.json" > "${work_dir}/facts-promoted.json"
+jq -c '.invariants = []' "${work_dir}/update-2.json" > "${work_dir}/update-2-no-invariants.json"
+ledger apply "${work_dir}/update-2-no-invariants.json" "${work_dir}/facts-promoted.json" "${work_dir}/ledger-1.json" > "${work_dir}/ledger-promoted.json"
+expect_equal "a class promoted from the review to the repository is recorded once, as the repository's" "no-console-log:repository stale-reference:repository" "$(jq -r '[.invariants[] | "\(.classKey):\(.source)"] | join(" ")' "${work_dir}/ledger-promoted.json")"
+
 # Enumerators: what the action runs itself.
 readme_id_round_1="$(in_fixture ledger prepare "$sha_a" "${work_dir}/facts-1.json" "${work_dir}/ledger-1.json" | jq -r '.invariants[] | select(.classKey == "stale-reference") | .instances[] | select(.path == "README.md") | "\(.id) \(.line)"')"
 readme_id_round_2="$(in_fixture ledger prepare "$sha_c" "${work_dir}/facts-2.json" "${work_dir}/ledger-1.json" | jq -r '.invariants[] | select(.classKey == "stale-reference") | .instances[] | select(.path == "README.md") | "\(.id) \(.line)"')"
