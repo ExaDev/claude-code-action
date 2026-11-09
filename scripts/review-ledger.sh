@@ -54,19 +54,15 @@ schema_errors() {
   local definition="$1" file="$2"
   jq -r -L "$script_dir" --slurpfile root "$schema" --arg definition "$definition" '
     include "json-schema";
-    schema_errors($root[0]; (if $definition == "ledger" then $root[0] else $root[0]["$defs"][$definition] // error("no definition \($definition)") end); "$")
+    schema_errors($root[0]; (if $definition == "ledger" then $root[0] else $root[0]["$defs"][$definition] end); "$")
   ' "$file"
 }
 
 validate() {
   local definition="$1" file="$2" errors
-  jq -e . "$file" > /dev/null 2>&1 || die "${file} is not valid JSON"
+  jq -e . "$file" > /dev/null 2>&1 || die "not valid JSON: ${file}"
   errors="$(schema_errors "$definition" "$file")"
-  if [ -n "$errors" ]; then
-    echo "review-ledger: ${file} is not a valid ${definition}:" >&2
-    echo "$errors" >&2
-    exit 1
-  fi
+  [ -z "$errors" ] || die "not a valid ${definition}: ${file}"$'\n'"${errors}"
 }
 
 command="${1:-}"
@@ -90,8 +86,8 @@ case "$command" in
       | select(. != null)
       # A comment that carries the marker is the ledger, so a data block that cannot be found or parsed is an error, never "no ledger": reading it as absent would start the record again and drop every finding on it.
       | .id as $id
-      | ([.body | capture("(?s)" + $open + "\n(?<data>.*?)\n" + $close)] | first // error("comment \($id) carries the ledger marker but no readable data block"))
-      | {commentId: $id, ledger: (.data | try fromjson catch error("comment \($id) carries the ledger marker but its data block is not valid JSON"))}
+      | ([.body | capture("(?s)" + $open + "\n(?<data>.*?)\n" + $close)] | first // error("no readable data block in the ledger comment \($id), which carries the marker"))
+      | {commentId: $id, ledger: (.data | try fromjson catch error("the data block of the ledger comment \($id) is not valid JSON"))}
     ' || die "the ledger comment could not be read (see the message above)"
     ;;
 
@@ -116,11 +112,7 @@ case "$command" in
         | "instance \(.[0].id) of \(.[1].classKey) does not match its key (expected \(.[1].id))"
       ' "$file")"
     done
-    if [ -n "$problems" ]; then
-      echo "review-ledger: ${file} has ids that do not match what they identify, so it was not written by this action as it stands:" >&2
-      echo "$problems" >&2
-      exit 1
-    fi
+    [ -z "$problems" ] || die "ids that do not match what they identify, so the ledger was not written by this action as it stands: ${file}"$'\n'"${problems}"
     ;;
 
   update-block)
@@ -282,6 +274,6 @@ case "$command" in
     ;;
 
   *)
-    die "usage: review-ledger.sh id | patch-id | extract | check | update-block | apply | render (see the header of this script)"
+    die "usage: review-ledger.sh <subcommand> [<argument>...], with the subcommands the header of this script lists"
     ;;
 esac

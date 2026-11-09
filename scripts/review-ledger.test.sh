@@ -79,9 +79,9 @@ expect_equal "no comment with a ledger reads as no ledger" "" "$(printf '[]' | l
 # A comment that still carries the marker but whose data block was cut or edited is an error, never "no ledger".
 sed '/^<!-- claude-review-ledger-data$/,$d' "${work_dir}/comment-1.md" > "${work_dir}/comment-no-data.md"
 expect_equal "a marker comment with no data block fails extract" "1" "$(status_of ledger extract < <(comments_with "${work_dir}/comment-no-data.md" Bot))"
-expect_contains "extract names the comment whose data block is missing" "comment 42 carries the ledger marker but no readable data block" "$(comments_with "${work_dir}/comment-no-data.md" Bot | ledger extract 2>&1)"
+expect_contains "extract names the comment whose data block is missing" "no readable data block in the ledger comment 42" "$(comments_with "${work_dir}/comment-no-data.md" Bot | ledger extract 2>&1)"
 sed 's/^{"version":1/{"version":1,,/' "${work_dir}/comment-1.md" > "${work_dir}/comment-bad-json.md"
-expect_contains "a marker comment whose data is not JSON fails extract" "its data block is not valid JSON" "$(comments_with "${work_dir}/comment-bad-json.md" Bot | ledger extract 2>&1)"
+expect_contains "a marker comment whose data is not JSON fails extract" "the data block of the ledger comment 42 is not valid JSON" "$(comments_with "${work_dir}/comment-bad-json.md" Bot | ledger extract 2>&1)"
 
 # The data block cannot be closed early by text inside it.
 jq '.findings[0].summary = "closes --> early and <!-- opens"' "${work_dir}/ledger-1.json" > "${work_dir}/ledger-arrow.json"
