@@ -1,3 +1,9 @@
+## [1.19.1](https://github.com/ExaDev/claude-code-action/compare/v1.19.0...v1.19.1) (2026-11-09)
+
+### Bug Fixes
+
+- keep the repository check from looking up its own made-up names ([b39b1da](https://github.com/ExaDev/claude-code-action/commit/b39b1dad8bb6b3d9693e958fcc2ab00f93b39915))
+
 ## [1.19.0](https://github.com/ExaDev/claude-code-action/compare/v1.18.0...v1.19.0) (2026-11-05)
 
 ### Bug Fixes
