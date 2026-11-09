@@ -88,6 +88,10 @@ Once the ledger records a round, a later round is given the delta since the last
 - **No resumed transcript.** With a ledger on record, "Resume prior session" passes no `--resume`; the session is still saved, as `resume_sessions` describes. Without a ledger, as on a pull request's first round, resuming works as before.
 - **The budget.** The prompt bounds a delta round: verify every open finding on record once (the action has already checked the grep-enumerated ones), review the delta reading outside it only what a changed line needs, and make one fresh sweep for a class no finding or invariant on record covers. The one escape is a delta that cannot be judged without the rest of the change, such as a sweeping rename: the reviewer then reads the whole diff once and says so in its review body.
 
+### Telling which scope a round used
+
+Each round records its scope in three places, so a reader can tell a delta round from a full one without the job log. The read step logs a line starting `Review scope:` with the kind and the reason. The ledger comment's first line says "a delta review since `<head>`" or "a full review" followed by the reason, and the data block's `scope` holds the same kind, `since` and reason. The reviewer is asked to repeat it in one line of its review body. A full review whose reason is "the whole pull request is reviewed on every round" comes from a version of the action without delta re-review; one whose reason names a head that is not an ancestor, or cannot be fetched, is the fallback described above.
+
 ## Worked example
 
 The test file `scripts/review-ledger.test.sh` builds this example and checks that every block below matches what the action produces line for line, so the example cannot drift from the code. A pull request renames the `old-build` script to `build` without updating the two documents that name it. The repository's `.github/claude/invariants.json` on the base branch declares one invariant of its own, `no-console-log`.
