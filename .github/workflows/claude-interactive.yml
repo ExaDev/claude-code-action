@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   claude:
-    # Each branch below excludes bot-authored content before matching the trigger phrase -- confirmed directly on novus-power/hive (commit f509aa9a64): Anthropic's native Claude Code Review GitHub App posts a boilerplate "Comment @claude review for a one-time review..." notice on every pull request when its own automatic review is set to manual, and that boilerplate's own "@claude review" substring satisfied this trigger from the bot's own submission -- wasting a full checkout, Claude Code install, and OIDC/App token exchange before anything downstream caught it.
+    # Each branch below excludes bot-authored content before matching the trigger phrase -- confirmed directly on a consumer repository: Anthropic's native Claude Code Review GitHub App posts a boilerplate "Comment @claude review for a one-time review..." notice on every pull request when its own automatic review is set to manual, and that boilerplate's own "@claude review" substring satisfied this trigger from the bot's own submission -- wasting a full checkout, Claude Code install, and OIDC/App token exchange before anything downstream caught it.
     #
     # The comment/review branches check github.event.sender.type -- for an issue_comment/pull_request_review_comment/pull_request_review event, sender is the actor who posted that comment or review, so it is the right field. The issues branch deliberately checks github.event.issue.user.type instead, not sender: this branch also fires on assigned/labeled, where sender is whoever performed that action, not who opened the issue -- a human labelling an issue a bot opened would otherwise pass a sender-based check while the issue body (still bot-authored) still matches the trigger phrase.
     if: >
