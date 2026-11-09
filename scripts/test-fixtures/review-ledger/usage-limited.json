@@ -1,0 +1,14 @@
+[
+  {
+    "type": "system",
+    "subtype": "init",
+    "session_id": "44444444-4444-4444-8444-444444444444"
+  },
+  {
+    "type": "result",
+    "subtype": "success",
+    "is_error": true,
+    "api_error_status": 429,
+    "result": "You have hit your usage limit"
+  }
+]

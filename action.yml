@@ -3205,10 +3205,10 @@ runs:
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
 
-    # Writes this round into the review ledger that "Read the review ledger" read (docs/review-ledger.md). The reviewer ends its run with a <review-ledger-update> block, the same way triage hands its summary to the runner: it never writes the comment itself, has no tool that could, and its update can report findings, declare invariants and change the status of a finding it names by id, but cannot set the head, round, patch id or any id, which come from the facts the read step took from GitHub. A run that ends without a valid block fails here and leaves the ledger as it was, so the next round still starts from the last head that was recorded in full. Skipped when the run stopped at its turn limit: the wrap-up review is partial, and recording it as a reviewed head would hide what it never reached.
+    # Writes this round into the review ledger that "Read the review ledger" read (docs/review-ledger.md). The reviewer ends its run with a <review-ledger-update> block, the same way triage hands its summary to the runner: it never writes the comment itself, has no tool that could, and its update can report findings, declare invariants and change the status of a finding it names by id, but cannot set the head, round, patch id or any id, which come from the facts the read step took from GitHub. A run that ends without a valid block fails here and leaves the ledger as it was, so the next round still starts from the last head that was recorded in full. The block is read from the execution file of the attempt "Resolve Claude Code result" chose, which is the one that succeeded; an attempt that failed first (a usage limit, a rejected credential) left its own file aside and is never read. The step runs whenever the ledger was read, even after every attempt failed, so the log always says why the ledger did or did not move: no attempt succeeded (any review a failed attempt posted is not recorded), or the run stopped at its turn limit (the wrap-up review is partial, and recording it as a reviewed head would hide what it never reached).
     - name: Write the review ledger
       id: review-ledger-write
-      if: ${{ inputs.mode == 'review' && steps.claude.outcome == 'success' && steps.detect-turn-limit.outputs.hit_limit != 'true' }}
+      if: ${{ inputs.mode == 'review' && !cancelled() && steps.review-ledger.outcome == 'success' }}
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github_token || github.token }}
@@ -3216,6 +3216,8 @@ runs:
         PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number }}
         ACTION_PATH: ${{ github.action_path }}
         EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
+        HIT_TURN_LIMIT: ${{ steps.detect-turn-limit.outputs.hit_limit }}
         WORK: ${{ steps.review-ledger.outputs.work_dir }}
         PREVIOUS: ${{ steps.review-ledger.outputs.previous }}
         COMMENT_ID: ${{ steps.review-ledger.outputs.comment_id }}
@@ -3228,9 +3230,19 @@ runs:
         readonly API_ATTEMPTS=3
         readonly API_RETRY_SECONDS=2
 
+        # Checked first: a turn-limited run also leaves Resolve Claude Code result failed.
+        if [ "${HIT_TURN_LIMIT:-}" = "true" ]; then
+          echo "::notice::The review stopped at its turn limit, so its partial review is not recorded in the review ledger of pull request #${PR_NUMBER}; the next round reviews from the last recorded head."
+          exit 0
+        fi
+        if [ "$CLAUDE_OUTCOME" != "success" ]; then
+          echo "::error::No attempt of Run Claude Code succeeded (Resolve Claude Code result: ${CLAUDE_OUTCOME}), so the review ledger of pull request #${PR_NUMBER} was not advanced. A review an attempt posted before it failed is not recorded; the next round reviews from the last recorded head." >&2
+          exit 1
+        fi
+
         bash "$script" update-block "$EXECUTION_FILE" > "${WORK}/update.json"
         if [ ! -s "${WORK}/update.json" ]; then
-          echo "::error::The review ended without a <review-ledger-update> block, so the review ledger of pull request #${PR_NUMBER} was not advanced; the next round reviews from the last recorded head." >&2
+          echo "::error::The successful review (execution file ${EXECUTION_FILE}) wrote no <review-ledger-update> block in its final message or any other message of its own, so the review ledger of pull request #${PR_NUMBER} was not advanced; the next round reviews from the last recorded head." >&2
           exit 1
         fi
 

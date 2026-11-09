@@ -6,7 +6,7 @@
 # - `review-ledger.sh patch-id < diff` prints git patch-id --stable of a diff, or nothing for an empty diff.
 # - `review-ledger.sh extract < comments` reads a JSON array of issue comments and prints {"commentId": <id>, "ledger": <ledger>} for the newest comment written by a bot that carries a ledger block, or nothing when there is none.
 # - `review-ledger.sh check <ledger-file>` exits non-zero, naming every problem on stderr, unless the file is a valid ledger whose ids are the ones its class keys and instances produce.
-# - `review-ledger.sh update-block <execution-file>` prints the JSON between the last <review-ledger-update> and </review-ledger-update> tags of a run's final result message, or nothing when there is none.
+# - `review-ledger.sh update-block <execution-file>` prints the JSON between the last <review-ledger-update> and </review-ledger-update> tags of a run's final result message, or, when that message has none, of the newest of the run's own assistant messages (text or tool call input) that has one, naming on stderr which it read; prints nothing when the run wrote no block.
 # - `review-ledger.sh apply <update-file> <facts-file> [<previous-ledger-file>]` prints the ledger after this round: the previous ledger (if any) with the reviewer's update merged in and the runner's facts (pullRequest, reviewedHead, baseSha, patchId, reviewedFiles, scope) set.
 # - `review-ledger.sh render <ledger-file>` prints the comment body that stores the ledger.
 #
@@ -124,14 +124,31 @@ case "$command" in
     [ "$#" -eq 1 ] || die "usage: review-ledger.sh update-block <execution-file>"
     execution_file="$1"
     [ -f "$execution_file" ] || exit 0
+    # The final result message is where the prompt asks for the block. A reviewer that put it somewhere else in the same run, such as the end of the review body it submitted, still wrote it in one of its own messages, so the run's assistant messages are searched next, newest first: their text and every string in their tool calls' input. Only the model's own messages are searched, never the prompt or a tool result, so the example block in the instructions and text read back from GitHub can never be taken for it.
+    found="$(jq -c '
+      def blocks: [match("(?s)<review-ledger-update>(.*?)</review-ledger-update>"; "g") | .captures[0].string];
+      def strings_in: if type == "string" then . elif type == "array" or type == "object" then .[] | strings_in else empty end;
+      if type != "array" then empty else
+        ([.[] | select(type == "object" and .type == "result")] | last | (.result // "") | blocks | last) as $final
+        | if $final != null then {source: "the final result message", block: $final}
+          else
+            [ .[] | select(type == "object" and .type == "assistant") | .message.content // [] | .[]
+              | if .type == "text" then .text elif .type == "tool_use" then (.input | strings_in) else empty end
+              | blocks[] ]
+            | last
+            | select(. != null)
+            | {source: "an earlier message of the run, not its final result message", block: .}
+          end
+      end
+    ' "$execution_file")"
+    [ -n "$found" ] || exit 0
+    echo "review-ledger: read the update block from $(jq -r '.source' <<< "$found")." >&2
     jq -r '
-      (if type == "array" then ([.[] | select(type == "object" and .type == "result")] | last) else null end) as $result
-      | ($result.result // "")
-      | ([match("(?s)<review-ledger-update>(.*?)</review-ledger-update>"; "g")] | last | .captures[0].string) // empty
+      .block
       | gsub("^\\s+|\\s+$"; "")
       | sub("^```(?:json)?\\s*"; "") | sub("\\s*```$"; "")
       | select(. != "")
-    ' "$execution_file"
+    ' <<< "$found"
     ;;
 
   apply)
