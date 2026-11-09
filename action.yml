@@ -1055,7 +1055,7 @@ runs:
         echo "disallowed_tools=${DISALLOWED}" >> "$GITHUB_OUTPUT"
         echo "Mode '${MODE}' allowlist: ${ALLOWED}"
 
-    # Review mode's ledger (docs/review-ledger.md) is read here, before the prompt is composed, so the review starts from what earlier rounds recorded instead of from nothing. It lives in a comment the action itself writes on the pull request, because that is the one store that outlives both a cache miss and job-log expiry and needs no scope beyond the pull-requests: write review mode already holds (a check run would need checks: write, which the reusable review workflow does not grant). Only a comment written by a bot account is read, since anyone who can comment could otherwise post a ledger of their own, and the ledger is rejected unless it matches the schema and every id matches what it identifies. A ledger that fails either check stops the run: it means the record was edited into a state this action did not write, and reviewing on top of it would carry that edit forward. The facts this round will be recorded under (head, base, patch id, files) are taken from GitHub here, in the runner, so nothing the model reads or writes can set them.
+    # Review mode's ledger (docs/review-ledger.md) is read here, before the prompt is composed, so the review starts from what earlier rounds recorded instead of from nothing. It lives in a comment the action itself writes on the pull request, because that is the one store that outlives both a cache miss and job-log expiry and needs no scope beyond the pull-requests: write review mode already holds (a check run would need checks: write, which the reusable review workflow does not grant). Only a comment written by a bot account is read, since anyone who can comment could otherwise post a ledger of their own, and the ledger is rejected unless it matches the schema and every id matches what it identifies. A comment that carries the marker but whose data cannot be read, or a ledger that fails either check, stops the run: it means the record was edited into a state this action did not write, and reviewing on top of it would carry that edit forward. The facts this round will be recorded under (head, base, patch id, files) are taken from GitHub here, in the runner, so nothing the model reads or writes can set them.
     - name: Read the review ledger
       id: review-ledger
       if: ${{ inputs.mode == 'review' }}
@@ -1105,7 +1105,10 @@ runs:
         fi
 
         api_to "${work}/comments.json" --paginate --slurp "repos/${REPOSITORY}/issues/${PR_NUMBER}/comments"
-        jq -c 'add // []' "${work}/comments.json" | bash "$script" extract > "${work}/found.json"
+        if ! jq -c 'add // []' "${work}/comments.json" | bash "$script" extract > "${work}/found.json"; then
+          echo "::error::A comment on pull request #${PR_NUMBER} carries the review ledger marker but its data could not be read (see the log above). Delete the comment to start the ledger again, or restore its last version from the comment's edit history." >&2
+          exit 1
+        fi
         previous=""
         comment_id=""
         if [ -s "${work}/found.json" ]; then

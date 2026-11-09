@@ -76,6 +76,12 @@ expect_equal "a rendered ledger reads back exactly from a bot's comment" "true" 
 expect_equal "extract reports which comment holds the ledger" "42" "$(jq -r '.commentId' "${work_dir}/found-1.json")"
 expect_equal "a ledger in a comment by a user account is never read" "" "$(comments_with "${work_dir}/comment-1.md" User | ledger extract)"
 expect_equal "no comment with a ledger reads as no ledger" "" "$(printf '[]' | ledger extract)"
+# A comment that still carries the marker but whose data block was cut or edited is an error, never "no ledger".
+sed '/^<!-- claude-review-ledger-data$/,$d' "${work_dir}/comment-1.md" > "${work_dir}/comment-no-data.md"
+expect_equal "a marker comment with no data block fails extract" "1" "$(status_of ledger extract < <(comments_with "${work_dir}/comment-no-data.md" Bot))"
+expect_contains "extract names the comment whose data block is missing" "comment 42 carries the ledger marker but no readable data block" "$(comments_with "${work_dir}/comment-no-data.md" Bot | ledger extract 2>&1)"
+sed 's/^{"version":1/{"version":1,,/' "${work_dir}/comment-1.md" > "${work_dir}/comment-bad-json.md"
+expect_contains "a marker comment whose data is not JSON fails extract" "its data block is not valid JSON" "$(comments_with "${work_dir}/comment-bad-json.md" Bot | ledger extract 2>&1)"
 
 # The data block cannot be closed early by text inside it.
 jq '.findings[0].summary = "closes --> early and <!-- opens"' "${work_dir}/ledger-1.json" > "${work_dir}/ledger-arrow.json"
@@ -285,6 +291,14 @@ serve repos/owner/repo/issues/7/comments "${work_dir}/comments-tampered.json"
 status="$(run_read)"
 expect_equal "the read step fails on a ledger whose ids do not match" "1" "$status"
 expect_contains "the read step names the comment it refused" "::error::The review ledger in comment 42" "$(cat "${work_dir}/stdout")"
+
+# A ledger comment whose data block cannot be read stops the run instead of starting the record again.
+reset_stub "$sha_c"
+comments_with "${work_dir}/comment-no-data.md" Bot | jq -c '[.]' > "${work_dir}/comments-no-data.json"
+serve repos/owner/repo/issues/7/comments "${work_dir}/comments-no-data.json"
+status="$(run_read)"
+expect_equal "the read step fails on a ledger comment whose data block cannot be read" "1" "$status"
+expect_contains "the read step says the marker comment's data could not be read" "::error::A comment on pull request #7 carries the review ledger marker but its data could not be read" "$(cat "${work_dir}/stdout")"
 
 # Compose prompt places the ledger context in the review prompt.
 printf '# Review ledger\n\nThis is round 9.\n' > "${work_dir}/context.md"

@@ -4,7 +4,7 @@
 # Usage, one subcommand per line:
 # - `review-ledger.sh id <class-key> <instance>` prints the stable id of one instance of a class.
 # - `review-ledger.sh patch-id < diff` prints git patch-id --stable of a diff, or nothing for an empty diff.
-# - `review-ledger.sh extract < comments` reads a JSON array of issue comments and prints {"commentId": <id>, "ledger": <ledger>} for the newest comment written by a bot that carries a ledger block, or nothing when there is none.
+# - `review-ledger.sh extract < comments` reads a JSON array of issue comments and prints {"commentId": <id>, "ledger": <ledger>} for the newest comment written by a bot that carries the ledger marker, or nothing when there is none; a marker comment whose data block is missing or not JSON is an error.
 # - `review-ledger.sh check <ledger-file>` exits non-zero, naming every problem on stderr, unless the file is a valid ledger whose ids are the ones its class keys and instances produce.
 # - `review-ledger.sh update-block <execution-file>` prints the JSON between the last <review-ledger-update> and </review-ledger-update> tags of a run's final result message, or, when that message has none, of the newest of the run's own assistant messages (text or tool call input) that has one, naming on stderr which it read; prints nothing when the run wrote no block.
 # - `review-ledger.sh apply <update-file> <facts-file> [<previous-ledger-file>]` prints the ledger after this round: the previous ledger (if any) with the reviewer's update merged in and the runner's facts (pullRequest, reviewedHead, baseSha, patchId, reviewedFiles, scope) set.
@@ -88,8 +88,11 @@ case "$command" in
       [.[] | select(.user.type == "Bot" and ((.body // "") | startswith($marker)))]
       | sort_by(.updated_at, .id) | last
       | select(. != null)
-      | {commentId: .id, ledger: (.body | capture("(?s)" + $open + "\n(?<data>.*?)\n" + $close) | .data | fromjson)}
-    '
+      # A comment that carries the marker is the ledger, so a data block that cannot be found or parsed is an error, never "no ledger": reading it as absent would start the record again and drop every finding on it.
+      | .id as $id
+      | ([.body | capture("(?s)" + $open + "\n(?<data>.*?)\n" + $close)] | first // error("comment \($id) carries the ledger marker but no readable data block"))
+      | {commentId: $id, ledger: (.data | try fromjson catch error("comment \($id) carries the ledger marker but its data block is not valid JSON"))}
+    ' || die "the ledger comment could not be read (see the message above)"
     ;;
 
   check)
