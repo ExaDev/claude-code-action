@@ -49,6 +49,10 @@ When GitHub does not return the pull request, its changed files or its comments 
 
 A successful review that wrote no valid update block fails the write step and leaves the ledger as it was, so the next round still starts from the last head recorded in full. When no attempt succeeded, the write step fails with an error saying so, and a review a failed attempt posted before failing is not recorded. A run that stopped at its turn limit is not recorded either, because its wrap-up review is partial, and the step says so in a notice.
 
+## Every failure path has a test
+
+`scripts/review-ledger.test.sh` ends with a check that reads every annotation (`::error::`, `::warning::`, `::notice::`) the ledger steps in `action.yml` can emit, every `die` in `scripts/review-ledger.sh`, and every jq `error(...)` in that script and in `scripts/json-schema.jq`, and fails unless each one has a row in the test's error-path table naming the test that provokes it, the message appeared in the output the tests provoked, and that test passed. A new failure path without a test, a row whose message no longer exists, and two messages that open with the same text all fail `npm test`, and so CI. Each message therefore opens with literal text rather than a variable, so a row can name it.
+
 ## Trust
 
 Everything the ledger records about the pull request itself (head, base, patch id, files, round, every id) is set by the action from GitHub's API in the runner. The reviewer's update can report findings, declare invariants and change the status of a finding it names by id, and the schema refuses any update that tries to set anything else. The reviewer has no tool that writes the comment.

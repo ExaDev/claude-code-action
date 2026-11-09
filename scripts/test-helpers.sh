@@ -11,8 +11,15 @@ runner_temp="${work_dir}/runner-temp"
 failures=0
 passes=0
 
+# Every message a test run provoked (each step's output, and whatever a test file chooses to record), and the name of every assertion that passed, so a test file can check that each error path it lists was actually reached.
+observed_output="${work_dir}/observed-output"
+passed_names="${work_dir}/passed-names"
+: > "$observed_output"
+: > "$passed_names"
+
 pass() {
   passes=$((passes + 1))
+  printf '%s\n' "$1" >> "$passed_names"
   echo "ok - $1"
 }
 
@@ -95,6 +102,7 @@ run_step() {
   : > "${work_dir}/output"
   local status=0
   env -i PATH="$PATH" GITHUB_OUTPUT="${work_dir}/output" ACTION_PATH="$repo_root" RUNNER_TEMP="$runner_temp" "$@" bash "$script" > "${work_dir}/stdout" 2>&1 || status=$?
+  cat "${work_dir}/stdout" >> "$observed_output"
   echo "$status"
 }
 

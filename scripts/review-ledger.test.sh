@@ -8,8 +8,15 @@ source "$(dirname "${BASH_SOURCE[0]}")/test-helpers.sh"
 
 ledger_script="${repo_root}/scripts/review-ledger.sh"
 ledger_fixtures="${fixtures}/review-ledger"
+# Runs the ledger script, passing its output through unchanged and recording what it printed on stderr, so the error-path check below can see every message the tests provoked whatever the caller does with stderr.
 ledger() {
-  bash "$ledger_script" "$@"
+  local stderr_file status=0
+  stderr_file="$(mktemp "${work_dir}/ledger-stderr.XXXXXX")"
+  bash "$ledger_script" "$@" 2> "$stderr_file" || status=$?
+  cat "$stderr_file" >> "$observed_output"
+  cat "$stderr_file" >&2
+  rm -f "$stderr_file"
+  return "$status"
 }
 
 # Exits with the status of a command, its output discarded, so a test can assert that a check fails.
@@ -142,7 +149,7 @@ stub_dir="${work_dir}/stub-gh"
 mkdir -p "$stub_bin" "$stub_dir"
 cat > "${stub_bin}/gh" <<'STUB'
 #!/usr/bin/env bash
-# A gh that serves `gh api` reads from files in $STUB_DIR named after the endpoint (slashes as underscores, ".diff" appended when a diff is asked for) and records each write in $STUB_DIR/writes.log with its payload in $STUB_DIR/write-<n>.json.
+# A gh that serves `gh api` reads from files in $STUB_DIR named after the endpoint (slashes as underscores, ".diff" appended when a diff is asked for) and records each write in $STUB_DIR/writes.log with its payload in $STUB_DIR/write-<n>.json; with $STUB_FAIL_WRITES set, every write fails instead.
 [ "$1" = "api" ] || exit 1
 shift
 method="GET" accept="" input="" endpoint=""
@@ -156,6 +163,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 if [ "$method" != "GET" ]; then
+  [ -z "${STUB_FAIL_WRITES:-}" ] || exit 1
   count="$(wc -l < "${STUB_DIR}/writes.log" 2> /dev/null || echo 0)"
   count=$((count + 1))
   echo "${method} ${endpoint}" >> "${STUB_DIR}/writes.log"
@@ -192,7 +200,7 @@ run_read() {
 # Runs the write step on an execution file, with the outcome of Resolve Claude Code result (success unless given) and whether the run hit its turn limit.
 run_write() {
   local execution_file="$1" outcome="${2:-success}" hit_limit="${3:-}"
-  run_step review-ledger-write GITHUB_STEP_SUMMARY="${work_dir}/step-summary.md" PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 EXECUTION_FILE="$execution_file" \
+  run_step review-ledger-write STUB_FAIL_WRITES="${STUB_FAIL_WRITES:-}" GITHUB_STEP_SUMMARY="${work_dir}/step-summary.md" PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 EXECUTION_FILE="$execution_file" \
     CLAUDE_OUTCOME="$outcome" HIT_TURN_LIMIT="$hit_limit" \
     WORK="$(output_value "${work_dir}/read-output" work_dir)" PREVIOUS="$(output_value "${work_dir}/read-output" previous)" \
     COMMENT_ID="$(output_value "${work_dir}/read-output" comment_id)" FACTS="$(output_value "${work_dir}/read-output" facts)"
@@ -333,5 +341,111 @@ expect_contains "the composed review prompt carries the ledger context" "This is
 review_prompt="$(cat "${repo_root}/prompts/review/base.md")"
 expect_contains "the review prompt asks for the update block" "<review-ledger-update>" "$review_prompt"
 expect_contains "the review prompt forbids line numbers in an instance" "never by a line number" "$review_prompt"
+
+
+# Error paths with no other test.
+# Every subcommand that takes a fixed number of arguments refuses too many, naming its own usage; the subcommands are read from the script, so a new one is covered without an edit here.
+too_many_arguments=(one two three four five six seven eight nine)
+while IFS= read -r subcommand; do
+  expect_contains "the ${subcommand} subcommand refuses too many arguments with its usage" "review-ledger: usage: review-ledger.sh ${subcommand} " "$(ledger "$subcommand" "${too_many_arguments[@]}" 2>&1 || true)"
+done < <(grep -oE 'die "usage: review-ledger\.sh [a-z-]+ ' "$ledger_script" | awk '{ print $4 }' | sort -u)
+expect_contains "an unknown subcommand is refused with the general usage" "review-ledger: usage: review-ledger.sh <subcommand>" "$(ledger no-such-subcommand 2>&1 || true)"
+printf 'not json' > "${work_dir}/not-json.json"
+expect_contains "check refuses a file that is not JSON" "review-ledger: not valid JSON: ${work_dir}/not-json.json" "$(ledger check "${work_dir}/not-json.json" 2>&1 || true)"
+jq -c --arg id "$id_one" '.statuses = [{id: $id, status: "fixed", reason: "both"}]' "${work_dir}/update-1.json" > "${work_dir}/update-conflicting.json"
+expect_contains "an update that reports a finding and changes its status at once is refused" "the update both reports and changes the status of: ${id_one}" "$(ledger apply "${work_dir}/update-conflicting.json" "${work_dir}/facts-1.json" "${work_dir}/ledger-1.json" 2>&1 || true)"
+
+# The schema validator refuses what it does not implement rather than skipping it.
+schema_check() {
+  local schema="$1" stderr_file status=0
+  stderr_file="$(mktemp "${work_dir}/schema-stderr.XXXXXX")"
+  jq -n -r -L "${repo_root}/scripts" --argjson schema "$schema" 'include "json-schema"; 1 | schema_errors($schema; $schema; "$")' 2> "$stderr_file" > /dev/null || status=$?
+  cat "$stderr_file" >> "$observed_output"
+  cat "$stderr_file"
+  [ "$status" -ne 0 ] || echo "exit 0"
+}
+expect_contains "the schema validator refuses a keyword it does not implement" 'json-schema: unsupported keyword(s) maximum at $' "$(schema_check '{"maximum": 3}')"
+expect_contains "the schema validator refuses a \$ref to a definition that does not exist" 'json-schema: undefined $ref #/$defs/missing' "$(schema_check '{"$ref": "#/$defs/missing"}')"
+expect_contains "the schema validator refuses a \$ref outside the local definitions" 'json-schema: unsupported $ref other.json' "$(schema_check '{"$ref": "other.json"}')"
+
+# The read step without the diff, and the write step when the merge fails or GitHub refuses every write.
+reset_stub "$sha_a"
+rm "${stub_dir}/repos_owner_repo_pulls_7.diff"
+status="$(run_read)"
+expect_equal "the read step succeeds when GitHub does not return the diff" "0 null" "${status} $(jq -r '.patchId' "$(output_value "${work_dir}/output" facts)")"
+expect_contains "the read step notes that the patch id is unknown when GitHub does not return the diff" "::notice::GitHub did not return the diff of pull request #7" "$(cat "${work_dir}/stdout")"
+reset_stub "$sha_a"
+run_read > /dev/null
+cp "${work_dir}/output" "${work_dir}/read-output"
+status="$(run_write "${ledger_fixtures}/trusted-fields.json")"
+expect_equal "the write step fails when the reviewer's update cannot be merged, and writes nothing" "1 absent" "${status} $([ -e "${stub_dir}/writes.log" ] && echo present || echo absent)"
+expect_contains "the write step passes on why the update could not be merged" "review-ledger: not a valid update" "$(cat "${work_dir}/stdout")"
+status="$(STUB_FAIL_WRITES=1 run_write "${ledger_fixtures}/round-1.json")"
+expect_equal "the write step fails when GitHub refuses every write" "1" "$status"
+expect_contains "the write step says it could not write the ledger" "::error::Could not write the review ledger of pull request #7 after" "$(cat "${work_dir}/stdout")"
+
+# Every error, warning and notice the ledger steps can emit, and every error the ledger script and the schema validator can raise, must be provoked by a test in this file: a new error path without one fails here. Each row is the message's opening literal text (up to its first variable), a tab, and the test that provokes it; the check below also confirms the text appeared in the output the tests provoked, and that the named test passed.
+error_paths="$(cat << 'TABLE'
+The review ledger of pull request #	the read step warns when GitHub does not return the pull request
+GitHub did not return the diff of pull request #	the read step notes that the patch id is unknown when GitHub does not return the diff
+A comment on pull request #	the read step says the marker comment's data could not be read
+The review ledger in comment 	the read step names the comment it refused
+The review stopped at its turn limit, so its partial review is not recorded in the review ledger of pull request #	the write step says the turn-limited review is not recorded
+No attempt of Run Claude Code succeeded (Resolve Claude Code result: 	the write step says no attempt succeeded, and that a review posted before a failure is not recorded
+The successful review (execution file 	the write step says why it failed
+Could not write the review ledger of pull request #	the write step says it could not write the ledger
+not valid JSON: 	check refuses a file that is not JSON
+not a valid 	the write step passes on why the update could not be merged
+usage: review-ledger.sh id <class-key> <instance>	the id subcommand refuses too many arguments with its usage
+usage: review-ledger.sh check <ledger-file>	the check subcommand refuses too many arguments with its usage
+usage: review-ledger.sh update-block <execution-file>	the update-block subcommand refuses too many arguments with its usage
+usage: review-ledger.sh apply <update-file> <facts-file> [<previous-ledger-file>]	the apply subcommand refuses too many arguments with its usage
+usage: review-ledger.sh context [<previous-ledger-file>]	the context subcommand refuses too many arguments with its usage
+usage: review-ledger.sh render <ledger-file>	the render subcommand refuses too many arguments with its usage
+usage: review-ledger.sh <subcommand> [<argument>...], with the subcommands the header of this script lists	an unknown subcommand is refused with the general usage
+no readable data block in the ledger comment 	extract names the comment whose data block is missing
+the data block of the ledger comment 	a marker comment whose data is not JSON fails extract
+the ledger comment could not be read (see the message above)	a marker comment with no data block fails extract
+ids that do not match what they identify, so the ledger was not written by this action as it stands: 	check refuses a finding whose id does not match its instance
+the update changes the status of findings the ledger does not hold: 	an update changing a finding the ledger does not hold is refused
+the update both reports and changes the status of: 	an update that reports a finding and changes its status at once is refused
+the update could not be applied (see the message above)	an update changing a finding the ledger does not hold is refused
+the rendered ledger is 	a ledger over the comment size limit is refused
+json-schema: undefined $ref 	the schema validator refuses a $ref to a definition that does not exist
+json-schema: unsupported $ref 	the schema validator refuses a $ref outside the local definitions
+json-schema: unsupported keyword(s) 	the schema validator refuses a keyword it does not implement
+TABLE
+)"
+# Prints the opening literal text of every message the ledger steps and scripts can fail or warn with: an annotation in the ledger steps, a die in the ledger script, and a jq error() in the ledger script or the schema validator. Shell text ends at its first variable, jq text at its first interpolation.
+error_messages() {
+  for id in review-ledger review-ledger-write; do
+    step_script "$id" | grep -oE '::(error|warning|notice)::[^$"]*' | sed -E 's/^::[a-z]+:://'
+  done
+  grep -oE 'die "[^$"]*' "$ledger_script" | sed 's/^die "//'
+  cat "$ledger_script" "${repo_root}/scripts/json-schema.jq" | grep -oE 'error\("([^"\\]|\\[^(])*' | sed 's/^error("//'
+}
+error_messages > "${work_dir}/error-messages.txt"
+while IFS= read -r message; do
+  if [ -z "$message" ]; then
+    fail "every error message starts with literal text, so it can be matched (one starts with a variable)"
+    continue
+  fi
+  row="$(awk -F '\t' -v message="$message" '$1 == message { print $2; exit }' <<< "$error_paths")"
+  if [ -z "$row" ]; then
+    fail "the error path \"${message}\" is provoked by a test listed in the error-path table"
+  elif ! grep -qF -- "$message" "$observed_output"; then
+    fail "the error path \"${message}\" appeared in the output the tests provoked"
+  elif ! grep -qxF -- "$row" "$passed_names"; then
+    fail "the test \"${row}\" that provokes \"${message}\" passed"
+  else
+    pass "the error path \"${message}\" is provoked by \"${row}\""
+  fi
+done < "${work_dir}/error-messages.txt"
+while IFS=$'\t' read -r message _; do
+  grep -qxF -- "$message" "${work_dir}/error-messages.txt" || fail "the error-path table row \"${message}\" names a message the steps and scripts can still raise"
+done <<< "$error_paths"
+duplicates="$(sort "${work_dir}/error-messages.txt" | uniq -d)"
+ambiguous="$(awk 'NR == FNR { all[NR] = $0; n = NR; next } { for (i = 1; i <= n; i++) if (all[i] != $0 && index(all[i], $0) == 1) print $0 }' "${work_dir}/error-messages.txt" "${work_dir}/error-messages.txt" | sort -u)"
+expect_equal "no two error messages open with the same text, so each row names one path" "" "${duplicates}${ambiguous}"
 
 finish
