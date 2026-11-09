@@ -91,7 +91,7 @@ awk -F '\t' -v owners="$PUBLIC_ONLY_OWNERS" -v tracked="${work_dir}/tracked" -v 
     if (kind == "bare" && tolower(repo) ~ /\.(md|markdown|ya?ml|toml|txt|sh|lock)$/) { next }
     printf "%s\t%s\n", text, where
   }
-' "${work_dir}/matches" | sort -u > "${work_dir}/references"
+' "${work_dir}/matches" | LC_ALL=C sort -u > "${work_dir}/references"
 
 auth=()
 if [ -n "${GITHUB_TOKEN:-}" ]; then
