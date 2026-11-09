@@ -3264,7 +3264,7 @@ runs:
           exit 1
         fi
 
-        jq -r '"Review ledger: round \(.round) recorded for head \(.reviewedHead); \([.findings[] | select(.status == "open")] | length) open finding(s), \(.invariants | length) invariant(s); \(.scope.kind) review (\(.scope.reason))."' "${WORK}/ledger.json" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
+        jq -r '"Review ledger: round \(.round) recorded for head \(.reviewedHead); \([.findings[] | select(.status == "open")] | length) open finding(s), \(.invariants | length) invariant(s); \(.scope.kind) review (\(.scope.reason))."' "${WORK}/ledger.json" | tee -a "$GITHUB_STEP_SUMMARY"
 
     # Stopped here, after every anthropics/claude-code-action call site in the job (the wrap-up follow-on, the automatic-fix pass, the structured summary), not right after the main review -- ANTHROPIC_BASE_URL stays exported to $GITHUB_ENV for the rest of the job regardless of where this runs, so stopping the proxy any earlier than its last real user leaves that env var pointing at a dead process for whichever of those three calls happens to run afterward. Confirmed live: a turn-limit wrap-up call failed with is_error:true, num_turns:1, total_cost_usd:0 (no request ever reached the model) after roughly three minutes, reproducible across two separate pull requests, until this step was moved to its current position after the last call that can still need the proxy.
     - name: Stop Headroom proxy
