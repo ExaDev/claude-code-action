@@ -215,6 +215,15 @@ context_2="$(ledger context "${work_dir}/prepared-2.json")"
 expect_contains "a later round's context names the round" "This is round 2" "$context_2"
 expect_contains "a later round's context lists each finding by id with the action's own check" "\`${id_one}\` \`stale-reference\` Should fix, open: \"README.md :: npm run old-build\". \"Names the old-build script, which this change removes.\" Its enumerator still matches this instance at this head." "$context_2"
 expect_contains "a later round's context says when a finding's instance is gone" "no longer matches this instance at this head" "$context_2"
+expect_contains "a later round's context says a gone instance must not be reported again, because that fails the run" "so the action records it as fixed: do not report it again, since a grep-enumerated finding whose instance the action cannot find fails the run." "$context_2"
+# Reporting a gone instance again is what enumerate-ledger refuses, so no text the reviewer is given may offer it as a way to keep the finding open.
+for given in "$context_2" "$(cat "${repo_root}/prompts/review/base.md")"; do
+  if [[ "$given" == *"unless you report it again"* ]]; then
+    fail "nothing the reviewer is given offers reporting a gone instance again as a way to keep it open"
+  else
+    pass "nothing the reviewer is given offers reporting a gone instance again as a way to keep it open"
+  fi
+done
 expect_contains "a later round's context lists the invariants with their instances at this head" "  - \"README.md :: npm run old-build\" (README.md, line 10)" "$context_2"
 
 # The steps in action.yml, against a stub gh.
