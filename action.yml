@@ -1147,7 +1147,7 @@ runs:
           fi
         done
 
-        # The repository's own invariants come from the base commit, never the head, so a pull request cannot change the invariants it is reviewed against; a change to the file takes effect once it is merged.
+        # The repository's own invariants come from the pull request's base commit (the tip of the branch it targets), never the head, so a pull request cannot change the invariants it is reviewed against; a change to the file takes effect for a pull request once it is on the branch that pull request targets.
         if git cat-file -e "${base}:.github/claude/invariants.json" 2> /dev/null; then
           git show "${base}:.github/claude/invariants.json" > "${work}/repository-invariants.json"
           if ! bash "$script" validate repositoryInvariants "${work}/repository-invariants.json"; then
