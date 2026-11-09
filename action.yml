@@ -151,7 +151,9 @@ inputs:
       A first run for an entity is a cache miss and starts a fresh session; each later run restores the most
       recent session and passes --resume <id> to Claude Code, so prior context carries forward. Set "false" to
       disable both restore and save. Fork pull requests cannot save caches (GitHub blocks this), so fork PRs
-      always start fresh. Do not also pass --resume in extra_claude_args when this is on.
+      always start fresh. Do not also pass --resume in extra_claude_args when this is on. Review mode does not
+      resume once its review ledger records an earlier round: the ledger and the delta since the last reviewed
+      head replace the transcript (docs/review-ledger.md); the session is still saved.
     required: false
     default: "true"
 
@@ -1134,10 +1136,8 @@ runs:
           fi
           previous="${work}/previous.json"
           echo "Read the review ledger from comment ${comment_id}: round $(jq -r '.round' "$previous"), reviewed head $(jq -r '.reviewedHead' "$previous")."
-          reason="the whole pull request is reviewed on every round"
         else
           echo "No review ledger on pull request #${PR_NUMBER}; this is its first recorded round."
-          reason="first recorded round"
         fi
 
         # git grep and git show need the head and base commits; a checkout made for the pull request has them, and any other is given them here.
@@ -1147,6 +1147,15 @@ runs:
             exit 1
           fi
         done
+
+        # A re-review is given the delta since the last reviewed head when that head is an ancestor of this one, and the whole pull request otherwise, with the reason recorded and shown to the reviewer.
+        : > "${work}/delta.diff"
+        if [ -n "$previous" ]; then
+          bash "$script" scope "$head" "${work}/reviewed-files.json" "$previous" "${work}/delta.diff" > "${work}/scope.json"
+        else
+          printf '{"kind": "full", "since": null, "reason": "no earlier round is on record"}' > "${work}/scope.json"
+        fi
+        echo "Review scope: $(jq -r '"\(.kind), \(.reason)"' "${work}/scope.json")."
 
         # The repository's own invariants come from the pull request's base commit (the tip of the branch it targets), never the head, so a pull request cannot change the invariants it is reviewed against; a change to the file takes effect for a pull request once it is on the branch that pull request targets.
         if git cat-file -e "${base}:.github/claude/invariants.json" 2> /dev/null; then
@@ -1165,9 +1174,9 @@ runs:
           --arg base "$base" \
           --arg patchId "$patch_id" \
           --slurpfile files "${work}/reviewed-files.json" \
-          --arg reason "$reason" \
+          --slurpfile scope "${work}/scope.json" \
           --slurpfile repository "${work}/repository-invariants.json" \
-          '{pullRequest: $pullRequest, reviewedHead: $head, baseSha: $base, patchId: (if $patchId == "" then null else $patchId end), reviewedFiles: $files[0], scope: {kind: "full", since: null, reason: $reason}, repositoryInvariants: $repository[0].invariants}' \
+          '{pullRequest: $pullRequest, reviewedHead: $head, baseSha: $base, patchId: (if $patchId == "" then null else $patchId end), reviewedFiles: $files[0], scope: $scope[0], repositoryInvariants: $repository[0].invariants}' \
           > "${work}/facts.json"
 
         if [ -n "$previous" ]; then
@@ -1175,7 +1184,7 @@ runs:
         else
           bash "$script" prepare "$head" "${work}/facts.json" > "${work}/prepared.json"
         fi
-        bash "$script" context "${work}/prepared.json" > "${work}/context.md"
+        bash "$script" context "${work}/prepared.json" "${work}/delta.diff" > "${work}/context.md"
 
         {
           echo "available=true"
@@ -1438,8 +1447,20 @@ runs:
       shell: bash
       env:
         BASE_ARGS: ${{ steps.args.outputs.claude_args }}
+        LEDGER_PREVIOUS: ${{ steps.review-ledger.outputs.previous }}
       run: |
         set -euo pipefail
+        # A review with a ledger on record starts fresh: the ledger and the delta replace the earlier rounds' transcript, so the model's input stays the delta plus the ledger instead of growing with every round (docs/review-ledger.md).
+        if [ -n "${LEDGER_PREVIOUS:-}" ]; then
+          echo "The review ledger records earlier rounds, so this review starts a fresh session instead of resuming one."
+          delim="RESUME_ARGS_$(openssl rand -hex 16)"
+          {
+            echo "claude_args<<${delim}"
+            echo "${BASE_ARGS:-}"
+            echo "${delim}"
+          } >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
         # Claude Code encodes the project path for ~/.claude/projects/ by replacing '/' with '-': /home/runner/work/<repo>/<repo> becomes -home-runner-work-<repo>-<repo>. Recompute from GITHUB_WORKSPACE so we look in exactly this repo's project dir.
         ENCODED_CWD="${GITHUB_WORKSPACE//\//-}"
         PROJECT_DIR="${HOME}/.claude/projects/${ENCODED_CWD}"

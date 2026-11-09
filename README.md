@@ -73,7 +73,7 @@ Review mode looks for `CLAUDE.md`, then `AGENTS.md`, then `README.md` at the rep
 
 Full detection table, severity labels, and the repository-local instruction files: [docs/review-conventions.md](docs/review-conventions.md).
 
-Review mode keeps a ledger of each pull request's review rounds in a comment of its own: the reviewed head and patch id, every finding with a stable id, its class and its status, and the invariants checked. Each round reads it first and records itself after; see [docs/review-ledger.md](docs/review-ledger.md).
+Review mode keeps a ledger of each pull request's review rounds in a comment of its own: the reviewed head and patch id, every finding with a stable id, its class and its status, and the invariants checked. Each round reads it first and records itself after, a later round reviews only the delta since the last reviewed head (the whole pull request again after a force push or rebase, with the reason given), and the action runs grep enumerators itself so a class is reported once with every instance; see [docs/review-ledger.md](docs/review-ledger.md).
 
 ## Versioning
 
