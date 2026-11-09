@@ -1,0 +1,63 @@
+[
+  {
+    "type": "system",
+    "subtype": "init",
+    "session_id": "33333333-3333-4333-8333-333333333333"
+  },
+  {
+    "type": "user",
+    "message": {
+      "content": [
+        {
+          "type": "text",
+          "text": "Prompt example: <review-ledger-update>\n{\"invariants\": [], \"findings\": [], \"statuses\": []}\n</review-ledger-update>"
+        }
+      ]
+    }
+  },
+  {
+    "type": "assistant",
+    "message": {
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "t1",
+          "name": "mcp__github__submit_pending_pull_request_review",
+          "input": {
+            "event": "REQUEST_CHANGES",
+            "body": "**Should fix** a finding.\n\n<review-ledger-update>\n```json\n{\n  \"invariants\": [\n    {\n      \"classKey\": \"stale-reference\",\n      \"statement\": \"No document names the removed old-build script.\",\n      \"enumerator\": {\n        \"type\": \"grep\",\n        \"pattern\": \"old-build\",\n        \"paths\": [\n          \"README.md\",\n          \"docs\"\n        ]\n      }\n    }\n  ],\n  \"findings\": [\n    {\n      \"classKey\": \"stale-reference\",\n      \"instance\": \"docs/setup.md :: npm run old-build\",\n      \"path\": \"docs/setup.md\",\n      \"severity\": \"Should fix\",\n      \"summary\": \"Names the old-build script, which this change removes.\",\n      \"enumerator\": {\n        \"type\": \"grep\",\n        \"pattern\": \"old-build\",\n        \"paths\": [\n          \"README.md\",\n          \"docs\"\n        ]\n      }\n    },\n    {\n      \"classKey\": \"stale-reference\",\n      \"instance\": \"README.md :: npm run old-build\",\n      \"path\": \"README.md\",\n      \"severity\": \"Should fix\",\n      \"summary\": \"Names the old-build script, which this change removes.\",\n      \"enumerator\": {\n        \"type\": \"grep\",\n        \"pattern\": \"old-build\",\n        \"paths\": [\n          \"README.md\",\n          \"docs\"\n        ]\n      }\n    }\n  ],\n  \"statuses\": []\n}\n```\n</review-ledger-update>"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "type": "user",
+    "message": {
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "t1",
+          "content": "<review-ledger-update>\n{\"invariants\": [], \"findings\": [], \"statuses\": []}\n</review-ledger-update>"
+        }
+      ]
+    }
+  },
+  {
+    "type": "assistant",
+    "message": {
+      "content": [
+        {
+          "type": "text",
+          "text": "I submitted the review."
+        }
+      ]
+    }
+  },
+  {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "result": "I reviewed the pull request and requested changes for two findings."
+  }
+]

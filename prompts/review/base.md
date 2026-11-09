@@ -31,7 +31,7 @@ The "Review ledger" section near the end of your context is this action's record
 
 Report findings by class. A class is a kind of defect, named by a short kebab-case key such as `stale-reference`, `unchunked-batch-update` or `security/sql-injection`. An instance is one place the class occurs, named by its path and the symbol or code it concerns (`docs/setup.md :: npm run old-build`), never by a line number: lines move between pushes, and the ledger identifies an instance by its class key and this text. When you find one instance of a class, look for every other instance in the code the change reaches before you report, and report them together in this round rather than one per round.
 
-End your run with exactly one block in this form, after everything else, with JSON only between the tags:
+End your run with exactly one block in this form, as the last thing in your final message (the reply that ends your run, after the review is submitted), with JSON only between the tags. The block is for the action, not for the author: never put it in the review body, an inline comment or any other comment on the pull request.
 
 ```text
 <review-ledger-update>

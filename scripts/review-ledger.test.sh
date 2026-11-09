@@ -49,6 +49,12 @@ expect_equal "an empty diff has no patch id" "" "$(ledger patch-id < /dev/null)"
 expect_equal "update-block reads the last block of the final result, without its code fence" "stale-reference" "$(ledger update-block "${ledger_fixtures}/round-1.json" | jq -r '.findings[0].classKey')"
 expect_equal "update-block prints nothing when the result has no block" "" "$(ledger update-block "${fixtures}/success.json")"
 expect_equal "update-block prints nothing for a missing file" "" "$(ledger update-block "${work_dir}/missing.json")"
+# A reviewer that put the block at the end of the review body it submitted and ended with a prose summary, as a real run did.
+expect_equal "update-block reads a block the run wrote in a tool call when its final message has none" "2" "$(ledger update-block "${ledger_fixtures}/block-in-review-body.json" 2> /dev/null | jq '.findings | length')"
+expect_contains "update-block says it read the block from an earlier message" "an earlier message of the run, not its final result message" "$(ledger update-block "${ledger_fixtures}/block-in-review-body.json" 2>&1 > /dev/null)"
+expect_equal "update-block never reads a block from the prompt or a tool result" "" "$(jq 'map(select(.type != "assistant"))' "${ledger_fixtures}/block-in-review-body.json" > "${work_dir}/no-assistant.json" && ledger update-block "${work_dir}/no-assistant.json" 2> /dev/null)"
+printf 'not json' > "${work_dir}/invalid-execution.json"
+expect_equal "update-block fails on an execution file that is not JSON" "5" "$(status_of ledger update-block "${work_dir}/invalid-execution.json")"
 
 # apply, round 1
 ledger update-block "${ledger_fixtures}/round-1.json" > "${work_dir}/update-1.json"
@@ -177,15 +183,19 @@ run_read() {
   reset_runner_temp
   run_step review-ledger PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 WORK_ROOT="$runner_temp"
 }
+# Runs the write step on an execution file, with the outcome of Resolve Claude Code result (success unless given) and whether the run hit its turn limit.
 run_write() {
-  local execution_file="$1"
+  local execution_file="$1" outcome="${2:-success}" hit_limit="${3:-}"
   run_step review-ledger-write GITHUB_STEP_SUMMARY="${work_dir}/step-summary.md" PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 EXECUTION_FILE="$execution_file" \
+    CLAUDE_OUTCOME="$outcome" HIT_TURN_LIMIT="$hit_limit" \
     WORK="$(output_value "${work_dir}/read-output" work_dir)" PREVIOUS="$(output_value "${work_dir}/read-output" previous)" \
     COMMENT_ID="$(output_value "${work_dir}/read-output" comment_id)" FACTS="$(output_value "${work_dir}/read-output" facts)"
 }
 
 expect_equal "the ledger is read only in review mode" "\${{ inputs.mode == 'review' }}" "$(step_value review-ledger if)"
-expect_equal "the ledger is written only after a successful review that did not stop at its turn limit" "\${{ inputs.mode == 'review' && steps.claude.outcome == 'success' && steps.detect-turn-limit.outputs.hit_limit != 'true' }}" "$(step_value review-ledger-write if)"
+expect_equal "the write step runs whenever the ledger was read, whatever the review's outcome, so it can say why" "\${{ inputs.mode == 'review' && !cancelled() && steps.review-ledger.outcome == 'success' }}" "$(step_value review-ledger-write if)"
+expect_equal "the write step is told the review's outcome" "\${{ steps.claude.outcome }}" "$(step_value review-ledger-write CLAUDE_OUTCOME)"
+expect_equal "the write step is told whether the review hit its turn limit" "\${{ steps.detect-turn-limit.outputs.hit_limit }}" "$(step_value review-ledger-write HIT_TURN_LIMIT)"
 expect_equal "the ledger is written from the winning attempt's execution file" "\${{ steps.claude.outputs.execution_file }}" "$(step_value review-ledger-write EXECUTION_FILE)"
 expect_equal "Compose prompt takes the ledger context the read step wrote" "\${{ steps.review-ledger.outputs.context }}" "$(step_value prompt LEDGER_CONTEXT)"
 
@@ -230,8 +240,42 @@ status="$(run_read)"
 cp "${work_dir}/output" "${work_dir}/read-output"
 status="$(run_write "${fixtures}/success.json")"
 expect_equal "the write step fails when the review ended without an update block" "1" "$status"
-expect_contains "the write step says why it failed" "::error::The review ended without a <review-ledger-update> block" "$(cat "${work_dir}/stdout")"
+expect_contains "the write step says why it failed" "wrote no <review-ledger-update> block in its final message or any other message of its own" "$(cat "${work_dir}/stdout")"
 expect_equal "the write step writes nothing when the review ended without an update block" "absent" "$([ -e "${stub_dir}/writes.log" ] && echo present || echo absent)"
+
+# The attempt that wrote the ledger is the one Resolve Claude Code result chose. A first attempt that failed (a usage limit) kept its own execution file aside, and the shared path holds the attempt that ran after it.
+# Reads the ledger, places the attempts' execution files as the attempt steps leave them (the first attempt's kept aside when given, the last attempt's at the shared path), runs Resolve Claude Code result with the given outcomes, and runs the write step on the execution file it chose.
+resolve_then_write_with_files() {
+  local first="$1" shared="$2"
+  shift 2
+  reset_stub "$sha_a"
+  run_read > /dev/null
+  cp "${work_dir}/output" "${work_dir}/read-output"
+  [ -z "$first" ] || cp "$first" "${runner_temp}/claude-execution-output-attempt-1.json"
+  cp "$shared" "${runner_temp}/claude-execution-output.json"
+  local shared_file="${runner_temp}/claude-execution-output.json"
+  run_step claude "$@" EXECUTION_FILE_1="$shared_file" EXECUTION_FILE_2="$shared_file" SESSION_ID_1=44444444-4444-4444-8444-444444444444 SESSION_ID_2=11111111-1111-4111-8111-111111111111 \
+    CRED_TYPE_1=oauth CRED_TOKEN_1=token-one CRED_TYPE_2=key CRED_TOKEN_2=token-two CREDENTIAL_COUNT=2 > /dev/null
+  cp "${work_dir}/output" "${work_dir}/resolve-output"
+  run_write "$(output_value "${work_dir}/resolve-output" execution_file)"
+}
+status="$(resolve_then_write_with_files "${ledger_fixtures}/usage-limited.json" "${ledger_fixtures}/block-in-review-body.json" OUTCOME_1=failure OUTCOME_2=success CONCLUSION_2=success)"
+expect_equal "after a failed first attempt the write step records the second attempt's review" "0 POST repos/owner/repo/issues/7/comments" "${status} $(cat "${stub_dir}/writes.log" 2> /dev/null)"
+expect_equal "the ledger written after a failed first attempt holds the second attempt's findings" "2" "$(jq -r '.body' "${stub_dir}/write-1.json" | jq -R -s -c '[.]' | jq -c '[{id: 1, user: {type: "Bot"}, updated_at: "2026-01-01T00:00:00Z", body: .[0]}]' | ledger extract | jq '.ledger.findings | length')"
+status="$(resolve_then_write_with_files "" "${ledger_fixtures}/round-1.json" OUTCOME_1=success CONCLUSION_1=success)"
+expect_equal "when the first attempt succeeds the write step records its review" "0 POST repos/owner/repo/issues/7/comments" "${status} $(cat "${stub_dir}/writes.log" 2> /dev/null)"
+
+# A review that never succeeded, or stopped at its turn limit, is not recorded, and the log says which.
+reset_stub "$sha_a"
+run_read > /dev/null
+cp "${work_dir}/output" "${work_dir}/read-output"
+status="$(run_write "${ledger_fixtures}/round-1.json" failure)"
+expect_equal "the write step fails when no attempt succeeded" "1" "$status"
+expect_contains "the write step says no attempt succeeded, and that a review posted before a failure is not recorded" "::error::No attempt of Run Claude Code succeeded (Resolve Claude Code result: failure)" "$(cat "${work_dir}/stdout")"
+expect_equal "the write step writes nothing when no attempt succeeded" "absent" "$([ -e "${stub_dir}/writes.log" ] && echo present || echo absent)"
+status="$(run_write "${ledger_fixtures}/round-1.json" failure true)"
+expect_equal "the write step succeeds without writing when the review stopped at its turn limit" "0 absent" "${status} $([ -e "${stub_dir}/writes.log" ] && echo present || echo absent)"
+expect_contains "the write step says the turn-limited review is not recorded" "::notice::The review stopped at its turn limit" "$(cat "${work_dir}/stdout")"
 
 # A ledger comment edited into a state the action never wrote stops the run.
 reset_stub "$sha_c"
