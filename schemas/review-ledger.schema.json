@@ -1,0 +1,264 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "review-ledger.schema.json",
+  "title": "Review ledger",
+  "description": "The record review mode keeps of a pull request between rounds. The action writes every field: the reviewed head, base, patch id, round, reviewed files, scope and finding ids come from the runner, never from the model; the model's contribution arrives as an update (see $defs.update) that the action merges. Version 1.",
+  "type": "object",
+  "properties": {
+    "version": { "const": 1 },
+    "pullRequest": { "type": "integer", "minimum": 1 },
+    "round": { "type": "integer", "minimum": 1 },
+    "reviewedHead": { "$ref": "#/$defs/sha" },
+    "baseSha": { "$ref": "#/$defs/sha" },
+    "patchId": {
+      "description": "git patch-id --stable of the pull request's diff (base...head) at reviewedHead, or null when the diff could not be fetched.",
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "reviewedFiles": {
+      "description": "The paths the pull request's diff touched at reviewedHead.",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "scope": { "$ref": "#/$defs/scope" },
+    "invariants": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ledgerInvariant" }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ledgerFinding" }
+    }
+  },
+  "required": [
+    "version",
+    "pullRequest",
+    "round",
+    "reviewedHead",
+    "baseSha",
+    "patchId",
+    "reviewedFiles",
+    "scope",
+    "invariants",
+    "findings"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "id": {
+      "description": "The first 16 hex digits of the SHA-256 of the class key, a NUL byte and the instance.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{16}$"
+    },
+    "classKey": {
+      "description": "A short kebab-case name for a defect class, optionally namespaced with a slash (stale-reference, security/sql-injection).",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:/[a-z0-9]+(?:-[a-z0-9]+)*)*$"
+    },
+    "instance": {
+      "description": "Names one instance of a class by where it is and what it is (a path and a symbol, or a path and the code), never by a line number, so its id survives lines shifting.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!\\S+:[0-9]+(?::[0-9]+)?(?:\\s|$))"
+    },
+    "severity": { "enum": ["Blocker", "Should fix", "Nit"] },
+    "status": { "enum": ["open", "fixed", "retracted"] },
+    "grepEnumerator": {
+      "description": "A mechanical enumerator: git grep -E with this pattern over these pathspecs in the reviewed tree. Every match is an instance.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "grep" },
+        "pattern": { "type": "string", "minLength": 1 },
+        "paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "required": ["type", "pattern", "paths"],
+      "additionalProperties": false
+    },
+    "testEnumerator": {
+      "description": "A test that fails while an instance of the class exists, named as the repository runs it.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "test" },
+        "name": { "type": "string", "minLength": 1 }
+      },
+      "required": ["type", "name"],
+      "additionalProperties": false
+    },
+    "lensEnumerator": {
+      "description": "A named review lens: the class needs judgement, and the name says what the reviewer looks at.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "lens" },
+        "name": { "type": "string", "minLength": 1 }
+      },
+      "required": ["type", "name"],
+      "additionalProperties": false
+    },
+    "enumerator": {
+      "oneOf": [
+        { "$ref": "#/$defs/grepEnumerator" },
+        { "$ref": "#/$defs/testEnumerator" },
+        { "$ref": "#/$defs/lensEnumerator" }
+      ]
+    },
+    "instanceRecord": {
+      "description": "One match of a grep enumerator in the reviewed tree. key is the instance a finding names; line is where it was found this round and takes no part in any id.",
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "key": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["id", "key", "path", "line"],
+      "additionalProperties": false
+    },
+    "invariant": {
+      "type": "object",
+      "properties": {
+        "classKey": { "$ref": "#/$defs/classKey" },
+        "statement": { "type": "string", "minLength": 1 },
+        "enumerator": { "$ref": "#/$defs/enumerator" }
+      },
+      "required": ["classKey", "statement", "enumerator"],
+      "additionalProperties": false
+    },
+    "ledgerInvariant": {
+      "type": "object",
+      "properties": {
+        "classKey": { "$ref": "#/$defs/classKey" },
+        "statement": { "type": "string", "minLength": 1 },
+        "enumerator": { "$ref": "#/$defs/enumerator" },
+        "source": {
+          "description": "repository: read from the base branch's .github/claude/invariants.json. review: derived by the reviewer from the pull request.",
+          "enum": ["repository", "review"]
+        },
+        "checkedRound": { "type": "integer", "minimum": 1 },
+        "instances": {
+          "description": "The grep enumerator's matches in the tree reviewed at checkedRound, written by the action; empty for a test or lens enumerator.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/instanceRecord" }
+        }
+      },
+      "required": [
+        "classKey",
+        "statement",
+        "enumerator",
+        "source",
+        "checkedRound",
+        "instances"
+      ],
+      "additionalProperties": false
+    },
+    "reportedFinding": {
+      "type": "object",
+      "properties": {
+        "classKey": { "$ref": "#/$defs/classKey" },
+        "instance": { "$ref": "#/$defs/instance" },
+        "path": { "type": "string", "minLength": 1 },
+        "severity": { "$ref": "#/$defs/severity" },
+        "summary": { "type": "string", "minLength": 1 },
+        "enumerator": { "$ref": "#/$defs/enumerator" }
+      },
+      "required": [
+        "classKey",
+        "instance",
+        "path",
+        "severity",
+        "summary",
+        "enumerator"
+      ],
+      "additionalProperties": false
+    },
+    "ledgerFinding": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "classKey": { "$ref": "#/$defs/classKey" },
+        "instance": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "severity": { "$ref": "#/$defs/severity" },
+        "summary": { "type": "string", "minLength": 1 },
+        "enumerator": { "$ref": "#/$defs/enumerator" },
+        "status": { "$ref": "#/$defs/status" },
+        "statusReason": { "type": "string" },
+        "firstRound": { "type": "integer", "minimum": 1 },
+        "lastRound": { "type": "integer", "minimum": 1 }
+      },
+      "required": [
+        "id",
+        "classKey",
+        "instance",
+        "path",
+        "severity",
+        "summary",
+        "enumerator",
+        "status",
+        "statusReason",
+        "firstRound",
+        "lastRound"
+      ],
+      "additionalProperties": false
+    },
+    "statusChange": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "status": { "$ref": "#/$defs/status" },
+        "reason": { "type": "string", "minLength": 1 }
+      },
+      "required": ["id", "status", "reason"],
+      "additionalProperties": false
+    },
+    "scope": {
+      "description": "What the round that wrote this ledger was given to review: the whole pull request, or the delta since the previous reviewed head, with the reason.",
+      "type": "object",
+      "properties": {
+        "kind": { "enum": ["full", "delta"] },
+        "since": {
+          "description": "The previous reviewed head the delta starts from; null for a full review.",
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "reason": { "type": "string", "minLength": 1 }
+      },
+      "required": ["kind", "since", "reason"],
+      "additionalProperties": false
+    },
+    "update": {
+      "description": "What the reviewer reports at the end of a round, between <review-ledger-update> tags. It names prior findings only by id and sets no head, round or id of its own.",
+      "type": "object",
+      "properties": {
+        "invariants": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/invariant" }
+        },
+        "findings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reportedFinding" }
+        },
+        "statuses": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/statusChange" }
+        }
+      },
+      "required": ["invariants", "findings", "statuses"],
+      "additionalProperties": false
+    },
+    "repositoryInvariants": {
+      "description": "The shape of a repository's .github/claude/invariants.json, read from the base branch.",
+      "type": "object",
+      "properties": {
+        "invariants": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/invariant" }
+        }
+      },
+      "required": ["invariants"],
+      "additionalProperties": false
+    }
+  }
+}

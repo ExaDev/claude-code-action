@@ -1055,6 +1055,98 @@ runs:
         echo "disallowed_tools=${DISALLOWED}" >> "$GITHUB_OUTPUT"
         echo "Mode '${MODE}' allowlist: ${ALLOWED}"
 
+    # Review mode's ledger (docs/review-ledger.md) is read here, before the prompt is composed, so the review starts from what earlier rounds recorded instead of from nothing. It lives in a comment the action itself writes on the pull request, because that is the one store that outlives both a cache miss and job-log expiry and needs no scope beyond the pull-requests: write review mode already holds (a check run would need checks: write, which the reusable review workflow does not grant). Only a comment written by a bot account is read, since anyone who can comment could otherwise post a ledger of their own, and the ledger is rejected unless it matches the schema and every id matches what it identifies. A ledger that fails either check stops the run: it means the record was edited into a state this action did not write, and reviewing on top of it would carry that edit forward. The facts this round will be recorded under (head, base, patch id, files) are taken from GitHub here, in the runner, so nothing the model reads or writes can set them.
+    - name: Read the review ledger
+      id: review-ledger
+      if: ${{ inputs.mode == 'review' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token || github.token }}
+        REPOSITORY: ${{ github.repository }}
+        PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number }}
+        ACTION_PATH: ${{ github.action_path }}
+        WORK_ROOT: ${{ runner.temp }}
+      run: |
+        set -euo pipefail
+
+        script="${ACTION_PATH}/scripts/review-ledger.sh"
+        work="$(mktemp -d "${WORK_ROOT}/review-ledger.XXXXXX")"
+        # A transient GitHub API failure clears within seconds; this many attempts this far apart matches the other API steps in this file.
+        readonly API_ATTEMPTS=3
+        readonly API_RETRY_SECONDS=2
+
+        # Writes the response of one GitHub API read to a file, retrying a failed call.
+        api_to() {
+          local file="$1" attempt
+          shift
+          for ((attempt = 1; attempt <= API_ATTEMPTS; attempt++)); do
+            if gh api "$@" > "$file"; then
+              return 0
+            fi
+            echo "GitHub API call failed (attempt ${attempt}/${API_ATTEMPTS}): gh api $*" >&2
+            [ "$attempt" -lt "$API_ATTEMPTS" ] && sleep "$API_RETRY_SECONDS"
+          done
+          return 1
+        }
+
+        api_to "${work}/pull.json" "repos/${REPOSITORY}/pulls/${PR_NUMBER}"
+        head="$(jq -r '.head.sha' "${work}/pull.json")"
+        base="$(jq -r '.base.sha' "${work}/pull.json")"
+
+        api_to "${work}/files.json" --paginate --slurp "repos/${REPOSITORY}/pulls/${PR_NUMBER}/files"
+        jq -c '[.[][] | .filename, (.previous_filename // empty)] | unique' "${work}/files.json" > "${work}/reviewed-files.json"
+
+        # GitHub refuses the diff of a very large pull request; the patch id is then recorded as unknown (null) rather than computed from part of the diff.
+        patch_id=""
+        if api_to "${work}/pull.diff" -H "Accept: application/vnd.github.diff" "repos/${REPOSITORY}/pulls/${PR_NUMBER}"; then
+          patch_id="$(bash "$script" patch-id < "${work}/pull.diff")"
+        else
+          echo "::notice::GitHub did not return the diff of pull request #${PR_NUMBER}, so this round's patch id is recorded as unknown."
+        fi
+
+        api_to "${work}/comments.json" --paginate --slurp "repos/${REPOSITORY}/issues/${PR_NUMBER}/comments"
+        jq -c 'add // []' "${work}/comments.json" | bash "$script" extract > "${work}/found.json"
+        previous=""
+        comment_id=""
+        if [ -s "${work}/found.json" ]; then
+          jq '.ledger' "${work}/found.json" > "${work}/previous.json"
+          comment_id="$(jq -r '.commentId' "${work}/found.json")"
+          if ! bash "$script" check "${work}/previous.json"; then
+            echo "::error::The review ledger in comment ${comment_id} on pull request #${PR_NUMBER} is not one this action wrote (see the log above). Delete the comment to start the ledger again, or restore its last version from the comment's edit history." >&2
+            exit 1
+          fi
+          previous="${work}/previous.json"
+          echo "Read the review ledger from comment ${comment_id}: round $(jq -r '.round' "$previous"), reviewed head $(jq -r '.reviewedHead' "$previous")."
+          reason="the whole pull request is reviewed on every round"
+        else
+          echo "No review ledger on pull request #${PR_NUMBER}; this is its first recorded round."
+          reason="first recorded round"
+        fi
+
+        jq -n -c \
+          --argjson pullRequest "$PR_NUMBER" \
+          --arg head "$head" \
+          --arg base "$base" \
+          --arg patchId "$patch_id" \
+          --slurpfile files "${work}/reviewed-files.json" \
+          --arg reason "$reason" \
+          '{pullRequest: $pullRequest, reviewedHead: $head, baseSha: $base, patchId: (if $patchId == "" then null else $patchId end), reviewedFiles: $files[0], scope: {kind: "full", since: null, reason: $reason}}' \
+          > "${work}/facts.json"
+
+        if [ -n "$previous" ]; then
+          bash "$script" context "$previous" > "${work}/context.md"
+        else
+          bash "$script" context > "${work}/context.md"
+        fi
+
+        {
+          echo "work_dir=${work}"
+          echo "previous=${previous}"
+          echo "comment_id=${comment_id}"
+          echo "facts=${work}/facts.json"
+          echo "context=${work}/context.md"
+        } >> "$GITHUB_OUTPUT"
+
     - name: Compose prompt
       id: prompt
       shell: bash
@@ -1087,6 +1179,7 @@ runs:
         DISALLOWED_TOOLS: ${{ steps.args.outputs.disallowed_tools }}
         CLAUDE_ARGS_OVERRIDE: ${{ inputs.claude_args }}
         EXTRA_CLAUDE_ARGS: ${{ inputs.extra_claude_args }}
+        LEDGER_CONTEXT: ${{ steps.review-ledger.outputs.context }}
       run: |
         set -euo pipefail
 
@@ -1220,6 +1313,11 @@ runs:
           fi
           printf '\n'
         } >> "$OUT"
+
+        # 5a. Review mode only: what the review ledger records of earlier rounds, written by "Read the review ledger".
+        if [ -n "${LEDGER_CONTEXT:-}" ]; then
+          append_file "$LEDGER_CONTEXT"
+        fi
 
         # 6. What this run may and may not use. The runner enforces tool permissions and never shows the rules to the model, so without this it learns them only by being rejected, and a run with nobody present to approve anything pays a turn for each rejection.
         {
@@ -3106,6 +3204,67 @@ runs:
         github_token: ${{ inputs.github_token }}
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
+
+    # Writes this round into the review ledger that "Read the review ledger" read (docs/review-ledger.md). The reviewer ends its run with a <review-ledger-update> block, the same way triage hands its summary to the runner: it never writes the comment itself, has no tool that could, and its update can report findings, declare invariants and change the status of a finding it names by id, but cannot set the head, round, patch id or any id, which come from the facts the read step took from GitHub. A run that ends without a valid block fails here and leaves the ledger as it was, so the next round still starts from the last head that was recorded in full. Skipped when the run stopped at its turn limit: the wrap-up review is partial, and recording it as a reviewed head would hide what it never reached.
+    - name: Write the review ledger
+      id: review-ledger-write
+      if: ${{ inputs.mode == 'review' && steps.claude.outcome == 'success' && steps.detect-turn-limit.outputs.hit_limit != 'true' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token || github.token }}
+        REPOSITORY: ${{ github.repository }}
+        PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number }}
+        ACTION_PATH: ${{ github.action_path }}
+        EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        WORK: ${{ steps.review-ledger.outputs.work_dir }}
+        PREVIOUS: ${{ steps.review-ledger.outputs.previous }}
+        COMMENT_ID: ${{ steps.review-ledger.outputs.comment_id }}
+        FACTS: ${{ steps.review-ledger.outputs.facts }}
+      run: |
+        set -euo pipefail
+
+        script="${ACTION_PATH}/scripts/review-ledger.sh"
+        # A transient GitHub API failure clears within seconds; this many attempts this far apart matches the other API steps in this file.
+        readonly API_ATTEMPTS=3
+        readonly API_RETRY_SECONDS=2
+
+        bash "$script" update-block "$EXECUTION_FILE" > "${WORK}/update.json"
+        if [ ! -s "${WORK}/update.json" ]; then
+          echo "::error::The review ended without a <review-ledger-update> block, so the review ledger of pull request #${PR_NUMBER} was not advanced; the next round reviews from the last recorded head." >&2
+          exit 1
+        fi
+
+        if [ -n "${PREVIOUS:-}" ]; then
+          bash "$script" apply "${WORK}/update.json" "$FACTS" "$PREVIOUS" > "${WORK}/ledger.json"
+        else
+          bash "$script" apply "${WORK}/update.json" "$FACTS" > "${WORK}/ledger.json"
+        fi
+        bash "$script" check "${WORK}/ledger.json"
+        bash "$script" render "${WORK}/ledger.json" > "${WORK}/comment.md"
+        jq -n --rawfile body "${WORK}/comment.md" '{body: $body}' > "${WORK}/payload.json"
+
+        if [ -n "${COMMENT_ID:-}" ]; then
+          method="PATCH"
+          endpoint="repos/${REPOSITORY}/issues/comments/${COMMENT_ID}"
+        else
+          method="POST"
+          endpoint="repos/${REPOSITORY}/issues/${PR_NUMBER}/comments"
+        fi
+        written=""
+        for ((attempt = 1; attempt <= API_ATTEMPTS; attempt++)); do
+          if gh api -X "$method" "$endpoint" --input "${WORK}/payload.json" > /dev/null; then
+            written="true"
+            break
+          fi
+          echo "Failed to write the review ledger (attempt ${attempt}/${API_ATTEMPTS})."
+          [ "$attempt" -lt "$API_ATTEMPTS" ] && sleep "$API_RETRY_SECONDS"
+        done
+        if [ -z "$written" ]; then
+          echo "::error::Could not write the review ledger of pull request #${PR_NUMBER} after ${API_ATTEMPTS} attempts." >&2
+          exit 1
+        fi
+
+        jq -r '"Review ledger: round \(.round) recorded for head \(.reviewedHead); \([.findings[] | select(.status == "open")] | length) open finding(s), \(.invariants | length) invariant(s); \(.scope.kind) review (\(.scope.reason))."' "${WORK}/ledger.json" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
 
     # Stopped here, after every anthropics/claude-code-action call site in the job (the wrap-up follow-on, the automatic-fix pass, the structured summary), not right after the main review -- ANTHROPIC_BASE_URL stays exported to $GITHUB_ENV for the rest of the job regardless of where this runs, so stopping the proxy any earlier than its last real user leaves that env var pointing at a dead process for whichever of those three calls happens to run afterward. Confirmed live: a turn-limit wrap-up call failed with is_error:true, num_turns:1, total_cost_usd:0 (no request ever reached the model) after roughly three minutes, reproducible across two separate pull requests, until this step was moved to its current position after the last call that can still need the proxy.
     - name: Stop Headroom proxy

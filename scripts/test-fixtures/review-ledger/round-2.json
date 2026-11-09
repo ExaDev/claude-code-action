@@ -1,0 +1,19 @@
+[
+  {
+    "type": "system",
+    "subtype": "init",
+    "session_id": "22222222-2222-4222-8222-222222222222"
+  },
+  {
+    "type": "assistant",
+    "message": {
+      "content": []
+    }
+  },
+  {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "result": "Re-review submitted.\n\n<review-ledger-update>\n{\n  \"invariants\": [\n    {\n      \"classKey\": \"stale-reference\",\n      \"statement\": \"No document names the removed old-build script.\",\n      \"enumerator\": {\n        \"type\": \"grep\",\n        \"pattern\": \"old-build\",\n        \"paths\": [\n          \"README.md\",\n          \"docs\"\n        ]\n      }\n    }\n  ],\n  \"findings\": [\n    {\n      \"classKey\": \"stale-reference\",\n      \"instance\": \"README.md :: npm run old-build\",\n      \"path\": \"README.md\",\n      \"severity\": \"Should fix\",\n      \"summary\": \"Still names the old-build script after the second push.\",\n      \"enumerator\": {\n        \"type\": \"grep\",\n        \"pattern\": \"old-build\",\n        \"paths\": [\n          \"README.md\",\n          \"docs\"\n        ]\n      }\n    }\n  ],\n  \"statuses\": [\n    {\n      \"id\": \"2449c27b65901a25\",\n      \"status\": \"fixed\",\n      \"reason\": \"docs/setup.md now names npm run build.\"\n    }\n  ]\n}\n</review-ledger-update>"
+  }
+]

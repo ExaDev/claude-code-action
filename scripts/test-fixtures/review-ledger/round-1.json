@@ -1,0 +1,19 @@
+[
+  {
+    "type": "system",
+    "subtype": "init",
+    "session_id": "11111111-1111-4111-8111-111111111111"
+  },
+  {
+    "type": "assistant",
+    "message": {
+      "content": []
+    }
+  },
+  {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "result": "Review submitted.\n\n<review-ledger-update>\n{\"invariants\": [], \"findings\": [], \"statuses\": []}\n</review-ledger-update>\n\n<review-ledger-update>\n```json\n{\n  \"invariants\": [\n    {\n      \"classKey\": \"stale-reference\",\n      \"statement\": \"No document names the removed old-build script.\",\n      \"enumerator\": {\n        \"type\": \"grep\",\n        \"pattern\": \"old-build\",\n        \"paths\": [\n          \"README.md\",\n          \"docs\"\n        ]\n      }\n    }\n  ],\n  \"findings\": [\n    {\n      \"classKey\": \"stale-reference\",\n      \"instance\": \"docs/setup.md :: npm run old-build\",\n      \"path\": \"docs/setup.md\",\n      \"severity\": \"Should fix\",\n      \"summary\": \"Names the old-build script, which this change removes.\",\n      \"enumerator\": {\n        \"type\": \"grep\",\n        \"pattern\": \"old-build\",\n        \"paths\": [\n          \"README.md\",\n          \"docs\"\n        ]\n      }\n    },\n    {\n      \"classKey\": \"stale-reference\",\n      \"instance\": \"README.md :: npm run old-build\",\n      \"path\": \"README.md\",\n      \"severity\": \"Should fix\",\n      \"summary\": \"Names the old-build script, which this change removes.\",\n      \"enumerator\": {\n        \"type\": \"grep\",\n        \"pattern\": \"old-build\",\n        \"paths\": [\n          \"README.md\",\n          \"docs\"\n        ]\n      }\n    }\n  ],\n  \"statuses\": []\n}\n```\n</review-ledger-update>"
+  }
+]
