@@ -187,7 +187,7 @@ reset_stub() {
 }
 run_read() {
   reset_runner_temp
-  run_step review-ledger PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 WORK_ROOT="$runner_temp"
+  run_step review-ledger GITHUB_STEP_SUMMARY="${work_dir}/read-summary.md" PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 WORK_ROOT="$runner_temp"
 }
 # Runs the write step on an execution file, with the outcome of Resolve Claude Code result (success unless given) and whether the run hit its turn limit.
 run_write() {
@@ -199,7 +199,7 @@ run_write() {
 }
 
 expect_equal "the ledger is read only in review mode" "\${{ inputs.mode == 'review' }}" "$(step_value review-ledger if)"
-expect_equal "the write step runs whenever the ledger was read, whatever the review's outcome, so it can say why" "\${{ inputs.mode == 'review' && !cancelled() && steps.review-ledger.outcome == 'success' }}" "$(step_value review-ledger-write if)"
+expect_equal "the write step runs whenever the ledger was read, whatever the review's outcome, so it can say why" "\${{ inputs.mode == 'review' && !cancelled() && steps.review-ledger.outcome == 'success' && steps.review-ledger.outputs.available == 'true' }}" "$(step_value review-ledger-write if)"
 expect_equal "the write step is told the review's outcome" "\${{ steps.claude.outcome }}" "$(step_value review-ledger-write CLAUDE_OUTCOME)"
 expect_equal "the write step is told whether the review hit its turn limit" "\${{ steps.detect-turn-limit.outputs.hit_limit }}" "$(step_value review-ledger-write HIT_TURN_LIMIT)"
 expect_equal "the ledger is written from the winning attempt's execution file" "\${{ steps.claude.outputs.execution_file }}" "$(step_value review-ledger-write EXECUTION_FILE)"
@@ -291,6 +291,25 @@ serve repos/owner/repo/issues/7/comments "${work_dir}/comments-tampered.json"
 status="$(run_read)"
 expect_equal "the read step fails on a ledger whose ids do not match" "1" "$status"
 expect_contains "the read step names the comment it refused" "::error::The review ledger in comment 42" "$(cat "${work_dir}/stdout")"
+
+# A GitHub read that fails after its retries leaves the ledger unavailable for the round, not the review failed, and never reads as "no ledger".
+for unread in "repos_owner_repo_pulls_7:the pull request" "repos_owner_repo_pulls_7_files:changed files" "repos_owner_repo_issues_7_comments:the pull request's comments"; do
+  reset_stub "$sha_c"
+  serve repos/owner/repo/issues/7/comments "${work_dir}/comments-1.json"
+  rm "${stub_dir}/${unread%%:*}"
+  : > "${work_dir}/read-summary.md"
+  status="$(run_read)"
+  expect_equal "the read step succeeds when GitHub does not return ${unread#*:}" "0" "$status"
+  expect_equal "the ledger is unavailable when GitHub does not return ${unread#*:}" "false" "$(output_value "${work_dir}/output" available)"
+  expect_contains "the read step warns when GitHub does not return ${unread#*:}" "::warning::The review ledger of pull request #7 is unavailable for this round" "$(cat "${work_dir}/stdout")"
+  expect_contains "the step summary says the ledger was unavailable when GitHub does not return ${unread#*:}" "Review ledger unavailable for this round: GitHub did not return" "$(cat "${work_dir}/read-summary.md")"
+  context_unavailable="$(cat "$(output_value "${work_dir}/output" context)")"
+  expect_contains "the reviewer is told the ledger could not be read when GitHub does not return ${unread#*:}" "The review ledger could not be read this round" "$context_unavailable"
+  expect_equal "an unreadable ledger is never presented as a first round when GitHub does not return ${unread#*:}" "absent" "$([[ "$context_unavailable" == *"This is round 1"* ]] && echo present || echo absent)"
+done
+reset_stub "$sha_c"
+run_read > /dev/null
+expect_equal "the ledger is available when every read succeeds" "true" "$(output_value "${work_dir}/output" available)"
 
 # A ledger comment whose data block cannot be read stops the run instead of starting the record again.
 reset_stub "$sha_c"
