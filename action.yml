@@ -1089,11 +1089,24 @@ runs:
           return 1
         }
 
-        api_to "${work}/pull.json" "repos/${REPOSITORY}/pulls/${PR_NUMBER}"
+        # A read that still fails after its retries leaves the ledger unavailable for this round, not the review: the review runs on the whole pull request with nothing on record, this round is not recorded, and the step summary says why. It never reads as "no ledger", which would start the record again over the one already there.
+        unavailable() {
+          local why="$1"
+          echo "::warning::The review ledger of pull request #${PR_NUMBER} is unavailable for this round: ${why}. The review runs on the whole pull request and this round is not recorded in the ledger."
+          echo "Review ledger unavailable for this round: ${why}; the review covered the whole pull request and was not recorded." >> "$GITHUB_STEP_SUMMARY"
+          printf '# Review ledger\n\nThe review ledger could not be read this round (%s), so nothing from earlier rounds is on record here and this round will not be recorded. Review the whole pull request.\n' "$why" > "${work}/context.md"
+          {
+            echo "available=false"
+            echo "context=${work}/context.md"
+          } >> "$GITHUB_OUTPUT"
+          exit 0
+        }
+
+        api_to "${work}/pull.json" "repos/${REPOSITORY}/pulls/${PR_NUMBER}" || unavailable "GitHub did not return the pull request"
         head="$(jq -r '.head.sha' "${work}/pull.json")"
         base="$(jq -r '.base.sha' "${work}/pull.json")"
 
-        api_to "${work}/files.json" --paginate --slurp "repos/${REPOSITORY}/pulls/${PR_NUMBER}/files"
+        api_to "${work}/files.json" --paginate --slurp "repos/${REPOSITORY}/pulls/${PR_NUMBER}/files" || unavailable "GitHub did not return the pull request's changed files"
         jq -c '[.[][] | .filename, (.previous_filename // empty)] | unique' "${work}/files.json" > "${work}/reviewed-files.json"
 
         # GitHub refuses the diff of a very large pull request; the patch id is then recorded as unknown (null) rather than computed from part of the diff.
@@ -1104,7 +1117,8 @@ runs:
           echo "::notice::GitHub did not return the diff of pull request #${PR_NUMBER}, so this round's patch id is recorded as unknown."
         fi
 
-        api_to "${work}/comments.json" --paginate --slurp "repos/${REPOSITORY}/issues/${PR_NUMBER}/comments"
+        # Not being able to read the comments is not the same as there being no ledger comment, so it makes the ledger unavailable rather than empty.
+        api_to "${work}/comments.json" --paginate --slurp "repos/${REPOSITORY}/issues/${PR_NUMBER}/comments" || unavailable "GitHub did not return the pull request's comments, so whether a ledger exists is unknown"
         if ! jq -c 'add // []' "${work}/comments.json" | bash "$script" extract > "${work}/found.json"; then
           echo "::error::A comment on pull request #${PR_NUMBER} carries the review ledger marker but its data could not be read (see the log above). Delete the comment to start the ledger again, or restore its last version from the comment's edit history." >&2
           exit 1
@@ -1143,6 +1157,7 @@ runs:
         fi
 
         {
+          echo "available=true"
           echo "work_dir=${work}"
           echo "previous=${previous}"
           echo "comment_id=${comment_id}"
@@ -3211,7 +3226,7 @@ runs:
     # Writes this round into the review ledger that "Read the review ledger" read (docs/review-ledger.md). The reviewer ends its run with a <review-ledger-update> block, the same way triage hands its summary to the runner: it never writes the comment itself, has no tool that could, and its update can report findings, declare invariants and change the status of a finding it names by id, but cannot set the head, round, patch id or any id, which come from the facts the read step took from GitHub. A run that ends without a valid block fails here and leaves the ledger as it was, so the next round still starts from the last head that was recorded in full. The block is read from the execution file of the attempt "Resolve Claude Code result" chose, which is the one that succeeded; an attempt that failed first (a usage limit, a rejected credential) left its own file aside and is never read. The step runs whenever the ledger was read, even after every attempt failed, so the log always says why the ledger did or did not move: no attempt succeeded (any review a failed attempt posted is not recorded), or the run stopped at its turn limit (the wrap-up review is partial, and recording it as a reviewed head would hide what it never reached).
     - name: Write the review ledger
       id: review-ledger-write
-      if: ${{ inputs.mode == 'review' && !cancelled() && steps.review-ledger.outcome == 'success' }}
+      if: ${{ inputs.mode == 'review' && !cancelled() && steps.review-ledger.outcome == 'success' && steps.review-ledger.outputs.available == 'true' }}
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github_token || github.token }}
