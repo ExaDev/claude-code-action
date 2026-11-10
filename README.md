@@ -126,7 +126,8 @@ commitlint.config.ts           Conventional-commit enforcement (local hook + CI)
 release.config.ts              semantic-release config; scripts/move-major-tag.mts is its
                                local plugin that moves the moving vN tag after each release
 lint-staged.config.js          Deliberately .js, not .ts -- see its own header comment
-.github/dependabot.yml         Dependabot config: daily npm + github-actions scan, 7-day cooldown
+.github/dependabot.yml         Dependabot config: daily npm, github-actions, docker and pip scans,
+                               7-day cooldown, minor and patch updates grouped, each major alone
 .github/workflows/
   ci.yml                       commitlint, actionlint, typecheck, lint, format, release
   review.yml                   Reusable workflow, contents:read + pull-requests:write
