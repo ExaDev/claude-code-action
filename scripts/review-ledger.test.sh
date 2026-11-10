@@ -351,6 +351,14 @@ expect_equal "the read step fetched the head and base commits into the shallow c
 expect_equal "in a shallow checkout the repository's invariants are read from the fetched base commit" "no-console-log" "$(jq -r '[.repositoryInvariants[].classKey] | join(" ")' "$(output_value "${work_dir}/output" facts)")"
 expect_contains "in a shallow checkout the enumerators run over the fetched head commit" "src/index.js :: console.log" "$(cat "$(output_value "${work_dir}/output" context)")"
 
+# A head origin does not have stops the read step with an error naming it, instead of failing inside git.
+missing_head="$(printf 'e%.0s' {1..40})"
+reset_stub "$missing_head"
+reset_runner_temp
+status="$(cd "$shallow_repo" && run_step review-ledger GITHUB_STEP_SUMMARY="${work_dir}/read-summary.md" PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 WORK_ROOT="$runner_temp")"
+expect_equal "the read step fails when origin does not have the pull request's head" "1" "$status"
+expect_contains "the read step names the commit it could not fetch" "::error::Could not fetch commit ${missing_head} of pull request #7 from origin" "$(cat "${work_dir}/stdout")"
+
 # A run that ends without an update block fails and leaves the ledger alone.
 reset_stub "$sha_c"
 status="$(run_read)"
@@ -537,6 +545,7 @@ usage: review-ledger.sh prepare <commit> <facts-file> [<previous-ledger-file>]	t
 usage: review-ledger.sh enumerate-ledger <commit> <ledger-file>	the enumerate-ledger subcommand refuses too many arguments with its usage
 no schema definition named 	validate refuses a definition the schema does not have
 .github/claude/invariants.json on the base branch does not match the repositoryInvariants definition in the action's schemas/review-ledger.schema.json (see the log above).	the read step names the invariants file that does not match the schema
+Could not fetch commit 	the read step names the commit it could not fetch
 the grep enumerator of 	a pattern git grep rejects stops the run
 findings reported this round name an instance their own grep enumerator does not find at 	a finding reported with an instance its grep enumerator does not find is refused
 the ledger could not be enumerated (see the message above)	a finding reported with an instance its grep enumerator does not find is refused
