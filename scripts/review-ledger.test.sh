@@ -467,6 +467,24 @@ expect_contains "the review prompt gives the action's key format for a grep inst
 
 
 # Error paths with no other test.
+# A class key listed twice in a repository's invariants file is a configuration error: the read step stops naming the key, and apply and prepare refuse such facts too.
+fixture_git checkout -q "$sha_b"
+fixture_write .github/claude/invariants.json '{"invariants": [{"classKey": "no-console-log", "statement": "Source code logs through the logger.", "enumerator": {"type": "grep", "pattern": "console\\.log", "paths": ["src"]}}, {"classKey": "no-console-log", "statement": "A different property under the same key.", "enumerator": {"type": "lens", "name": "logging"}}]}'
+fixture_git commit -q -a -m "an invariants file listing one class key twice"
+duplicate_base="$(fixture_git rev-parse HEAD)"
+fixture_write README.md $'# Example\n\nA head on the duplicate base.\n'
+fixture_git commit -q -a -m "a head on the duplicate base"
+duplicate_class_head="$(fixture_git rev-parse HEAD)"
+fixture_git checkout -q "$sha_c"
+reset_stub "$duplicate_class_head"
+jq -c --arg base "$duplicate_base" '.base.sha = $base' "${work_dir}/pull.json" > "${work_dir}/pull-duplicate-base.json"
+serve repos/owner/repo/pulls/7 "${work_dir}/pull-duplicate-base.json"
+status="$(run_read)"
+expect_equal "the read step fails when the base commit's invariants file lists a class key twice" "1" "$status"
+expect_contains "the read step names the class key the invariants file lists twice" "review-ledger: the repository invariants list a class key more than once (no-console-log)" "$(cat "${work_dir}/stdout")"
+jq -c '.repositoryInvariants += .repositoryInvariants' "${work_dir}/facts-1.json" > "${work_dir}/facts-duplicate-class.json"
+expect_contains "apply refuses facts whose repository invariants list a class key twice" "the repository invariants list a class key more than once (no-console-log)" "$(ledger apply "${work_dir}/update-1.json" "${work_dir}/facts-duplicate-class.json" 2>&1 || true)"
+expect_contains "prepare refuses facts whose repository invariants list a class key twice" "the repository invariants list a class key more than once (no-console-log)" "$(in_fixture ledger prepare "$sha_a" "${work_dir}/facts-duplicate-class.json" 2>&1 || true)"
 expect_contains "validate refuses a definition the schema does not have" "review-ledger: no schema definition named no-such-definition" "$(ledger validate no-such-definition "${work_dir}/ledger-1.json" 2>&1 || true)"
 # A repository invariants file on the base commit that does not match the schema stops the read step. The fixture gains a base commit holding one and a head on top of it.
 fixture_git checkout -q "$sha_b"
@@ -482,7 +500,7 @@ jq -c --arg base "$invalid_base" '.base.sha = $base' "${work_dir}/pull.json" > "
 serve repos/owner/repo/pulls/7 "${work_dir}/pull-invalid-base.json"
 status="$(run_read)"
 expect_equal "the read step fails when the base commit's invariants file does not match the schema" "1" "$status"
-expect_contains "the read step names the invariants file that does not match the schema" "::error::.github/claude/invariants.json on the base branch does not match the repositoryInvariants definition" "$(cat "${work_dir}/stdout")"
+expect_contains "the read step names the invariants file that does not match the schema" "::error::.github/claude/invariants.json on the base branch is not a valid repository invariants file" "$(cat "${work_dir}/stdout")"
 # Every subcommand that takes a fixed number of arguments refuses too many, naming its own usage; the subcommands are read from the script, so a new one is covered without an edit here.
 too_many_arguments=(one two three four five six seven eight nine)
 while IFS= read -r subcommand; do
@@ -543,8 +561,9 @@ usage: review-ledger.sh context <prepared-file>	the context subcommand refuses t
 usage: review-ledger.sh validate <definition> <file>	the validate subcommand refuses too many arguments with its usage
 usage: review-ledger.sh prepare <commit> <facts-file> [<previous-ledger-file>]	the prepare subcommand refuses too many arguments with its usage
 usage: review-ledger.sh enumerate-ledger <commit> <ledger-file>	the enumerate-ledger subcommand refuses too many arguments with its usage
+the repository invariants list a class key more than once (	the read step names the class key the invariants file lists twice
 no schema definition named 	validate refuses a definition the schema does not have
-.github/claude/invariants.json on the base branch does not match the repositoryInvariants definition in the action's schemas/review-ledger.schema.json (see the log above).	the read step names the invariants file that does not match the schema
+.github/claude/invariants.json on the base branch is not a valid repository invariants file: it must match the repositoryInvariants definition in the action's schemas/review-ledger.schema.json and list each class key once (see the log above).	the read step names the invariants file that does not match the schema
 Could not fetch commit 	the read step names the commit it could not fetch
 the grep enumerator of 	a pattern git grep rejects stops the run
 findings reported this round name an instance their own grep enumerator does not find at 	a finding reported with an instance its grep enumerator does not find is refused

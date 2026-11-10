@@ -69,6 +69,16 @@ validate() {
   jq -e . "$file" > /dev/null 2>&1 || die "not valid JSON: ${file}"
   errors="$(schema_errors "$definition" "$file")"
   [ -z "$errors" ] || die "not a valid ${definition}: ${file}"$'\n'"${errors}"
+  if [ "$definition" = "repositoryInvariants" ]; then
+    jq -c '.invariants' "$file" | refuse_duplicate_classes "$file"
+  fi
+}
+
+# Reads a JSON array of repository invariants on stdin and stops, naming every class key listed more than once, unless each class key appears once. A repeated key is a configuration error: two entries may state different properties or enumerators, and choosing one would silently drop the other. JSON Schema cannot express uniqueness by one field, so it is checked here.
+refuse_duplicate_classes() {
+  local where="$1" duplicates
+  duplicates="$(jq -r '[group_by(.classKey)[] | select(length > 1) | .[0].classKey] | join(", ")')"
+  [ -z "$duplicates" ] || die "the repository invariants list a class key more than once (${duplicates}) in ${where}; give each class one entry"
 }
 
 # Prints, as a JSON array of instance records (id, key, path, line), every match of a grep enumerator in the tree of a commit. Takes the class key, the enumerator JSON and the commit; runs in the repository holding the commit. An instance's key is its path and its matched line with surrounding whitespace trimmed, with " #2", " #3" and so on appended to the second and later identical lines in one file, so a key, and the id made from it, stays the same when lines are added or removed around it. A pattern or pathspec git grep rejects stops with its error.
@@ -227,6 +237,7 @@ case "$command" in
     facts_file="$2"
     previous_file="${3:-}"
     validate update "$update_file"
+    jq -c '.repositoryInvariants' "$facts_file" | refuse_duplicate_classes "$facts_file"
     if [ -n "$previous_file" ]; then
       validate ledger "$previous_file"
       previous="$(cat "$previous_file")"
@@ -281,6 +292,7 @@ case "$command" in
     [ "$#" -ge 2 ] && [ "$#" -le 3 ] || die "usage: review-ledger.sh prepare <commit> <facts-file> [<previous-ledger-file>]"
     commit="$1"
     facts_file="$2"
+    jq -c '.repositoryInvariants' "$facts_file" | refuse_duplicate_classes "$facts_file"
     if [ "$#" -eq 3 ]; then
       validate ledger "$3"
       previous="$(cat "$3")"
