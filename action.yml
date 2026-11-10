@@ -1152,7 +1152,7 @@ runs:
         if git cat-file -e "${base}:.github/claude/invariants.json" 2> /dev/null; then
           git show "${base}:.github/claude/invariants.json" > "${work}/repository-invariants.json"
           if ! bash "$script" validate repositoryInvariants "${work}/repository-invariants.json"; then
-            echo "::error::.github/claude/invariants.json on the base branch does not match the repositoryInvariants definition in the action's schemas/review-ledger.schema.json (see the log above)." >&2
+            echo "::error::.github/claude/invariants.json on the base branch is not a valid repository invariants file: it must match the repositoryInvariants definition in the action's schemas/review-ledger.schema.json and list each class key once (see the log above)." >&2
             exit 1
           fi
         else
