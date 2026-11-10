@@ -1142,8 +1142,9 @@ runs:
 
         # git grep and git show need the head and base commits; a checkout made for the pull request has them, and any other is given them here.
         for commit in "$head" "$base"; do
-          if ! git cat-file -e "${commit}^{commit}" 2> /dev/null; then
-            git fetch --no-tags --quiet origin "$commit"
+          if ! git cat-file -e "${commit}^{commit}" 2> /dev/null && ! git fetch --no-tags --quiet origin "$commit"; then
+            echo "::error::Could not fetch commit ${commit} of pull request #${PR_NUMBER} from origin, so its invariants and instances cannot be read. Check out the repository (actions/checkout) before this action, with credentials that can fetch the pull request's commits." >&2
+            exit 1
           fi
         done
 
