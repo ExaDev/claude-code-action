@@ -1,3 +1,9 @@
+## [1.22.8](https://github.com/ExaDev/claude-code-action/compare/v1.22.7...v1.22.8) (2026-11-10)
+
+### Bug Fixes
+
+- **headroom:** check the reusable workflows' Headroom defaults against the anchors ([63f60a4](https://github.com/ExaDev/claude-code-action/commit/63f60a4d31b55235ba0afc8bf292e960311994d7))
+
 ## [1.22.7](https://github.com/ExaDev/claude-code-action/compare/v1.22.6...v1.22.7) (2026-11-10)
 
 ### Bug Fixes
