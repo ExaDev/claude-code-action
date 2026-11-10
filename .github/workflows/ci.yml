@@ -97,7 +97,7 @@ jobs:
       - run: npm ci
       - run: npx turbo run format:check
 
-  # Runs the execution-file scripts, the review ledger script and the action.yml steps built on them against fixtures (see scripts/execution-scripts.test.sh and scripts/review-ledger.test.sh) and the Dependabot workflow's Auto-merge steps (scripts/dependabot-workflow.test.sh), checks that action.yml's Headroom defaults match their Dependabot anchors (scripts/headroom-pins.sh), then checks that every repository the tracked files name is public (scripts/public-repository-references.sh). Needs only bash, git, curl, jq, awk and openssl, which the runner image has, so there is no npm ci.
+  # Runs the execution-file scripts, the review ledger script and the action.yml steps built on them against fixtures (see scripts/execution-scripts.test.sh and scripts/review-ledger.test.sh) and the Dependabot workflow's Auto-merge steps (scripts/dependabot-workflow.test.sh), checks that action.yml's and the reusable workflows' Headroom defaults match their Dependabot anchors (scripts/headroom-pins.sh), then checks that every repository the tracked files name is public (scripts/public-repository-references.sh). Needs only bash, git, curl, jq, awk and openssl, which the runner image has, so there is no npm ci.
   test:
     name: Test
     runs-on: ubuntu-latest
