@@ -15,7 +15,7 @@
     "lint:fix": "eslint --fix .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "bash scripts/execution-scripts.test.sh && bash scripts/review-ledger.test.sh && bash scripts/public-repository-references.test.sh && bash scripts/public-repository-references.sh"
+    "test": "bash scripts/execution-scripts.test.sh && bash scripts/review-ledger.test.sh && bash scripts/dependabot-workflow.test.sh && bash scripts/public-repository-references.test.sh && bash scripts/public-repository-references.sh"
   },
   "devDependencies": {
     "@anthropic-ai/claude-code": "2.1.317",

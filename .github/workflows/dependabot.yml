@@ -221,7 +221,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      pull-requests: write # covers both the review submission and the disable-auto call below
+      pull-requests: write # for the review submission; withdrawing auto-merge needs contents: write as well, so the auto-merge job below does it
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -255,8 +255,6 @@ jobs:
             --jq "[.[] | select(.commit_id == \"${HEAD_SHA}\" and .state != \"COMMENTED\")] | last | .state // \"NONE\"")"
           echo "Latest review state on ${HEAD_SHA}: ${state}"
           if [ "${state}" = "CHANGES_REQUESTED" ] || [ "${state}" = "NONE" ]; then
-            # Undoes any auto-merge a review on an earlier, now-superseded head had enabled, so a stale green light cannot merge a revision this review has since objected to.
-            gh pr merge "${PR}" --disable-auto || true
             echo "::error::Review did not clear this revision (${state}). Auto-merge withheld."
             exit 1
           fi
@@ -265,20 +263,38 @@ jobs:
     name: Auto-merge
     needs: [metadata, review]
     # Patch and minor only by default (DEPENDABOT_AUTOMERGE_LEVELS, computed into automerge-eligible above) -- see README for why, and why a level this repository hasn't opted into still gets fully investigated and reviewed above, just not merged automatically. DEPENDABOT_AUTOMERGE_ENABLED off disables this job outright, regardless of level.
+    # The job runs whatever the review's result, so that a revision the review did not clear withdraws an auto-merge a review of an earlier head enabled; each step's own if: picks which of the two it does.
     if: |
       always() &&
-      needs.review.result == 'success' &&
+      needs.metadata.result == 'success' &&
       needs.metadata.outputs.automerge-enabled == 'true' &&
       needs.metadata.outputs.automerge-eligible == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # Enabling and disabling auto-merge both need contents: write as well as pull-requests: write; with pull-requests: write alone GitHub answers "Resource not accessible by integration".
     permissions:
       contents: write
       pull-requests: write
+    # The job has no checkout, so every gh command names the repository with --repo: without it gh looks for a git remote in the working directory and fails with "not a git repository". scripts/dependabot-workflow.test.sh runs these steps outside a git repository to hold that.
     steps:
       - name: Enable auto-merge
+        if: needs.review.result == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
-        # --merge, never --squash: squashing would collapse Dependabot's build(deps): commit and any feat:/fix: commit investigate added under the pull request's own (patch-level) title, understating the release semantic-release would compute. A merge commit keeps them separate so each is analysed on its own -- allow_merge_commit must be enabled on this repository for this to work.
-        run: gh pr merge "${PR}" --auto --merge
+        # --merge, never --squash: squashing would collapse Dependabot's build(deps): commit and any feat:/fix: commit investigate added under the pull request's own (patch-level) title, understating the release semantic-release would compute. A merge commit keeps them separate so each is analysed on its own; allow_merge_commit must be enabled on this repository for this to work.
+        run: gh pr merge "${PR}" --repo "${GITHUB_REPOSITORY}" --auto --merge
+
+      - name: Withdraw auto-merge
+        if: needs.review.result != 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        # Disables only an auto-merge that is on, so a revision with nothing to withdraw makes no write, and a failed withdrawal fails the step instead of being ignored.
+        run: |
+          set -euo pipefail
+          enabled="$(gh pr view "${PR}" --repo "${GITHUB_REPOSITORY}" --json autoMergeRequest --jq '.autoMergeRequest != null')"
+          if [ "${enabled}" = "true" ]; then
+            gh pr merge "${PR}" --repo "${GITHUB_REPOSITORY}" --disable-auto
+            echo "Withdrew auto-merge: the review did not clear this revision."
+          fi
