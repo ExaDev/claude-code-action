@@ -184,7 +184,7 @@ on:
         description: "docker install method only. Docker image for the Headroom proxy, pinned by digest. Ignored when headroom_install_method is pip."
         type: string
         required: false
-        default: "ghcr.io/headroomlabs-ai/headroom@sha256:35b799e94eef4644cb15a2e695b4b99698fe7668614623e9338cb10c10ececf9"
+        default: "ghcr.io/headroomlabs-ai/headroom@sha256:1ea5e053e3da346f1b2d66af9c3809faa9d99ccb2fae447a7ffe5aae96783a8a"
       headroom_port:
         description: "Loopback port the Headroom proxy listens on. Change only to avoid a collision with another localhost service already running in the same job."
         type: number
