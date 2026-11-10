@@ -1,3 +1,10 @@
+## [1.22.7](https://github.com/ExaDev/claude-code-action/compare/v1.22.6...v1.22.7) (2026-11-10)
+
+### Bug Fixes
+
+- **dependabot:** name the repository when the Auto-merge job calls gh ([118520a](https://github.com/ExaDev/claude-code-action/commit/118520a7d56c7959441de338025c7e557401498d))
+- **dependabot:** withdraw auto-merge when a bump is no longer enabled or eligible ([49f9f89](https://github.com/ExaDev/claude-code-action/commit/49f9f89063e738657c02aee4d4e4b58768b6be48))
+
 ## [1.22.6](https://github.com/ExaDev/claude-code-action/compare/v1.22.5...v1.22.6) (2026-11-10)
 
 ## [1.22.5](https://github.com/ExaDev/claude-code-action/compare/v1.22.4...v1.22.5) (2026-11-10)
