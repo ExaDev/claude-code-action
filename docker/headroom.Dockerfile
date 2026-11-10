@@ -1,5 +1,2 @@
-# Anchor file only -- never built or executed. Exists so Dependabot's docker ecosystem can
-# track this pin. The reference this action actually runs lives in action.yml's headroom_image
-# input default -- keep the two in sync by hand (see README.md's "Context compression (Headroom)"
-# section): when this digest bumps, update action.yml's default to match in the same PR.
+# Anchor file only, never built or executed. Exists so Dependabot's docker ecosystem can track this pin. The reference this action actually runs is action.yml's headroom_image input default, which must equal this FROM line's image reference: when this digest bumps, update that default to match in the same PR. scripts/headroom-pins.sh, run by npm test, fails until they match (see docs/headroom.md).
 FROM ghcr.io/headroomlabs-ai/headroom@sha256:35b799e94eef4644cb15a2e695b4b99698fe7668614623e9338cb10c10ececf9
