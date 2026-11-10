@@ -158,7 +158,7 @@ on:
         description: "pip install method only. Exact headroom-ai version to pin. Ignored when headroom_install_method is docker."
         type: string
         required: false
-        default: "0.37.0"
+        default: "0.42.0"
       headroom_image:
         description: "docker install method only. Docker image for the Headroom proxy, pinned by digest. Ignored when headroom_install_method is pip."
         type: string

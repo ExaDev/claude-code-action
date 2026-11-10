@@ -381,7 +381,7 @@ inputs:
   headroom_version:
     description: "pip install method only. Exact headroom-ai version to pin (no leading 'v', matches PyPI's own version string). Ignored when headroom_install_method is docker. See the README for how this pin is tracked and bumped."
     required: false
-    default: "0.37.0"
+    default: "0.42.0"
   headroom_image:
     description: "docker install method only. Docker image for the Headroom proxy, pinned by digest. Ignored when headroom_install_method is pip. See the README's 'Context compression (Headroom)' section for how this pin is tracked and bumped."
     required: false
