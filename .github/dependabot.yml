@@ -1,4 +1,4 @@
-# One github-actions entry with directory: "/" is the only shape this ecosystem supports: it scans .github/workflows/*.yml and the root action.yml together in a single pass, so it also opens bump PRs for actions/checkout, actions/setup-node, actions/cache, and actions/create-github-app-token. That is free dependency hygiene, not scope creep -- grouping below keeps those routine bumps in one batched PR while anthropics/claude-code-action always arrives alone, so the Dependabot workflow's investigation step reasons about exactly one upstream release per PR. This repository's own reusable workflows self-reference the composite action via `uses: ./`, not a versioned `owner/repo@vN` reference, so there is no self-dependency for Dependabot to ever try bumping here -- unlike a consumer repository, which pins a real tag.
+# One github-actions entry with directory: "/" is the only shape this ecosystem supports: it scans .github/workflows/*.yml and the root action.yml together in a single pass, so it also opens bump PRs for actions/checkout, actions/setup-node, actions/cache, and actions/create-github-app-token. That is free dependency hygiene, not scope creep -- grouping below keeps those routine minor and patch bumps in one batched PR, while a major bump and anthropics/claude-code-action each arrive alone, so the Dependabot workflow's investigation step reasons about exactly one upstream release per PR. This repository's own reusable workflows self-reference the composite action via `uses: ./`, not a versioned `owner/repo@vN` reference, so there is no self-dependency for Dependabot to ever try bumping here -- unlike a consumer repository, which pins a real tag.
 version: 2
 
 updates:
@@ -15,13 +15,17 @@ updates:
       include: "scope"
     open-pull-requests-limit: 10
     groups:
+      # Minor and patch updates only: a major update matches no group, so it arrives as its own pull request. A major can need changes of its own (a new runtime, a removed input), and batched with the routine updates it would hold every one of them back until it was fixed; alone, it also gets its own review and stops for a human under the Dependabot workflow's default auto-merge levels.
       github-actions:
         patterns:
           - "*"
         exclude-patterns:
           - "anthropics/claude-code-action"
+        update-types:
+          - "minor"
+          - "patch"
 
-  # A second, independent ecosystem entry, isolated from the github-actions one above: @anthropic-ai/claude-code is Anthropic's own CLI, published to npm on its own release cadence, completely separate from anthropics/claude-code-action (the GitHub Action bumped above). The "Investigate and adapt" step in .github/workflows/dependabot.yml runs this CLI via npx instead of calling that Action directly, specifically so a bump of one is never proposed in the same pull request as a bump of the other. Every other npm devDependency (typescript, eslint, prettier, semantic-release, commitlint, husky, turbo, and the rest) is tracked here too, batched into one routine group -- the same free-dependency-hygiene reasoning the github-actions entry above already applies to actions/checkout and friends.
+  # A second, independent ecosystem entry, isolated from the github-actions one above: @anthropic-ai/claude-code is Anthropic's own CLI, published to npm on its own release cadence, completely separate from anthropics/claude-code-action (the GitHub Action bumped above). The "Investigate and adapt" step in .github/workflows/dependabot.yml runs this CLI via npx instead of calling that Action directly, specifically so a bump of one is never proposed in the same pull request as a bump of the other. Every other npm devDependency (typescript, eslint, prettier, semantic-release, commitlint, husky, turbo, and the rest) is tracked here too, their minor and patch updates batched into one routine group and each major in a pull request of its own, the same free-dependency-hygiene reasoning the github-actions entry above already applies to actions/checkout and friends.
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
@@ -33,11 +37,15 @@ updates:
       include: "scope"
     open-pull-requests-limit: 10
     groups:
+      # Minor and patch updates only, for the same reason as the github-actions group above: a major update (a new TypeScript or ESLint config major whose peers do not accept it yet) arrives as its own pull request instead of failing `npm ci` for the whole batch.
       npm-dependencies:
         patterns:
           - "*"
         exclude-patterns:
           - "@anthropic-ai/claude-code"
+        update-types:
+          - "minor"
+          - "patch"
 
   # A third, independent ecosystem entry, tracking the Headroom proxy image the context-compression feature (headroom_enabled) runs when headroom_install_method is docker. A bare `docker run` inside action.yml's own shell steps is invisible to Dependabot's docker ecosystem, which needs a Dockerfile/compose FROM line or a workflow's `uses: docker://...` -- docker/headroom.Dockerfile exists purely as that anchor, never built. Not routed through the "Investigate and adapt" workflow below: that automation answers "does the interface contract need a matching change," which has no content for a bare digest bump. When this bumps, action.yml's headroom_image default needs a matching hand-update in the same PR -- see README.md's "Context compression (Headroom)" section.
   - package-ecosystem: "docker"
