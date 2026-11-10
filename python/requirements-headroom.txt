@@ -1,2 +1,2 @@
 # Anchor file only, never installed from directly by action.yml, which pip-installs into its own throwaway venv at runtime instead. Exists so Dependabot's pip ecosystem can track this pin. The version this action actually installs is action.yml's headroom_version input default, which must equal the version pinned below: when it bumps, update that default to match in the same PR. scripts/headroom-pins.sh, run by npm test, fails until they match (see docs/headroom.md).
-headroom-ai[proxy]==0.37.0
+headroom-ai[proxy]==0.42.0
