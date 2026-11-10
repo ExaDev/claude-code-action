@@ -1,3 +1,16 @@
+## [1.20.0](https://github.com/ExaDev/claude-code-action/compare/v1.19.1...v1.20.0) (2026-11-10)
+
+### Bug Fixes
+
+- **review:** make the ledger unavailable, not the review failed, when GitHub reads fail ([2a7edd5](https://github.com/ExaDev/claude-code-action/commit/2a7edd506912506c8902f30ec48e96bcd3406028)), closes [#174](https://github.com/ExaDev/claude-code-action/issues/174)
+- **review:** read the ledger update the reviewer wrote anywhere in its own messages ([c191a49](https://github.com/ExaDev/claude-code-action/commit/c191a495067f056e690daac89a01cca79dd55cda)), closes [#174](https://github.com/ExaDev/claude-code-action/issues/174)
+- **review:** stop on a ledger comment whose data block cannot be read ([415f5f6](https://github.com/ExaDev/claude-code-action/commit/415f5f6c00793917dd7b7352b41d8ad02cec032e)), closes [#174](https://github.com/ExaDev/claude-code-action/issues/174)
+- **review:** write the ledger step summary without a fallback path ([841cca8](https://github.com/ExaDev/claude-code-action/commit/841cca8d154b33dae08c52d55999fc1d59b38e3e))
+
+### Features
+
+- **review:** keep a review ledger of reviewed heads, findings and invariants ([cb04130](https://github.com/ExaDev/claude-code-action/commit/cb0413094acded8e26be6c47e99a7141aecd8468)), closes [#174](https://github.com/ExaDev/claude-code-action/issues/174)
+
 ## [1.19.1](https://github.com/ExaDev/claude-code-action/compare/v1.19.0...v1.19.1) (2026-11-09)
 
 ### Bug Fixes
