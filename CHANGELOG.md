@@ -1,3 +1,13 @@
+## [1.22.0](https://github.com/ExaDev/claude-code-action/compare/v1.21.0...v1.22.0) (2026-11-10)
+
+### Bug Fixes
+
+- **review:** fetch the head's history before the ancestry check in a shallow checkout ([8392470](https://github.com/ExaDev/claude-code-action/commit/8392470b8d301ad8959e95e923f6a035b8c82cff)), closes [#176](https://github.com/ExaDev/claude-code-action/issues/176)
+
+### Features
+
+- **review:** re-review the delta since the last reviewed head with the ledger ([d6c0612](https://github.com/ExaDev/claude-code-action/commit/d6c0612cefab98813c9b7148dfc9c937ccc3a337)), closes [#176](https://github.com/ExaDev/claude-code-action/issues/176)
+
 ## [1.21.0](https://github.com/ExaDev/claude-code-action/compare/v1.20.0...v1.21.0) (2026-11-10)
 
 ### Bug Fixes
