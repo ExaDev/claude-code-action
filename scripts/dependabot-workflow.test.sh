@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests for the Auto-merge job of .github/workflows/dependabot.yml. The job has no checkout, so its steps' run: scripts are taken out of the workflow and run in a directory that is not a git repository, against a stub gh that resolves the repository the way gh does (--repo or -R, then GH_REPO, then the git remote of the working directory) and fails as gh does when none is found. The steps' conditions and the job's permissions are checked as written.
+# Tests for the Auto-merge job of .github/workflows/dependabot.yml. The job has no checkout, so its steps' run: scripts are taken out of the workflow and run in a directory that is not a git repository, against a stub gh that resolves the repository the way gh does (--repo or -R, then GH_REPO, then the git remote of the working directory) and fails as gh does when none is found. The job's and the steps' conditions and the job's permissions are checked as written.
 #
 # Usage: bash scripts/dependabot-workflow.test.sh
 set -euo pipefail
@@ -41,9 +41,30 @@ workflow_step_script() {
   '
 }
 
-# The value of a step's own `if:` line.
+# The `if:` at the given indent in the lines on stdin, inline or as a block, its lines joined by single spaces; nothing when there is none.
+condition_at() {
+  awk -v indent="$1" '
+    BEGIN { prefix = indent "if: "; deeper = indent "  " }
+    index($0, prefix) == 1 && $0 != prefix "|" { print substr($0, length(prefix) + 1); exit }
+    $0 == prefix "|" { in_block = 1; next }
+    in_block {
+      if (index($0, deeper) != 1) { exit }
+      line = $0
+      sub(/^ +/, "", line)
+      joined = joined (joined == "" ? "" : " ") line
+    }
+    END { if (joined != "") { print joined } }
+  '
+}
+
+# The job's own if:.
+job_condition() {
+  job_lines "$1" | condition_at "    "
+}
+
+# The step's own if:.
 workflow_step_condition() {
-  workflow_step_lines "$1" "$2" | awk 'index($0, "        if: ") == 1 { print substr($0, 13); exit }'
+  workflow_step_lines "$1" "$2" | condition_at "        "
 }
 
 # A gh that records each call in $STUB_LOG, resolves the repository as gh does, answers `pr view --json autoMergeRequest` from $STUB_AUTO_MERGE (a JSON value, null when unset), and applies --jq with jq.
@@ -112,17 +133,33 @@ done
 permissions="$(job_lines auto-merge | awk '$0 == "    permissions:" { in_block = 1; next } in_block && /^      [a-z-]+: / { sub(/^ +/, ""); print; next } in_block { exit }' | paste -sd ' ' -)"
 expect_equal "the Auto-merge job can enable and disable auto-merge" "contents: write pull-requests: write" "$permissions"
 expect_equal "Auto-merge is not checked out, so its steps cannot rely on a git remote" "" "$(job_lines auto-merge | grep 'uses: actions/checkout' || true)"
-expect_equal "auto-merge is enabled only when the review cleared the revision" "needs.review.result == 'success'" "$(workflow_step_condition auto-merge "Enable auto-merge")"
-expect_equal "auto-merge is withdrawn whenever the review did not clear the revision" "needs.review.result != 'success'" "$(workflow_step_condition auto-merge "Withdraw auto-merge")"
+expect_equal "the Auto-merge job runs on every classified Dependabot run, whatever the review and the auto-merge flags say" "always() && needs.metadata.result == 'success'" "$(job_condition auto-merge)"
+expect_equal "auto-merge is enabled only when the review cleared the revision and the bump is enabled and eligible" "needs.review.result == 'success' && needs.metadata.outputs.automerge-enabled == 'true' && needs.metadata.outputs.automerge-eligible == 'true'" "$(workflow_step_condition auto-merge "Enable auto-merge")"
+expect_equal "Withdraw auto-merge has no condition of its own, so nothing can gate it apart from its script" "" "$(workflow_step_condition auto-merge "Withdraw auto-merge")"
 
 # Enable auto-merge
 expect_equal "Enable auto-merge succeeds with no checkout" "0" "$(run_without_checkout "$enable_script")"
 expect_equal "Enable auto-merge names the repository and merges with a merge commit" "pr merge 146 --repo ExaDev/claude-code-action --auto --merge" "$(cat "$stub_log")"
 
-# Withdraw auto-merge
-expect_equal "Withdraw auto-merge succeeds with no checkout when auto-merge is on" "0" "$(run_without_checkout "$withdraw_script" STUB_AUTO_MERGE='{"mergeMethod":"MERGE"}')"
-expect_equal "Withdraw auto-merge disables an auto-merge that is on" "pr merge 146 --repo ExaDev/claude-code-action --disable-auto" "$(tail -n 1 "$stub_log")"
-expect_equal "Withdraw auto-merge succeeds with no checkout when auto-merge is off" "0" "$(run_without_checkout "$withdraw_script")"
+# Withdraw auto-merge, for a pull request an earlier run left with auto-merge on. Each case is the review result, then the automerge-enabled and automerge-eligible outputs of metadata, as the step's environment receives them.
+armed='{"mergeMethod":"MERGE"}'
+withdraw_call="pr merge 146 --repo ExaDev/claude-code-action --disable-auto"
+
+# Runs the withdraw step for one case with auto-merge on, and prints its exit status and its last gh call.
+withdraw_case() {
+  local status
+  status="$(run_without_checkout "$withdraw_script" STUB_AUTO_MERGE="$armed" REVIEW_RESULT="$1" AUTOMERGE_ENABLED="$2" AUTOMERGE_ELIGIBLE="$3")"
+  echo "${status} $(tail -n 1 "$stub_log")"
+}
+
+expect_equal "a revision the review did not clear withdraws auto-merge" "0 ${withdraw_call}" "$(withdraw_case failure true true)"
+expect_equal "a revision the review was skipped for withdraws auto-merge" "0 ${withdraw_call}" "$(withdraw_case skipped true true)"
+expect_equal "a bump no longer eligible withdraws auto-merge though the review cleared it" "0 ${withdraw_call}" "$(withdraw_case success true false)"
+expect_equal "auto-merge switched off withdraws auto-merge though the review cleared it" "0 ${withdraw_call}" "$(withdraw_case success false true)"
+expect_equal "auto-merge switched off on an ineligible bump withdraws auto-merge" "0 ${withdraw_call}" "$(withdraw_case success false false)"
+expect_equal "auto-merge switched off on a revision the review did not clear withdraws auto-merge" "0 ${withdraw_call}" "$(withdraw_case failure false false)"
+expect_equal "a cleared, enabled and eligible revision keeps its auto-merge and calls gh not at all" "0 " "$(withdraw_case success true true)"
+expect_equal "Withdraw auto-merge succeeds with no checkout when auto-merge is off" "0" "$(run_without_checkout "$withdraw_script" REVIEW_RESULT=failure AUTOMERGE_ENABLED=false AUTOMERGE_ELIGIBLE=false)"
 expect_equal "Withdraw auto-merge makes no write when auto-merge is off" "" "$(grep -- '--disable-auto' "$stub_log" || true)"
 
 # The stub tells a missing repository apart, so the cases above could have failed.
