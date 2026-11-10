@@ -1,3 +1,16 @@
+## [1.21.0](https://github.com/ExaDev/claude-code-action/compare/v1.20.0...v1.21.0) (2026-11-10)
+
+### Bug Fixes
+
+- **review:** name the commit the read step could not fetch from origin ([1b54659](https://github.com/ExaDev/claude-code-action/commit/1b54659f7993b85f85bf890beec329f7dd67c1fb)), closes [#175](https://github.com/ExaDev/claude-code-action/issues/175)
+- **review:** record a class the repository promotes once, as the repository's ([8b9e349](https://github.com/ExaDev/claude-code-action/commit/8b9e3498dd6d0eab34a4776d8b9bd793edb19edf)), closes [#175](https://github.com/ExaDev/claude-code-action/issues/175)
+- **review:** refuse a repository invariants file that lists a class key twice ([97090ba](https://github.com/ExaDev/claude-code-action/commit/97090ba1eebc6782a9ad4fc331261e36760146f5)), closes [#175](https://github.com/ExaDev/claude-code-action/issues/175)
+- **review:** stop telling the reviewer a gone instance stays open if reported again ([b9b18e5](https://github.com/ExaDev/claude-code-action/commit/b9b18e5fcaa18bde2300d251ddace67350d75dd8)), closes [#175](https://github.com/ExaDev/claude-code-action/issues/175)
+
+### Features
+
+- **review:** derive invariants and enumerate their instances before reviewing ([2ba2198](https://github.com/ExaDev/claude-code-action/commit/2ba2198b4929b1e61abfe866dd56fbedaa5e9d1c)), closes [#175](https://github.com/ExaDev/claude-code-action/issues/175)
+
 ## [1.20.0](https://github.com/ExaDev/claude-code-action/compare/v1.19.1...v1.20.0) (2026-11-10)
 
 ### Bug Fixes
