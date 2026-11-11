@@ -1,3 +1,14 @@
+## [1.24.0](https://github.com/ExaDev/claude-code-action/compare/v1.23.0...v1.24.0) (2026-11-11)
+
+### Bug Fixes
+
+- **examples:** fail a dispatched review when the pull request lookup fails ([5b180da](https://github.com/ExaDev/claude-code-action/commit/5b180da118ed66428f1191346ddc655be45e30ae))
+- **review:** give a dispatched review its base branch and head commit ([e98e0e8](https://github.com/ExaDev/claude-code-action/commit/e98e0e860beb8b9d0843b2dd197ab07175e5af72))
+
+### Features
+
+- **examples:** let the direct review example be dispatched for a pull request ([ed17b32](https://github.com/ExaDev/claude-code-action/commit/ed17b3251e4b0363d24f7452abf4d3ba993591d4))
+
 ## [1.23.0](https://github.com/ExaDev/claude-code-action/compare/v1.22.8...v1.23.0) (2026-11-11)
 
 ### Features
