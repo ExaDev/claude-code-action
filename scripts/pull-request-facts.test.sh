@@ -18,12 +18,12 @@ STUB
 chmod +x "${bin}/gh"
 calls="${work_dir}/gh-calls"
 : > "$calls"
-pull='{"head": {"sha": "1111111111111111111111111111111111111111"}, "base": {"ref": "release/1.x"}}'
+pull='{"head": {"sha": "1111111111111111111111111111111111111111"}, "base": {"ref": "release-1.x"}}'
 
 run_facts() {
   reset_runner_temp
   : > "$calls"
-  run_step pr-facts PATH="${bin}:${PATH}" FAKE_GH_CALLS="$calls" REPOSITORY=o/r PR_NUMBER= EVENT_HEAD_SHA= EVENT_BASE_REF= "$@"
+  run_step pr-facts PATH="${bin}:${PATH}" FAKE_GH_CALLS="$calls" REPOSITORY=ExaDev/claude-code-action PR_NUMBER= EVENT_HEAD_SHA= EVENT_BASE_REF= "$@"
 }
 
 # A pull_request event already carries both facts, so no API call is made.
@@ -35,7 +35,7 @@ expect_equal "an event that carries the facts costs no API call" "0" "$(wc -l < 
 # A dispatch carries neither, so they come from the pull request pr_number names.
 expect_equal "a dispatch resolves the facts from the API" "0" "$(run_facts PR_NUMBER=7 FAKE_PULL="$pull")"
 expect_equal "the dispatched pull request's head sha is the output" "1111111111111111111111111111111111111111" "$(output_value "${work_dir}/output" head_sha)"
-expect_equal "the dispatched pull request's base branch is the output" "release/1.x" "$(output_value "${work_dir}/output" base_ref)"
+expect_equal "the dispatched pull request's base branch is the output" "release-1.x" "$(output_value "${work_dir}/output" base_ref)"
 expect_equal "a failed lookup fails the step" "1" "$(run_facts PR_NUMBER=7)"
 incomplete_status="$(run_facts PR_NUMBER=7 FAKE_PULL='{"head": {"sha": "abc"}}')"
 expect_equal "a pull request with no base branch fails the step" "failed" "$([ "$incomplete_status" != "0" ] && echo failed || echo passed)"
