@@ -1195,6 +1195,36 @@ runs:
           echo "context=${work}/context.md"
         } >> "$GITHUB_OUTPUT"
 
+    # A pull_request event carries the head commit and base branch; a run started any other way (a workflow_dispatch with pr_number) does not, so they are read from the API for the pull request that pr_number names.
+    - name: Resolve pull request facts
+      id: pr-facts
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token || github.token }}
+        REPOSITORY: ${{ github.repository }}
+        PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number }}
+        EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        EVENT_BASE_REF: ${{ github.event.pull_request.base.ref }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set -euo pipefail
+
+        if [ -n "$EVENT_HEAD_SHA" ] && [ -n "$EVENT_BASE_REF" ]; then
+          {
+            echo "head_sha=${EVENT_HEAD_SHA}"
+            echo "base_ref=${EVENT_BASE_REF}"
+          } >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        # Issue events and the other modes name no pull request, and have no head or base to report.
+        if [ -z "$PR_NUMBER" ] || [ "${GITHUB_EVENT_NAME:-}" = "issues" ] || [ "${GITHUB_EVENT_NAME:-}" = "issue_comment" ]; then
+          exit 0
+        fi
+
+        pull="$(mktemp "${RUNNER_TEMP}/pull-request-facts.XXXXXX")"
+        gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}" > "$pull"
+        bash "${ACTION_PATH}/scripts/pull-request-facts.sh" "$pull" >> "$GITHUB_OUTPUT"
+
     - name: Compose prompt
       id: prompt
       shell: bash
@@ -1207,8 +1237,8 @@ runs:
         EVENT_NAME: ${{ github.event_name }}
         EVENT_ACTION: ${{ github.event.action }}
         ENTITY_NUMBER: ${{ inputs.pr_number || inputs.issue_number || github.event.pull_request.number || github.event.issue.number }}
-        BASE_REF: ${{ github.event.pull_request.base.ref }}
-        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        BASE_REF: ${{ steps.pr-facts.outputs.base_ref }}
+        HEAD_SHA: ${{ steps.pr-facts.outputs.head_sha }}
         SEVERITY_RATINGS: ${{ inputs.severity_ratings }}
         ALLOWED_REVIEW_STATES: ${{ inputs.allowed_review_states }}
         INCLUDE_SUGGESTIONS: ${{ inputs.include_suggestions }}
