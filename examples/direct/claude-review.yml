@@ -10,7 +10,7 @@
 #
 # A gate decides whether the triggering event changed anything worth reviewing, and the review runs only if it did. It does no checkout and makes at most three API calls, so a skip costs seconds instead of a review of the whole diff. It skips a commit this reviewer has already reviewed and not since had dismissed (two triggers landing together, or a re-run), and it skips the merge commit GitHub's "Update branch" button creates, which introduces none of the author's own changes. It fails open: anything unexpected falls through to a review.
 #
-# A workflow_dispatch trigger takes a pr_number and runs a review of that pull request's current head without the already-reviewed check, for a commit this reviewer has already reviewed (a review that failed to post, was dismissed by hand, or ran before the review prompt was fixed). It runs through the review ledger like any other round: it verifies the findings on record and reviews the delta since the last reviewed head, which is empty when the head has not moved, so it is a re-check and not a review of the whole pull request from scratch (docs/review-ledger.md, "Forcing a review by hand"). It reviews a head in this repository, so it does not fit a fork pull request.
+# A workflow_dispatch trigger takes a pr_number and runs a review of that pull request's current head without the already-reviewed check, for a commit this reviewer has already reviewed (a review that failed to post, was dismissed by hand, or ran before the review prompt was fixed). It runs through the review ledger like any other round: it verifies the findings on record and reviews the delta since the last reviewed head, which is empty when the head has not moved, so it is a re-check and not a review of the whole pull request from scratch (docs/review-ledger.md, "Forcing a review by hand").
 
 name: Claude Review
 
@@ -69,14 +69,17 @@ jobs:
 
           # A dispatch has no pull_request payload, so the head, base and draft state come from the API. It skips the already-reviewed check below on purpose and keeps the draft check as strict as the pull_request path.
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            read -r HEAD_SHA IS_DRAFT <<< "$(gh pr view "$PR_NUMBER" --json headRefOid,isDraft --jq '"\(.headRefOid) \(.isDraft)"')"
+            # A person asked for this review, so a failed lookup fails the run instead of falling through to a review of nothing.
+            trap - ERR
+            # Assigned on its own line: a command substitution inside the here-string of `read` would hide a failed `gh` from the ERR trap, leaving an empty head sha.
+            PULL=$(gh pr view "$PR_NUMBER" --json headRefOid,isDraft --jq '"\(.headRefOid) \(.isDraft)"')
+            read -r HEAD_SHA IS_DRAFT <<< "$PULL"
             echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
             if [ "$IS_DRAFT" = "true" ]; then
               skip "pull request #$PR_NUMBER is a draft"
             fi
             review "dispatched by hand for #$PR_NUMBER"
           fi
-          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
 
           # `edited` fires when a pull request's base branch is retargeted, which is what GitHub does to a stacked pull request when its parent merges and the parent's branch is deleted, and it also fires on every title and body edit. Without the trigger a review stays pinned to a diff nobody is merging; without this branch, editing a description would cost a full review.
           if [ "$ACTION" = "edited" ]; then
@@ -132,8 +135,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.decide.outputs.should_review == 'true'
         with:
-          # The default ref follows the triggering event, and a dispatch has none, so the gate step's head sha is named for every trigger.
-          ref: ${{ steps.decide.outputs.head_sha }}
+          # A pull_request run keeps the default ref, GitHub's test merge of the pull request into its base, which is what review has always checked out. A dispatch has no such ref, so it names the head commit the gate step resolved.
+          ref: ${{ github.event_name == 'workflow_dispatch' && steps.decide.outputs.head_sha || '' }}
           # Full history: review mode's local git diff/log/show tools compare against the base branch, which a shallow (depth-1) clone does not have.
           fetch-depth: 0
       - uses: ExaDev/claude-code-action@v1
