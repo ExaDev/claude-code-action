@@ -1,3 +1,9 @@
+## [1.23.0](https://github.com/ExaDev/claude-code-action/compare/v1.22.8...v1.23.0) (2026-11-11)
+
+### Features
+
+- **review:** give an invalid ledger update one structured repair turn ([2fc25a3](https://github.com/ExaDev/claude-code-action/commit/2fc25a33a845246677cf2230ff8461121774e62b)), closes [#192](https://github.com/ExaDev/claude-code-action/issues/192)
+
 ## [1.22.8](https://github.com/ExaDev/claude-code-action/compare/v1.22.7...v1.22.8) (2026-11-10)
 
 ### Bug Fixes
