@@ -13,7 +13,8 @@
 # - `review-ledger.sh prepare <commit> <facts-file> [<previous-ledger-file>]` prints what a round starts from, for `context`: its round number, the previous reviewed head, the invariants to check with every instance their grep enumerators find at the commit, and the findings on record, each open grep-enumerated one marked with whether its instance still matches. Runs in the repository holding the commit.
 # - `review-ledger.sh context <prepared-file> [<delta-file>]` prints the "Review ledger" section of the review prompt from what `prepare` printed, with the delta diff embedded when the scope is a delta.
 # - `review-ledger.sh enumerate-ledger <commit> <ledger-file>` prints the ledger with every invariant's instances found at the commit, every open grep-enumerated finding whose instance no longer matches marked fixed, and every one marked fixed whose instance still matches reopened. A finding reported this round whose instance its own grep enumerator does not find is an error. Runs in the repository holding the commit.
-# - `review-ledger.sh render <ledger-file>` prints the comment body that stores the ledger.
+# - `review-ledger.sh update-schema` prints the `update` definition as a self-contained JSON Schema (every $ref resolved, on one line), for `claude --json-schema`, so the reviewer can be asked for its update as structured output against the one definition `validate` checks.
+# - `review-ledger.sh render <ledger-file> [<unrecorded-head>]` prints the comment body that stores the ledger. With an unrecorded head it also states, above the counts, that the review of that head was posted but its ledger update could not be recorded, so the ledger still ends at its last recorded round.
 #
 # A command that finds invalid input prints why on stderr and exits 1; nothing is skipped silently.
 set -euo pipefail
@@ -424,10 +425,20 @@ case "$command" in
     ' "$file" || die "the ledger could not be enumerated (see the message above)"
     ;;
 
+  update-schema)
+    [ "$#" -eq 0 ] || die "usage: review-ledger.sh update-schema"
+    jq -c '
+      ."$defs" as $defs
+      | def resolve: if type == "object" then (if has("$ref") then ($defs[(."$ref" | ltrimstr("#/$defs/"))] | resolve) else map_values(resolve) end) elif type == "array" then map(resolve) else . end;
+      $defs.update | resolve
+    ' "$schema"
+    ;;
+
   render)
-    [ "$#" -eq 1 ] || die "usage: review-ledger.sh render <ledger-file>"
+    [ "$#" -ge 1 ] && [ "$#" -le 2 ] || die "usage: review-ledger.sh render <ledger-file> [<unrecorded-head>]"
     file="$1"
-    body="$(jq -r --arg marker "$COMMENT_MARKER" --arg open "$DATA_OPEN" --arg close "$DATA_CLOSE" '
+    unrecorded_head="${2:-}"
+    body="$(jq -r --arg marker "$COMMENT_MARKER" --arg open "$DATA_OPEN" --arg close "$DATA_CLOSE" --arg unrecorded "$unrecorded_head" '
       # Class keys match a kebab-case pattern, so they are safe inside inline code. Nothing else the reviewer wrote is shown: a summary or instance could carry a mention or a link.
       def counts($status): [.findings[] | select(.status == $status)] | length;
       . as $ledger
@@ -435,6 +446,10 @@ case "$command" in
           $marker,
           "**Review ledger**: round \(.round), reviewed head `\(.reviewedHead[0:12])`, \(if .scope.kind == "delta" then "a delta review since `\(.scope.since[0:12])`" else "a full review" end) (\(.scope.reason)).",
           "",
+          (if $unrecorded != "" then
+             "**Round not recorded**: the review of head `\($unrecorded[0:12])` was posted, but its ledger update did not match the schema even after one repair turn, so this ledger still ends at round \(.round). The next review covers everything since the reviewed head above, in full.",
+             ""
+           else empty end),
           "Findings: \(counts("open")) open, \(counts("fixed")) fixed, \(counts("retracted")) retracted.",
           (if counts("open") > 0 then
              "",

@@ -340,11 +340,23 @@ run_read() {
   reset_runner_temp
   in_fixture run_step review-ledger GITHUB_STEP_SUMMARY="${work_dir}/read-summary.md" PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 WORK_ROOT="$runner_temp"
 }
-# Runs the write step on an execution file, with the outcome of Resolve Claude Code result (success unless given) and whether the run hit its turn limit.
+# Runs "Check the review ledger update" on an execution file, as the action does before the write step; its output file is kept as $work_dir/check-output and its status printed.
+run_check() {
+  local execution_file="$1" status=0
+  in_fixture run_step review-ledger-update PATH="$PATH" EXECUTION_FILE="$execution_file" SESSION_ID="${SESSION_ID-33333333-3333-4333-8333-333333333333}" \
+    WORK="$(output_value "${work_dir}/read-output" work_dir)" > "${work_dir}/check-status"
+  cp "${work_dir}/output" "${work_dir}/check-output"
+  cp "${work_dir}/stdout" "${work_dir}/check-stdout"
+  cat "${work_dir}/check-status"
+}
+# Runs the check step and then the write step on an execution file, with the outcome of Resolve Claude Code result (success unless given), whether the run hit its turn limit and, in REPAIRED_UPDATE, what the repair turn returned. A review that failed or hit its turn limit skips the check step, as its condition does. Prints the write step's status.
 run_write() {
   local execution_file="$1" outcome="${2:-success}" hit_limit="${3:-}"
+  if [ "$outcome" = "success" ] && [ "$hit_limit" != "true" ]; then
+    run_check "$execution_file" > /dev/null
+  fi
   in_fixture run_step review-ledger-write STUB_FAIL_WRITES="${STUB_FAIL_WRITES:-}" GITHUB_STEP_SUMMARY="${work_dir}/step-summary.md" PATH="${stub_bin}:${PATH}" STUB_DIR="$stub_dir" GH_TOKEN=token REPOSITORY=owner/repo PR_NUMBER=7 EXECUTION_FILE="$execution_file" \
-    CLAUDE_OUTCOME="$outcome" HIT_TURN_LIMIT="$hit_limit" \
+    CLAUDE_OUTCOME="$outcome" HIT_TURN_LIMIT="$hit_limit" REPAIRED_UPDATE="${REPAIRED_UPDATE:-}" \
     WORK="$(output_value "${work_dir}/read-output" work_dir)" PREVIOUS="$(output_value "${work_dir}/read-output" previous)" \
     COMMENT_ID="$(output_value "${work_dir}/read-output" comment_id)" FACTS="$(output_value "${work_dir}/read-output" facts)"
 }
@@ -397,6 +409,47 @@ expect_equal "with a ledger comment the write step edits it in place" "PATCH rep
 jq -r '.body' "${stub_dir}/write-1.json" > "${work_dir}/posted-2.md"
 expect_equal "the edited comment holds round 2 with no finding counted twice" "2 ${sha_c} 2" "$(comments_with "${work_dir}/posted-2.md" Bot | ledger extract | jq -r '.ledger | "\(.round) \(.reviewedHead) \(.findings | length)"')"
 
+# A round whose update fails the schema. The model once returned a remembered field set (key, basis, statement, severity "nit", statuses {key, status: "confirmed"}) after its review was posted, which failed the job. The update now gets one repair turn as structured output, and when that fails too the job still passes with the round marked as not recorded.
+reset_stub "$sha_c"
+serve repos/owner/repo/issues/7/comments "${work_dir}/comments-1.json"
+run_read > /dev/null
+cp "${work_dir}/output" "${work_dir}/read-output"
+expect_equal "a valid update needs no repair turn" "0 repair=false" "$(run_check "${ledger_fixtures}/round-2.json") $(cat "${work_dir}/check-output")"
+expect_equal "a valid update is left in update.json for the write step" "1" "$(jq '.findings | length' "$(output_value "${work_dir}/read-output" work_dir)/update.json")"
+expect_equal "the remembered shape from the issue fails the update schema" "1" "$(ledger update-block "${ledger_fixtures}/remembered-shape.json" > "${work_dir}/remembered-update.json" 2> /dev/null; status_of ledger validate update "${work_dir}/remembered-update.json")"
+expect_equal "the remembered shape needs a repair turn" "0 repair=true" "$(run_check "${ledger_fixtures}/remembered-shape.json") $(grep -x 'repair=true' "${work_dir}/check-output")"
+expect_contains "the repair call resumes the review's session" "--resume 33333333-3333-4333-8333-333333333333" "$(output_value "${work_dir}/check-output" claude_args)"
+expect_contains "the repair call is bounded" "--max-turns 3" "$(output_value "${work_dir}/check-output" claude_args)"
+expect_contains "the repair call is constrained by the update schema" "--json-schema '$(ledger update-schema)'" "$(output_value "${work_dir}/check-output" claude_args)"
+expect_contains "the repair call carries the validator's messages" "not a valid update" "$(output_value "${work_dir}/check-output" errors)"
+expect_equal "a review with no session to resume gets no repair call" "repair=false" "$(SESSION_ID= run_check "${ledger_fixtures}/remembered-shape.json" > /dev/null; cat "${work_dir}/check-output")"
+ledger update-block "${ledger_fixtures}/round-2.json" > "${work_dir}/repaired-update.json"
+ledger update-block "${ledger_fixtures}/remembered-shape.json" > "${work_dir}/still-wrong-update.json"
+rm -f "${stub_dir}"/writes.log "${stub_dir}"/write-*.json
+status="$(REPAIRED_UPDATE="$(cat "${work_dir}/repaired-update.json")" run_write "${ledger_fixtures}/remembered-shape.json")"
+expect_equal "an update that fails the schema and is repaired is recorded" "0 PATCH repos/owner/repo/issues/comments/42" "${status} $(cat "${stub_dir}/writes.log")"
+jq -r '.body' "${stub_dir}/write-1.json" > "${work_dir}/posted-repaired.md"
+expect_equal "the repaired update is merged as round 2" "2 ${sha_c} 2" "$(comments_with "${work_dir}/posted-repaired.md" Bot | ledger extract | jq -r '.ledger | "\(.round) \(.reviewedHead) \(.findings | length)"')"
+rm -f "${stub_dir}"/writes.log "${stub_dir}"/write-*.json
+status="$(REPAIRED_UPDATE="$(cat "${work_dir}/still-wrong-update.json")" run_write "${ledger_fixtures}/remembered-shape.json")"
+expect_equal "an update that fails the schema twice does not fail the job and edits the ledger comment" "0 PATCH repos/owner/repo/issues/comments/42" "${status} $(cat "${stub_dir}/writes.log")"
+expect_contains "an update that fails the schema twice is a warning annotation" "::warning::The review ledger update of pull request #7 did not match the schema after one repair turn" "$(cat "${work_dir}/stdout")"
+jq -r '.body' "${stub_dir}/write-1.json" > "${work_dir}/posted-unrecorded.md"
+expect_contains "the ledger comment says the round is not recorded" "**Round not recorded**: the review of head \`${sha_c:0:12}\` was posted" "$(cat "${work_dir}/posted-unrecorded.md")"
+expect_equal "the unrecorded round leaves the ledger data at the last recorded round" "1 ${sha_a}" "$(comments_with "${work_dir}/posted-unrecorded.md" Bot | ledger extract | jq -r '.ledger | "\(.round) \(.reviewedHead)"')"
+expect_contains "an update that fails the schema twice is in the step summary" "this round was not recorded" "$(cat "${work_dir}/step-summary.md")"
+status="$(REPAIRED_UPDATE= run_write "${ledger_fixtures}/remembered-shape.json")"
+expect_equal "an update that fails the schema with no repair output does not fail the job" "0" "$status"
+status="$(STUB_FAIL_WRITES=1 REPAIRED_UPDATE= run_write "${ledger_fixtures}/remembered-shape.json")"
+expect_equal "failing to mark the comment as not updated does not fail the job" "0" "$status"
+expect_contains "failing to mark the comment as not updated is a warning" "::warning::Could not mark the review ledger of pull request #7 as not updated this round" "$(cat "${work_dir}/stdout")"
+ledger update-schema > "${work_dir}/update-schema.json"
+expect_equal "the update schema is self-contained" "0" "$(grep -c '\$ref' "${work_dir}/update-schema.json" || true)"
+expect_equal "the update schema holds no single quote, so claude_args can quote it" "0" "$(grep -c "'" "${work_dir}/update-schema.json" || true)"
+expect_equal "the update schema is the update definition's three fields" "findings invariants statuses" "$(jq -r '.properties | keys | join(" ")' "${work_dir}/update-schema.json")"
+expect_contains "the update-schema subcommand refuses too many arguments with its usage" "review-ledger: usage: review-ledger.sh update-schema" "$(ledger update-schema extra 2>&1 || true)"
+expect_equal "the update schema is one line" "1" "$(wc -l < "${work_dir}/update-schema.json" | tr -d ' ')"
+
 # A shallow checkout, as actions/checkout makes by default, holds only the newest commit, so the read step fetches the head and base commits from origin by id. The fixture repository serves as origin over file://, which runs the same fetch protocol GitHub does, and allows a want by commit id as GitHub does for any reachable commit.
 fixture_git config uploadpack.allowReachableSHA1InWant true
 shallow_repo="${work_dir}/shallow"
@@ -428,9 +481,11 @@ reset_stub "$sha_c"
 status="$(run_read)"
 cp "${work_dir}/output" "${work_dir}/read-output"
 status="$(run_write "${fixtures}/success.json")"
-expect_equal "the write step fails when the review ended without an update block" "1" "$status"
-expect_contains "the write step says why it failed" "wrote no <review-ledger-update> block in its final message or any other message of its own" "$(cat "${work_dir}/stdout")"
-expect_equal "the write step writes nothing when the review ended without an update block" "absent" "$([ -e "${stub_dir}/writes.log" ] && echo present || echo absent)"
+expect_equal "the write step succeeds when the review ended without an update block and the repair turn returned nothing" "0" "$status"
+expect_contains "the write step warns that the round is not recorded" "::warning::The review ledger update of pull request #7 did not match the schema after one repair turn, so this round is not recorded" "$(cat "${work_dir}/stdout")"
+expect_contains "the check step says the block is missing and asks for a repair turn" "repair=true" "$(cat "${work_dir}/check-output")"
+expect_contains "the repair turn is told the block is missing" "holds a <review-ledger-update> block" "$(output_value "${work_dir}/check-output" errors)"
+expect_equal "the write step writes nothing when the review ended without an update block and no ledger comment exists" "absent" "$([ -e "${stub_dir}/writes.log" ] && echo present || echo absent)"
 
 # The attempt that wrote the ledger is the one Resolve Claude Code result chose. A first attempt that failed (a usage limit) kept its own execution file aside, and the shared path holds the attempt that ran after it.
 # Reads the ledger, places the attempts' execution files as the attempt steps leave them (the first attempt's kept aside when given, the last attempt's at the shared path), runs Resolve Claude Code result with the given outcomes, and runs the write step on the execution file it chose.
@@ -641,8 +696,8 @@ reset_stub "$sha_a"
 run_read > /dev/null
 cp "${work_dir}/output" "${work_dir}/read-output"
 status="$(run_write "${ledger_fixtures}/trusted-fields.json")"
-expect_equal "the write step fails when the reviewer's update cannot be merged, and writes nothing" "1 absent" "${status} $([ -e "${stub_dir}/writes.log" ] && echo present || echo absent)"
-expect_contains "the write step passes on why the update could not be merged" "review-ledger: not a valid update" "$(cat "${work_dir}/stdout")"
+expect_equal "the write step succeeds, writing nothing, when the reviewer's update never validates" "0 absent" "${status} $([ -e "${stub_dir}/writes.log" ] && echo present || echo absent)"
+expect_contains "the write step logs why the update does not validate" "review-ledger: not a valid update" "$(cat "${work_dir}/stdout")"
 status="$(STUB_FAIL_WRITES=1 run_write "${ledger_fixtures}/round-1.json")"
 expect_equal "the write step fails when GitHub refuses every write" "1" "$status"
 expect_contains "the write step says it could not write the ledger" "::error::Could not write the review ledger of pull request #7 after" "$(cat "${work_dir}/stdout")"
@@ -655,10 +710,11 @@ A comment on pull request #	the read step says the marker comment's data could n
 The review ledger in comment 	the read step names the comment it refused
 The review stopped at its turn limit, so its partial review is not recorded in the review ledger of pull request #	the write step says the turn-limited review is not recorded
 No attempt of Run Claude Code succeeded (Resolve Claude Code result: 	the write step says no attempt succeeded, and that a review posted before a failure is not recorded
-The successful review (execution file 	the write step says why it failed
+The review ledger update of pull request #	an update that fails the schema twice is a warning annotation
+Could not mark the review ledger of pull request #	failing to mark the comment as not updated is a warning
 Could not write the review ledger of pull request #	the write step says it could not write the ledger
 not valid JSON: 	check refuses a file that is not JSON
-not a valid 	the write step passes on why the update could not be merged
+not a valid 	the write step logs why the update does not validate
 usage: review-ledger.sh id <class-key> <instance>	the id subcommand refuses too many arguments with its usage
 usage: review-ledger.sh check <ledger-file>	the check subcommand refuses too many arguments with its usage
 usage: review-ledger.sh update-block <execution-file>	the update-block subcommand refuses too many arguments with its usage
@@ -676,7 +732,8 @@ the checkout is shallow and fetching the history of 	a shallow checkout that can
 the grep enumerator of 	a pattern git grep rejects stops the run
 findings reported this round name an instance their own grep enumerator does not find at 	a finding reported with an instance its grep enumerator does not find is refused
 the ledger could not be enumerated (see the message above)	a finding reported with an instance its grep enumerator does not find is refused
-usage: review-ledger.sh render <ledger-file>	the render subcommand refuses too many arguments with its usage
+usage: review-ledger.sh render <ledger-file> [<unrecorded-head>]	the render subcommand refuses too many arguments with its usage
+usage: review-ledger.sh update-schema	the update-schema subcommand refuses too many arguments with its usage
 usage: review-ledger.sh <subcommand> [<argument>...], with the subcommands the header of this script lists	an unknown subcommand is refused with the general usage
 no readable data block in the ledger comment 	extract names the comment whose data block is missing
 the data block of the ledger comment 	a marker comment whose data is not JSON fails extract

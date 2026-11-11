@@ -63,7 +63,7 @@ End your run with exactly one block in this form, as the last thing in your fina
 - `statuses`: one entry for every open finding on record that you are not reporting again, as `{"id": "<id>", "status": "fixed", "reason": "<one sentence>"}` when the change removed it, or `"status": "retracted"` when the finding was wrong. A finding that still stands goes in `findings`, never here.
 - `invariants`: each property you checked the change against, as `classKey`, a one-sentence `statement` and its `enumerator`.
 
-The action checks the block against its schema. A block that is missing or does not validate leaves the ledger unchanged and fails the run, so the next round has to review the same changes again.
+The action checks the block against its schema. A block that is missing or does not validate gets one repair turn, in which you are asked again for the update as structured output with the validator's messages; if that also fails, the round is not recorded and the next round has to review the same changes again, but the run still passes.
 
 ## Title and description
 

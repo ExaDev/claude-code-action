@@ -3265,7 +3265,86 @@ runs:
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
 
-    # Writes this round into the review ledger that "Read the review ledger" read (docs/review-ledger.md). The reviewer ends its run with a <review-ledger-update> block, the same way triage hands its summary to the runner: it never writes the comment itself, has no tool that could, and its update can report findings, declare invariants and change the status of a finding it names by id, but cannot set the head, round, patch id or any id, which come from the facts the read step took from GitHub. A run that ends without a valid block fails here and leaves the ledger as it was, so the next round still starts from the last head that was recorded in full. The block is read from the execution file of the attempt "Resolve Claude Code result" chose, which is the one that succeeded; an attempt that failed first (a usage limit, a rejected credential) left its own file aside and is never read. The step runs whenever the ledger was read, even after every attempt failed, so the log always says why the ledger did or did not move: no attempt succeeded (any review a failed attempt posted is not recorded), or the run stopped at its turn limit (the wrap-up review is partial, and recording it as a reviewed head would hide what it never reached).
+    # Reads the update block of the review that just ran and checks it against the schema, so a block of another shape gets one repair turn before "Write the review ledger" gives up (docs/review-ledger.md). Without this the model's remembered, wrong field set failed the job after the review had been posted. The repair is asked for as structured output (--json-schema, derived from the one `update` definition the validator also checks), in its own continue-on-error follow-up call for the reason the structured review summary is: a schema failure there throws and fails the step, and here it must only mean no repaired update.
+    - name: Check the review ledger update
+      id: review-ledger-update
+      if: ${{ inputs.mode == 'review' && !cancelled() && steps.review-ledger.outcome == 'success' && steps.review-ledger.outputs.available == 'true' && steps.detect-turn-limit.outputs.hit_limit != 'true' && steps.claude.outcome == 'success' }}
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        SESSION_ID: ${{ steps.claude.outputs.session_id }}
+        WORK: ${{ steps.review-ledger.outputs.work_dir }}
+      run: |
+        set -euo pipefail
+
+        script="${ACTION_PATH}/scripts/review-ledger.sh"
+        # The repair call needs the structured-output tool call and may need one more turn to answer a rejected one; it reviews nothing, so no more are allowed.
+        readonly REPAIR_MAX_TURNS=3
+
+        bash "$script" update-block "$EXECUTION_FILE" > "${WORK}/update.json"
+        errors="${WORK}/update-errors.txt"
+        if [ ! -s "${WORK}/update.json" ]; then
+          echo "The run's final message, and no other message of its own, holds a <review-ledger-update> block." > "$errors"
+        elif ! bash "$script" validate update "${WORK}/update.json" 2> "$errors"; then
+          :
+        else
+          echo "repair=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        echo "The review ledger update needs a repair turn:"
+        cat "$errors"
+
+        # A run with no session cannot be resumed, so there is nobody to repair the block; the write step records the round as not recorded.
+        if [ -z "$SESSION_ID" ]; then
+          echo "repair=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        args="--resume ${SESSION_ID} --max-turns ${REPAIR_MAX_TURNS} --disallowedTools \"Write,Edit,NotebookEdit\" --json-schema '$(bash "$script" update-schema)'"
+        delim="LEDGER_REPAIR_$(openssl rand -hex 16)"
+        {
+          echo "repair=true"
+          echo "claude_args<<${delim}"
+          echo "$args"
+          echo "${delim}"
+          echo "errors<<${delim}"
+          cat "$errors"
+          echo "${delim}"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Repair the review ledger update
+      id: review-ledger-repair
+      if: ${{ steps.review-ledger-update.outputs.repair == 'true' }}
+      continue-on-error: true
+      uses: ExaDev/claude-code-action-fork@27be1cc5e5145f347f0b74255f11619eec3da4da # exadev/timeout-minutes: the base-action session bound plus the top-level timeout_minutes input that feeds it, mirrors anthropics/claude-code-action#1863; revert to the upstream pin once upstream also wires the input at the top level
+      env:
+        ANTHROPIC_BASE_URL: ${{ steps.claude.outputs.winning_cred_type == 'wif' && 'https://api.anthropic.com' || env.ANTHROPIC_BASE_URL }}
+      with:
+        prompt: |
+          You just reviewed pull request #${{ inputs.pr_number || github.event.pull_request.number }} in ${{ github.repository }} in this same session. Do not review anything further, and do not change the review you submitted.
+
+          The review ledger update you reported at the end of that review was rejected by the schema it must match. The validator reported:
+
+          ${{ steps.review-ledger-update.outputs.errors }}
+
+          Respond with only the JSON object matching the schema you were given: the update for the round you just reviewed (the invariants you checked, the findings you reported and the status of each open finding on record you did not report again), using the schema's field names. Take the values from your own review, not from memory of an earlier format.
+        claude_args: ${{ steps.review-ledger-update.outputs.claude_args }}
+        timeout_minutes: ${{ inputs.timeout_minutes }}
+        anthropic_api_key: ${{ steps.claude.outputs.winning_cred_type == 'key' && steps.claude.outputs.winning_cred_token || '' }}
+        claude_code_oauth_token: ${{ steps.claude.outputs.winning_cred_type == 'oauth' && steps.claude.outputs.winning_cred_token || '' }}
+        use_bedrock: ${{ inputs.use_bedrock }}
+        use_vertex: ${{ inputs.use_vertex }}
+        use_foundry: ${{ inputs.use_foundry }}
+        anthropic_federation_rule_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).rule_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_federation_rule_id) || '' }}
+        anthropic_organization_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).organization_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_organization_id) || '' }}
+        anthropic_service_account_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).service_account_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_service_account_id) || '' }}
+        anthropic_workspace_id: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).workspace_id || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_workspace_id) || '' }}
+        anthropic_oidc_audience: ${{ steps.claude.outputs.winning_cred_type == 'wif' && fromJSON(steps.claude.outputs.winning_cred_token).audience || (steps.credentials.outputs.credential_count == '0' && inputs.anthropic_oidc_audience) || '' }}
+        github_token: ${{ inputs.github_token }}
+        path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
+        path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
+
+    # Writes this round into the review ledger that "Read the review ledger" read (docs/review-ledger.md). The reviewer ends its run with a <review-ledger-update> block, the same way triage hands its summary to the runner: it never writes the comment itself, has no tool that could, and its update can report findings, declare invariants and change the status of a finding it names by id, but cannot set the head, round, patch id or any id, which come from the facts the read step took from GitHub. The block is checked by "Check the review ledger update", which gets a missing or invalid one a single structured-output repair turn; when that also fails, this step leaves the ledger as it was, says in the ledger comment and in a warning that the round is not recorded, and succeeds, since the review itself was posted and failing the job would hide it. The next round then starts from the last head that was recorded in full. The block is read from the execution file of the attempt "Resolve Claude Code result" chose, which is the one that succeeded; an attempt that failed first (a usage limit, a rejected credential) left its own file aside and is never read. The step runs whenever the ledger was read, even after every attempt failed, so the log always says why the ledger did or did not move: no attempt succeeded (any review a failed attempt posted is not recorded), or the run stopped at its turn limit (the wrap-up review is partial, and recording it as a reviewed head would hide what it never reached).
     - name: Write the review ledger
       id: review-ledger-write
       if: ${{ inputs.mode == 'review' && !cancelled() && steps.review-ledger.outcome == 'success' && steps.review-ledger.outputs.available == 'true' }}
@@ -3282,6 +3361,7 @@ runs:
         PREVIOUS: ${{ steps.review-ledger.outputs.previous }}
         COMMENT_ID: ${{ steps.review-ledger.outputs.comment_id }}
         FACTS: ${{ steps.review-ledger.outputs.facts }}
+        REPAIRED_UPDATE: ${{ steps.review-ledger-repair.outputs.structured_output }}
       run: |
         set -euo pipefail
 
@@ -3300,10 +3380,21 @@ runs:
           exit 1
         fi
 
-        bash "$script" update-block "$EXECUTION_FILE" > "${WORK}/update.json"
-        if [ ! -s "${WORK}/update.json" ]; then
-          echo "::error::The successful review (execution file ${EXECUTION_FILE}) wrote no <review-ledger-update> block in its final message or any other message of its own, so the review ledger of pull request #${PR_NUMBER} was not advanced; the next round reviews from the last recorded head." >&2
-          exit 1
+        # "Check the review ledger update" left the block it read in update.json. One that does not validate is replaced by the repair turn's structured output, which is checked the same way; if neither validates the round is not recorded.
+        : > "${WORK}/first-errors.txt"
+        if [ ! -s "${WORK}/update.json" ] || ! bash "$script" validate update "${WORK}/update.json" 2> "${WORK}/first-errors.txt"; then
+          printf '%s' "$REPAIRED_UPDATE" > "${WORK}/update.json"
+          if ! bash "$script" validate update "${WORK}/update.json" 2> "${WORK}/repaired-errors.txt"; then
+            echo "::warning::The review ledger update of pull request #${PR_NUMBER} did not match the schema after one repair turn, so this round is not recorded; the review itself was posted, and the next round reviews everything since the last recorded head."
+            echo "Review ledger: this round was not recorded because its update did not match the schema after one repair turn." >> "$GITHUB_STEP_SUMMARY"
+            cat "${WORK}/first-errors.txt" "${WORK}/repaired-errors.txt"
+            if [ -n "${PREVIOUS:-}" ] && [ -n "${COMMENT_ID:-}" ]; then
+              bash "$script" render "$PREVIOUS" "$(jq -r '.reviewedHead' "$FACTS")" > "${WORK}/comment.md"
+              jq -n --rawfile body "${WORK}/comment.md" '{body: $body}' > "${WORK}/payload.json"
+              gh api -X PATCH "repos/${REPOSITORY}/issues/comments/${COMMENT_ID}" --input "${WORK}/payload.json" > /dev/null || echo "::warning::Could not mark the review ledger of pull request #${PR_NUMBER} as not updated this round."
+            fi
+            exit 0
+          fi
         fi
 
         if [ -n "${PREVIOUS:-}" ]; then
