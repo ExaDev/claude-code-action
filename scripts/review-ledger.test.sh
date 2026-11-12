@@ -576,7 +576,7 @@ status="$(run_step prompt MODE=review STACK_FRAGMENTS= STACK_NAMES= REPOSITORY=o
   FIX_CI_FAILURES=false FIX_DIFF_FINDINGS=false ADD_REGRESSION_TESTS=false PROMPT_DIR= PROMPT_FILE= TRIAGE_LABEL= UPDATE_ISSUE_BODY=false ALLOWED_TOOLS=Read DISALLOWED_TOOLS=Write \
   CLAUDE_ARGS_OVERRIDE= EXTRA_CLAUDE_ARGS= LEDGER_CONTEXT="${work_dir}/context.md")"
 expect_equal "Compose prompt succeeds with a ledger context" "0" "$status"
-expect_contains "the composed review prompt carries the ledger context" "This is round 9." "$(output_value "${work_dir}/output" text)"
+expect_contains "the composed review prompt carries the ledger context" "This is round 9." "$(cat "$(output_value "${work_dir}/output" file)")"
 
 # Every document that says where .github/claude/invariants.json is read names the pull request's base commit, which the read step uses, and none names the default branch, which a stacked pull request does not target.
 for doc in docs/review-conventions.md docs/review-ledger.md; do
