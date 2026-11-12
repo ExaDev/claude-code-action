@@ -1,3 +1,9 @@
+## [1.24.1](https://github.com/ExaDev/claude-code-action/compare/v1.24.0...v1.24.1) (2026-11-12)
+
+### Bug Fixes
+
+- **review:** pass the composed prompt to Claude Code as a file ([c3b0689](https://github.com/ExaDev/claude-code-action/commit/c3b0689c2a7650ba4a2f163f48e9a1f64c55e8c6)), closes [#198](https://github.com/ExaDev/claude-code-action/issues/198)
+
 ## [1.24.0](https://github.com/ExaDev/claude-code-action/compare/v1.23.0...v1.24.0) (2026-11-11)
 
 ### Bug Fixes
