@@ -85,7 +85,7 @@ check_attempts verbatim "$big_prompt"
 
 # The composed route: a review prompt the ledger context makes larger than the limit, as a large diff does.
 reset_runner_temp
-status="$(run_step prompt MODE=review REPOSITORY=example/repository EVENT_NAME=pull_request SEVERITY_RATINGS=emoji ALLOWED_REVIEW_STATES=COMMENT INCLUDE_SUGGESTIONS=true RESOLVE_STALE_THREADS=true FIX_PR_METADATA=true MARK_DRAFT_IF_UNREADY=false VERIFY_PRIOR_FINDINGS=true FIX_CI_FAILURES=false FIX_DIFF_FINDINGS=false ADD_REGRESSION_TESTS=false ALLOWED_TOOLS=Read LEDGER_CONTEXT="$big_prompt")"
+status="$(run_step prompt MODE=review REPOSITORY=ExaDev/claude-code-action EVENT_NAME=pull_request SEVERITY_RATINGS=emoji ALLOWED_REVIEW_STATES=COMMENT INCLUDE_SUGGESTIONS=true RESOLVE_STALE_THREADS=true FIX_PR_METADATA=true MARK_DRAFT_IF_UNREADY=false VERIFY_PRIOR_FINDINGS=true FIX_CI_FAILURES=false FIX_DIFF_FINDINGS=false ADD_REGRESSION_TESTS=false ALLOWED_TOOLS=Read LEDGER_CONTEXT="$big_prompt")"
 expect_equal "Compose prompt succeeds with a composed prompt over the limit" "0" "$status"
 composed="$(output_value "${work_dir}/output" file)"
 if [ -f "$composed" ] && [ "$(wc -c < "$composed")" -gt "$prompt_bytes" ]; then
