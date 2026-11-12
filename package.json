@@ -18,7 +18,7 @@
     "test": "bash scripts/execution-scripts.test.sh && bash scripts/review-ledger.test.sh && bash scripts/pull-request-facts.test.sh && bash scripts/dependabot-workflow.test.sh && bash scripts/headroom-pins.test.sh && bash scripts/headroom-pins.sh && bash scripts/public-repository-references.test.sh && bash scripts/public-repository-references.sh"
   },
   "devDependencies": {
-    "@anthropic-ai/claude-code": "2.1.317",
+    "@anthropic-ai/claude-code": "2.1.318",
     "@commitlint/cli": "21.2.4",
     "@commitlint/config-conventional": "21.2.4",
     "@eslint/json": "2.1.1",
