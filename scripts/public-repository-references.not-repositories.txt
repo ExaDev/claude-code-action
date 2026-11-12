@@ -27,6 +27,7 @@ drizzle-orm/d1
 ENTRYPOINT/CMD
 eslint-plugin-prettier/recommended
 eslint/config
+exadev/prompt-file
 exadev/timeout-minutes
 file/line
 I/O
