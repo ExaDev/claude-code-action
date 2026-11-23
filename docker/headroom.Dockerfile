@@ -1,2 +1,2 @@
 # Anchor file only, never built or executed. Exists so Dependabot's docker ecosystem can track this pin. The reference this action actually runs is action.yml's headroom_image input default, and the reusable workflows under .github/workflows each repeat it as their own default; all of them must equal this FROM line's image reference: when this digest bumps, update every one to match in the same PR. scripts/headroom-pins.sh, run by npm test, fails until they match (see docs/headroom.md).
-FROM ghcr.io/headroomlabs-ai/headroom@sha256:1ea5e053e3da346f1b2d66af9c3809faa9d99ccb2fae447a7ffe5aae96783a8a
+FROM ghcr.io/headroomlabs-ai/headroom@sha256:c960d8a9592e38b7a735d528d9c4c806d3f1ff98f12d07a106699f63f4c6601e
