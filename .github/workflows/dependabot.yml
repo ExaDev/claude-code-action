@@ -181,7 +181,7 @@ jobs:
 
       - name: Mint this repository's own sync App installation token
         id: app-token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           # Hardcoded app-id, not vars.EXADEV_APP_ID: this job can run under Dependabot's restricted permissions, and GitHub has no Dependabot-scoped variables store at all -- repos/{owner}/{repo}/dependabot/variables 404s, confirmed directly, not assumed -- so a vars.* read would always resolve empty here regardless of anything set in the Actions store. The App ID isn't sensitive (it's a public identifier for the App's installation, the same kind of value GitHub shows in its own UI), so hardcoding it removes the dependency on a store that doesn't exist for this context, rather than working around it. Value confirmed live: `gh api repos/ExaDev/claude-code-action/actions/variables/EXADEV_APP_ID`.
           app-id: "2852966"
