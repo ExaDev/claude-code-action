@@ -22,7 +22,7 @@
     "@commitlint/cli": "21.2.4",
     "@commitlint/config-conventional": "21.2.4",
     "@eslint/json": "2.1.1",
-    "@eslint/markdown": "8.0.3",
+    "@eslint/markdown": "9.0.0",
     "@exadev/eslint-config": "2.12.3",
     "@semantic-release/changelog": "7.0.0",
     "@semantic-release/git": "11.0.1",
