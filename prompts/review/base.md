@@ -63,7 +63,7 @@ End your run with exactly one block in this form, as the last thing in your fina
 - `statuses`: one entry for every open finding on record that you are not reporting again, as `{"id": "<id>", "status": "fixed", "reason": "<one sentence>"}` when the change removed it, or `"status": "retracted"` when the finding was wrong. A finding that still stands goes in `findings`, never here.
 - `invariants`: each property you checked the change against, as `classKey`, a one-sentence `statement` and its `enumerator`.
 
-The action checks that the block can be recorded: that it matches its schema, changes only findings on record, and names every grep-enumerated finding by an instance its enumerator lists. A block that is missing or cannot be recorded gets one repair turn, in which you are asked again for the update as structured output with the action's messages; if that also fails, the round is not recorded and the next round has to review the same changes again, but the run still passes.
+The action checks that the block can be recorded: that it matches its schema, changes only findings on record, never both reports a finding and changes its status, and names every grep-enumerated finding by an instance its enumerator lists. A block that is missing or cannot be recorded gets one repair turn, in which you are asked again for the update as structured output with the action's messages; if that also fails, the round is not recorded and the next round has to review the same changes again, but the run still passes.
 
 ## Title and description
 
