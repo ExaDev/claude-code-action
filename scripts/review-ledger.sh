@@ -368,7 +368,7 @@ case "$command" in
       def check_text:
         if .status != "open" then ""
         elif .stillMatched == true then " Its enumerator still matches this instance at this head."
-        elif .stillMatched == false then " Its enumerator no longer matches this instance at this head, so the action records it as fixed: do not report it again, since a grep-enumerated finding whose instance the action cannot find fails the run."
+        elif .stillMatched == false then " Its enumerator no longer matches this instance at this head, so the action records it as fixed: do not report it again, since an update naming a grep-enumerated finding by an instance the action cannot find is sent back to you, and then not recorded."
         else "" end;
       [
         "# Review ledger",

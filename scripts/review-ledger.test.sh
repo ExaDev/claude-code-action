@@ -223,7 +223,7 @@ context_2="$(ledger context "${work_dir}/prepared-2.json")"
 expect_contains "a later round's context names the round" "This is round 2" "$context_2"
 expect_contains "a later round's context lists each finding by id with the action's own check" "\`${id_one}\` \`stale-reference\` Should fix, open: \"README.md :: npm run old-build\". \"Names the old-build script, which this change removes.\" Its enumerator still matches this instance at this head." "$context_2"
 expect_contains "a later round's context says when a finding's instance is gone" "no longer matches this instance at this head" "$context_2"
-expect_contains "a later round's context says a gone instance must not be reported again, because that fails the run" "so the action records it as fixed: do not report it again, since a grep-enumerated finding whose instance the action cannot find fails the run." "$context_2"
+expect_contains "a later round's context says a gone instance must not be reported again, because that update would not be recorded" "so the action records it as fixed: do not report it again, since an update naming a grep-enumerated finding by an instance the action cannot find is sent back to you, and then not recorded." "$context_2"
 # Reporting a gone instance again is what enumerate-ledger refuses, so no text the reviewer is given may offer it as a way to keep the finding open.
 for given in "$context_2" "$(cat "${repo_root}/prompts/review/base.md")"; do
   if [[ "$given" == *"unless you report it again"* ]]; then
@@ -348,7 +348,7 @@ run_read() {
 run_check() {
   local execution_file="$1" status=0
   in_fixture run_step review-ledger-update PATH="$PATH" EXECUTION_FILE="$execution_file" SESSION_ID="${SESSION_ID-33333333-3333-4333-8333-333333333333}" \
-    WORK="$(output_value "${work_dir}/read-output" work_dir)" > "${work_dir}/check-status"
+    WORK="$(output_value "${work_dir}/read-output" work_dir)" PREVIOUS="$(output_value "${work_dir}/read-output" previous)" FACTS="$(output_value "${work_dir}/read-output" facts)" > "${work_dir}/check-status"
   cp "${work_dir}/output" "${work_dir}/check-output"
   cp "${work_dir}/stdout" "${work_dir}/check-stdout"
   cat "${work_dir}/check-status"
@@ -454,6 +454,10 @@ serve repos/owner/repo/issues/7/comments "${work_dir}/comments-1.json"
 run_read > /dev/null
 cp "${work_dir}/output" "${work_dir}/read-output"
 jq '(.[] | select(.type == "result") | .result) |= sub("README.md :: npm run old-build"; "README.md :: a line that is not there")' "${ledger_fixtures}/round-2.json" > "${work_dir}/unmatched-instance.json"
+expect_equal "an update naming an instance its grep enumerator does not list needs a repair turn" "0 repair=true" "$(run_check "${work_dir}/unmatched-instance.json") $(grep -x 'repair=true' "${work_dir}/check-output")"
+expect_contains "the repair turn is told the instance and the instances its enumerator lists" '"README.md :: a line that is not there" is not one of the 1 instance(s) grep "old-build" in ["README.md","docs"] lists: "README.md :: npm run old-build"' "$(output_value "${work_dir}/check-output" errors)"
+expect_contains "the repair prompt says how to rekey an unmatched instance or change its enumerator" "give that finding a test or lens enumerator instead" "$(step_lines review-ledger-repair)"
+expect_equal "the check step is given the facts the write step records under" "\${{ steps.review-ledger.outputs.facts }} \${{ steps.review-ledger.outputs.previous }}" "$(step_value review-ledger-update FACTS) $(step_value review-ledger-update PREVIOUS)"
 rm -f "${stub_dir}"/writes.log "${stub_dir}"/write-*.json
 : > "${work_dir}/step-summary.md"
 status="$(REPAIRED_UPDATE= run_write "${work_dir}/unmatched-instance.json")"

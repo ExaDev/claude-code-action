@@ -3284,7 +3284,7 @@ runs:
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
 
-    # Reads the update block of the review that just ran and checks it against the schema, so a block of another shape gets one repair turn before "Write the review ledger" gives up (docs/review-ledger.md). Without this the model's remembered, wrong field set failed the job after the review had been posted. The repair is asked for as structured output (--json-schema, derived from the one `update` definition the validator also checks), in its own continue-on-error follow-up call for the reason the structured review summary is: a schema failure there throws and fails the step, and here it must only mean no repaired update.
+    # Reads the update block of the review that just ran and checks that it can be recorded, so a block of another shape, or one that names a grep-enumerated finding by an instance its own enumerator does not list, gets one repair turn before "Write the review ledger" gives up (docs/review-ledger.md). Without this the model's remembered, wrong field set failed the job after the review had been posted. The check is the write step's own `review-ledger.sh record`, so the repair turn is asked for exactly when the write step would refuse the update. The repair is asked for as structured output (--json-schema, derived from the one `update` definition the validator also checks), in its own continue-on-error follow-up call for the reason the structured review summary is: a schema failure there throws and fails the step, and here it must only mean no repaired update.
     - name: Check the review ledger update
       id: review-ledger-update
       if: ${{ inputs.mode == 'review' && !cancelled() && steps.review-ledger.outcome == 'success' && steps.review-ledger.outputs.available == 'true' && steps.detect-turn-limit.outputs.hit_limit != 'true' && steps.claude.outcome == 'success' }}
@@ -3294,6 +3294,8 @@ runs:
         EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
         SESSION_ID: ${{ steps.claude.outputs.session_id }}
         WORK: ${{ steps.review-ledger.outputs.work_dir }}
+        PREVIOUS: ${{ steps.review-ledger.outputs.previous }}
+        FACTS: ${{ steps.review-ledger.outputs.facts }}
       run: |
         set -euo pipefail
 
@@ -3305,7 +3307,7 @@ runs:
         errors="${WORK}/update-errors.txt"
         if [ ! -s "${WORK}/update.json" ]; then
           echo "The run's final message, and no other message of its own, holds a <review-ledger-update> block." > "$errors"
-        elif ! bash "$script" validate update "${WORK}/update.json" 2> "$errors"; then
+        elif ! bash "$script" record "${WORK}/update.json" "$FACTS" ${PREVIOUS:+"$PREVIOUS"} > /dev/null 2> "$errors"; then
           :
         else
           echo "repair=false" >> "$GITHUB_OUTPUT"
@@ -3342,11 +3344,11 @@ runs:
         prompt: |
           You just reviewed pull request #${{ inputs.pr_number || github.event.pull_request.number }} in ${{ github.repository }} in this same session. Do not review anything further, and do not change the review you submitted.
 
-          The review ledger update you reported at the end of that review was rejected by the schema it must match. The validator reported:
+          The review ledger update you reported at the end of that review could not be recorded. The action reported:
 
           ${{ steps.review-ledger-update.outputs.errors }}
 
-          Respond with only the JSON object matching the schema you were given: the update for the round you just reviewed (the invariants you checked, the findings you reported and the status of each open finding on record you did not report again), using the schema's field names. Take the values from your own review, not from memory of an earlier format.
+          When it names a finding whose instance its grep enumerator does not list, write that instance as one of the instance keys the enumerator lists; when the defect is not a line the pattern matches (a symbol nothing calls, say), give that finding a test or lens enumerator instead. Respond with only the JSON object matching the schema you were given: the update for the round you just reviewed (the invariants you checked, the findings you reported and the status of each open finding on record you did not report again), using the schema's field names. Take the values from your own review, not from memory of an earlier format.
         claude_args: ${{ steps.review-ledger-update.outputs.claude_args }}
         timeout_minutes: ${{ inputs.timeout_minutes }}
         anthropic_api_key: ${{ steps.claude.outputs.winning_cred_type == 'key' && steps.claude.outputs.winning_cred_token || '' }}
