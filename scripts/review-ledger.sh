@@ -12,7 +12,8 @@
 # - `review-ledger.sh scope <head> <reviewed-files-file> <previous-ledger-file> <delta-file>` decides what a re-review is given, prints the scope as JSON and writes the delta diff to <delta-file>: the diff from the previous reviewed head to <head> over the paths either round's diff touched, when the previous head is an ancestor of <head>, and otherwise the whole pull request with the reason (a force push or rebase moved the branch past it, or it is no longer fetchable), leaving <delta-file> empty. Runs in the repository holding the commits.
 # - `review-ledger.sh prepare <commit> <facts-file> [<previous-ledger-file>]` prints what a round starts from, for `context`: its round number, the previous reviewed head, the invariants to check with every instance their grep enumerators find at the commit, and the findings on record, each open grep-enumerated one marked with whether its instance still matches. Runs in the repository holding the commit.
 # - `review-ledger.sh context <prepared-file> [<delta-file>]` prints the "Review ledger" section of the review prompt from what `prepare` printed, with the delta diff embedded when the scope is a delta.
-# - `review-ledger.sh enumerate-ledger <commit> <ledger-file>` prints the ledger with every invariant's instances found at the commit, every open grep-enumerated finding whose instance no longer matches marked fixed, and every one marked fixed whose instance still matches reopened. A finding reported this round whose instance its own grep enumerator does not find is an error. Runs in the repository holding the commit.
+# - `review-ledger.sh enumerate-ledger <commit> <ledger-file>` prints the ledger with every invariant's instances found at the commit, every open grep-enumerated finding whose instance no longer matches marked fixed, and every one marked fixed whose instance still matches reopened. A finding reported this round whose instance its own grep enumerator does not find is an error naming that instance and the instances the enumerator does list. Runs in the repository holding the commit.
+# - `review-ledger.sh record <update-file> <facts-file> [<previous-ledger-file>]` prints the ledger this round's update records: `apply`, then `enumerate-ledger` at the facts' reviewed head. It fails, with the reason on stderr, exactly when the update cannot be recorded as it stands. Runs in the repository holding the reviewed head.
 # - `review-ledger.sh update-schema` prints the `update` definition as a self-contained JSON Schema (every $ref resolved, on one line), for `claude --json-schema`, so the reviewer can be asked for its update as structured output against the one definition `validate` checks.
 # - `review-ledger.sh render <ledger-file> [<unrecorded-head>]` prints the comment body that stores the ledger. With an unrecorded head it also states, above the counts, that the review of that head was posted but its ledger update could not be recorded, so the ledger still ends at its last recorded round.
 #
@@ -30,6 +31,8 @@ readonly DATA_OPEN='<!-- claude-review-ledger-data'
 readonly DATA_CLOSE='-->'
 # GitHub rejects an issue comment body longer than this many characters; the API's validation error states the limit ("Body is too long (maximum is 65536 characters)").
 readonly COMMENT_BODY_LIMIT=65536
+# How many of the instances a grep enumerator lists are quoted when a finding names one it does not: the message reaches the log and the reviewer's repair turn, an enumerator over a whole tree can list thousands, and the reviewer can run the grep itself for the rest.
+readonly UNMATCHED_LISTED_INSTANCES=10
 # Hex digits of SHA-256 kept in an id: 64 bits, so two distinct instances on one pull request collide with odds far below one in a billion even at tens of thousands of findings (birthday bound 2^32), while an id stays short enough to quote in a prompt.
 readonly ID_HEX_DIGITS=16
 
@@ -131,8 +134,8 @@ enumerate_invariants() {
   jq -c --args '[., ($ARGS.positional | map(fromjson))] | transpose | map(.[0] + {instances: .[1]})' ${results[@]+"${results[@]}"} <<< "$invariants"
 }
 
-# Reads a JSON array of findings on stdin and prints an object mapping the id of each finding with a grep enumerator to whether its instance is still among the enumerator's matches in the tree of the commit $1. Findings with a test or lens enumerator are left out: only the reviewer can check those.
-grep_finding_matches() {
+# Reads a JSON array of findings on stdin and prints an object mapping the id of each finding with a grep enumerator to the instance keys that enumerator lists in the tree of the commit $1. Findings with a test or lens enumerator are left out: only the reviewer can check those.
+grep_finding_keys() {
   local commit="$1" findings count index finding instances
   findings="$(cat)"
   count="$(jq 'length' <<< "$findings")"
@@ -141,9 +144,18 @@ grep_finding_matches() {
     finding="$(jq -c --argjson index "$index" '.[$index]' <<< "$findings")"
     [ "$(jq -r '.enumerator.type' <<< "$finding")" = "grep" ] || continue
     instances="$(grep_instances "$(jq -r '.classKey' <<< "$finding")" "$(jq -c '.enumerator' <<< "$finding")" "$commit")"
-    pairs+=("$(jq -c -n --argjson finding "$finding" --argjson instances "$instances" '{key: $finding.id, value: ([$instances[].key] | index($finding.instance) != null)}')")
+    pairs+=("$(jq -c -n --argjson finding "$finding" --argjson instances "$instances" '{key: $finding.id, value: [$instances[].key]}')")
   done
   jq -c -n --args '$ARGS.positional | map(fromjson) | from_entries' ${pairs[@]+"${pairs[@]}"}
+}
+
+# Reads a JSON array of findings on stdin and prints an object mapping the id of each finding with a grep enumerator to whether its instance is still among the enumerator's matches in the tree of the commit $1. Findings with a test or lens enumerator are left out, as grep_finding_keys leaves them out.
+grep_finding_matches() {
+  local commit="$1" findings
+  findings="$(cat)"
+  grep_finding_keys "$commit" <<< "$findings" | jq -c --argjson findings "$findings" '
+    . as $keys | $findings | map(select($keys[.id] != null) | .instance as $instance | {key: .id, value: ($keys[.id] | any(. == $instance))}) | from_entries
+  '
 }
 
 command="${1:-}"
@@ -408,13 +420,20 @@ case "$command" in
     file="$2"
     validate ledger "$file"
     invariants="$(jq -c '.invariants | map(del(.instances))' "$file" | enumerate_invariants "$commit")"
-    matches="$(jq -c '.findings | map(select(.status != "retracted"))' "$file" | grep_finding_matches "$commit")"
-    jq -c --argjson invariants "$invariants" --argjson matches "$matches" '
+    keys="$(jq -c '.findings | map(select(.status != "retracted"))' "$file" | grep_finding_keys "$commit")"
+    jq -c --argjson invariants "$invariants" --argjson keys "$keys" --argjson quoted "$UNMATCHED_LISTED_INSTANCES" '
       .round as $round
       | .reviewedHead as $head
-      | ([.findings[] | select(.lastRound == $round and .status == "open" and $matches[.id] == false) | .id]) as $unmatched
+      | (.findings | map(select($keys[.id] != null) | .instance as $instance | {key: .id, value: ($keys[.id] | any(. == $instance))}) | from_entries) as $matches
+      | [.findings[] | select(.lastRound == $round and .status == "open" and $matches[.id] == false)] as $unmatched
       | if ($unmatched | length) > 0 then
-          error("findings reported this round name an instance their own grep enumerator does not find at \($head): \($unmatched | join(", ")); an instance of a grep-enumerated class must be one of the instance keys its enumerator lists")
+          error("findings reported this round name an instance their own grep enumerator does not find at \($head): " + ($unmatched | map(
+              $keys[.id] as $listed
+              | "\(.id) (class \(.classKey)): \(.instance | tojson) is not one of the \($listed | length) instance(s) grep \(.enumerator.pattern | tojson) in \(.enumerator.paths | tojson) lists"
+                + (if ($listed | length) == 0 then "" else ": " + ($listed[0:$quoted] | map(tojson) | join(", ")) end)
+                + (if ($listed | length) > $quoted then ", and \(($listed | length) - $quoted) more" else "" end)
+            ) | join("; "))
+            + ". An instance of a grep-enumerated class must be one of the instance keys its enumerator lists; a defect that is not a line the pattern matches, such as a symbol nothing calls, takes a test or lens enumerator instead")
         else . end
       | .invariants = $invariants
       | .findings |= map(
@@ -423,6 +442,14 @@ case "$command" in
           elif .status == "fixed" and $matches[.id] == true then .status = "open" | .statusReason = "Its grep enumerator matches this instance at \($head), so it is not fixed."
           else . end)
     ' "$file" || die "the ledger could not be enumerated (see the message above)"
+    ;;
+
+  record)
+    [ "$#" -ge 2 ] && [ "$#" -le 3 ] || die "usage: review-ledger.sh record <update-file> <facts-file> [<previous-ledger-file>]"
+    applied="$(mktemp)"
+    trap 'rm -f "$applied"' EXIT
+    bash "${BASH_SOURCE[0]}" apply "$@" > "$applied"
+    bash "${BASH_SOURCE[0]}" enumerate-ledger "$(jq -r '.reviewedHead' "$2")" "$applied"
     ;;
 
   update-schema)
@@ -447,7 +474,7 @@ case "$command" in
           "**Review ledger**: round \(.round), reviewed head `\(.reviewedHead[0:12])`, \(if .scope.kind == "delta" then "a delta review since `\(.scope.since[0:12])`" else "a full review" end) (\(.scope.reason)).",
           "",
           (if $unrecorded != "" then
-             "**Round not recorded**: the review of head `\($unrecorded[0:12])` was posted, but its ledger update did not match the schema even after one repair turn, so this ledger still ends at round \(.round). The next review covers everything since the reviewed head above, in full.",
+             "**Round not recorded**: the review of head `\($unrecorded[0:12])` was posted, but its ledger update was refused (the job log says why), so this ledger still ends at round \(.round). The next review covers everything since the reviewed head above, in full.",
              ""
            else empty end),
           "Findings: \(counts("open")) open, \(counts("fixed")) fixed, \(counts("retracted")) retracted.",
