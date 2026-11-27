@@ -3363,7 +3363,7 @@ runs:
         path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
         path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
 
-    # Writes this round into the review ledger that "Read the review ledger" read (docs/review-ledger.md). The reviewer ends its run with a <review-ledger-update> block, the same way triage hands its summary to the runner: it never writes the comment itself, has no tool that could, and its update can report findings, declare invariants and change the status of a finding it names by id, but cannot set the head, round, patch id or any id, which come from the facts the read step took from GitHub. The block is checked by "Check the review ledger update", which gets a missing or invalid one a single structured-output repair turn; when that also fails, this step leaves the ledger as it was, says in the ledger comment and in a warning that the round is not recorded, and succeeds, since the review itself was posted and failing the job would hide it. The next round then starts from the last head that was recorded in full. The block is read from the execution file of the attempt "Resolve Claude Code result" chose, which is the one that succeeded; an attempt that failed first (a usage limit, a rejected credential) left its own file aside and is never read. The step runs whenever the ledger was read, even after every attempt failed, so the log always says why the ledger did or did not move: no attempt succeeded (any review a failed attempt posted is not recorded), or the run stopped at its turn limit (the wrap-up review is partial, and recording it as a reviewed head would hide what it never reached).
+    # Writes this round into the review ledger that "Read the review ledger" read (docs/review-ledger.md). The reviewer ends its run with a <review-ledger-update> block, the same way triage hands its summary to the runner: it never writes the comment itself, has no tool that could, and its update can report findings, declare invariants and change the status of a finding it names by id, but cannot set the head, round, patch id or any id, which come from the facts the read step took from GitHub. The block is checked by "Check the review ledger update", which gets a missing or invalid one a single structured-output repair turn; when that also fails, or when the update cannot be recorded (it changes a finding the ledger does not hold, or names a grep-enumerated finding by an instance its own enumerator does not list), this step leaves the ledger as it was, says in the ledger comment and in a warning that the round is not recorded, and succeeds, since the review itself was posted and failing the job would hide it. The next round then starts from the last head that was recorded in full. The block is read from the execution file of the attempt "Resolve Claude Code result" chose, which is the one that succeeded; an attempt that failed first (a usage limit, a rejected credential) left its own file aside and is never read. The step runs whenever the ledger was read, even after every attempt failed, so the log always says why the ledger did or did not move: no attempt succeeded (any review a failed attempt posted is not recorded), or the run stopped at its turn limit (the wrap-up review is partial, and recording it as a reviewed head would hide what it never reached).
     - name: Write the review ledger
       id: review-ledger-write
       if: ${{ inputs.mode == 'review' && !cancelled() && steps.review-ledger.outcome == 'success' && steps.review-ledger.outputs.available == 'true' }}
@@ -3399,13 +3399,18 @@ runs:
           exit 1
         fi
 
-        # "Check the review ledger update" left the block it read in update.json. One that does not validate is replaced by the repair turn's structured output, which is checked the same way; if neither validates the round is not recorded.
+        # Records update.json into ledger.json: review-ledger.sh record fails exactly when the update cannot be recorded as it stands (it does not match the schema, changes a finding the ledger does not hold, or names a grep-enumerated finding by an instance its own enumerator does not list). The action, not the reviewer, decides whether a grep-enumerated finding is fixed: record runs its enumerator again at the reviewed head, and records every invariant's instance list from the same run.
+        record_update() {
+          bash "$script" record "${WORK}/update.json" "$FACTS" ${PREVIOUS:+"$PREVIOUS"} > "${WORK}/ledger.json"
+        }
+
+        # "Check the review ledger update" left the block it read in update.json. One that cannot be recorded is replaced by the repair turn's structured output, which is recorded the same way; if neither can be, the round is not recorded. Either refusal is a fault in the review's own update, not in the pull request, and the review was already posted, so it is a warning and the job succeeds: failing it would fail the pull request's check on a review that may have approved it.
         : > "${WORK}/first-errors.txt"
-        if [ ! -s "${WORK}/update.json" ] || ! bash "$script" validate update "${WORK}/update.json" 2> "${WORK}/first-errors.txt"; then
+        if [ ! -s "${WORK}/update.json" ] || ! record_update 2> "${WORK}/first-errors.txt"; then
           printf '%s' "$REPAIRED_UPDATE" > "${WORK}/update.json"
-          if ! bash "$script" validate update "${WORK}/update.json" 2> "${WORK}/repaired-errors.txt"; then
-            echo "::warning::The review ledger update of pull request #${PR_NUMBER} did not match the schema after one repair turn, so this round is not recorded; the review itself was posted, and the next round reviews everything since the last recorded head."
-            echo "Review ledger: this round was not recorded because its update did not match the schema after one repair turn." >> "$GITHUB_STEP_SUMMARY"
+          if ! record_update 2> "${WORK}/repaired-errors.txt"; then
+            echo "::warning::The review ledger update of pull request #${PR_NUMBER} was refused, so this round is not recorded; the review itself was posted, and the next round reviews everything since the last recorded head. Why it was refused is in the log below."
+            echo "Review ledger: this round was not recorded because its update was refused; the job log says why." >> "$GITHUB_STEP_SUMMARY"
             cat "${WORK}/first-errors.txt" "${WORK}/repaired-errors.txt"
             if [ -n "${PREVIOUS:-}" ] && [ -n "${COMMENT_ID:-}" ]; then
               bash "$script" render "$PREVIOUS" "$(jq -r '.reviewedHead' "$FACTS")" > "${WORK}/comment.md"
@@ -3416,13 +3421,6 @@ runs:
           fi
         fi
 
-        if [ -n "${PREVIOUS:-}" ]; then
-          bash "$script" apply "${WORK}/update.json" "$FACTS" "$PREVIOUS" > "${WORK}/applied.json"
-        else
-          bash "$script" apply "${WORK}/update.json" "$FACTS" > "${WORK}/applied.json"
-        fi
-        # The action, not the reviewer, decides whether a grep-enumerated finding is fixed: its enumerator is run again at the reviewed head, and every invariant's instance list is recorded from the same run.
-        bash "$script" enumerate-ledger "$(jq -r '.reviewedHead' "$FACTS")" "${WORK}/applied.json" > "${WORK}/ledger.json"
         bash "$script" check "${WORK}/ledger.json"
         bash "$script" render "${WORK}/ledger.json" > "${WORK}/comment.md"
         jq -n --rawfile body "${WORK}/comment.md" '{body: $body}' > "${WORK}/payload.json"

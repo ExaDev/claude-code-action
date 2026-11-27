@@ -209,6 +209,10 @@ expect_equal "a grep-enumerated finding called fixed while its instance still ma
 jq -c '.findings[0].instance = "README.md :: a line that is not there"' "${work_dir}/update-2.json" > "${work_dir}/update-2-unmatched.json"
 ledger apply "${work_dir}/update-2-unmatched.json" "${work_dir}/facts-2.json" "${work_dir}/ledger-1-enumerated.json" > "${work_dir}/applied-2-unmatched.json"
 expect_equal "a finding reported with an instance its grep enumerator does not find is refused" "1" "$(status_of in_fixture ledger enumerate-ledger "$sha_c" "${work_dir}/applied-2-unmatched.json")"
+# The refusal is what the write step logs and the repair turn is given, so it names the instance and every instance the enumerator does list.
+expect_contains "the refusal names the unmatched instance and the instances its enumerator lists" '(class stale-reference): "README.md :: a line that is not there" is not one of the 1 instance(s) grep "old-build" in ["README.md","docs"] lists: "README.md :: npm run old-build"' "$(in_fixture ledger enumerate-ledger "$sha_c" "${work_dir}/applied-2-unmatched.json" 2>&1 || true)"
+expect_equal "record refuses the update whose finding names an instance its grep enumerator does not find" "1" "$(status_of in_fixture ledger record "${work_dir}/update-2-unmatched.json" "${work_dir}/facts-2.json" "${work_dir}/ledger-1-enumerated.json")"
+expect_equal "record is apply then enumerate-ledger at the facts' reviewed head" "$(in_fixture ledger enumerate-ledger "$sha_c" "${work_dir}/applied-2-silent.json")" "$(in_fixture ledger record "${work_dir}/update-2-silent.json" "${work_dir}/facts-2.json" "${work_dir}/ledger-1-enumerated.json")"
 
 # context: what the reviewer is told
 in_fixture ledger prepare "$sha_a" "${work_dir}/facts-1.json" > "${work_dir}/prepared-1.json"
@@ -433,7 +437,7 @@ expect_equal "the repaired update is merged as round 2" "2 ${sha_c} 2" "$(commen
 rm -f "${stub_dir}"/writes.log "${stub_dir}"/write-*.json
 status="$(REPAIRED_UPDATE="$(cat "${work_dir}/still-wrong-update.json")" run_write "${ledger_fixtures}/remembered-shape.json")"
 expect_equal "an update that fails the schema twice does not fail the job and edits the ledger comment" "0 PATCH repos/owner/repo/issues/comments/42" "${status} $(cat "${stub_dir}/writes.log")"
-expect_contains "an update that fails the schema twice is a warning annotation" "::warning::The review ledger update of pull request #7 did not match the schema after one repair turn" "$(cat "${work_dir}/stdout")"
+expect_contains "an update that fails the schema twice is a warning annotation" "::warning::The review ledger update of pull request #7 was refused, so this round is not recorded" "$(cat "${work_dir}/stdout")"
 jq -r '.body' "${stub_dir}/write-1.json" > "${work_dir}/posted-unrecorded.md"
 expect_contains "the ledger comment says the round is not recorded" "**Round not recorded**: the review of head \`${sha_c:0:12}\` was posted" "$(cat "${work_dir}/posted-unrecorded.md")"
 expect_equal "the unrecorded round leaves the ledger data at the last recorded round" "1 ${sha_a}" "$(comments_with "${work_dir}/posted-unrecorded.md" Bot | ledger extract | jq -r '.ledger | "\(.round) \(.reviewedHead)"')"
@@ -443,6 +447,25 @@ expect_equal "an update that fails the schema with no repair output does not fai
 status="$(STUB_FAIL_WRITES=1 REPAIRED_UPDATE= run_write "${ledger_fixtures}/remembered-shape.json")"
 expect_equal "failing to mark the comment as not updated does not fail the job" "0" "$status"
 expect_contains "failing to mark the comment as not updated is a warning" "::warning::Could not mark the review ledger of pull request #7 as not updated this round" "$(cat "${work_dir}/stdout")"
+
+# A round whose update reports a grep-enumerated finding under an instance its own enumerator does not list, as a review once did by keying a finding about a symbol with no caller to the symbol's declaration while its pattern searched for callers. Recording it would be wrong either way: as matched it is not, and as unmatched the next round would mark it fixed although nothing changed. The review was posted, so the round is not recorded and the job passes instead of failing the pull request's check on a fault in the review's own update.
+reset_stub "$sha_c"
+serve repos/owner/repo/issues/7/comments "${work_dir}/comments-1.json"
+run_read > /dev/null
+cp "${work_dir}/output" "${work_dir}/read-output"
+jq '(.[] | select(.type == "result") | .result) |= sub("README.md :: npm run old-build"; "README.md :: a line that is not there")' "${ledger_fixtures}/round-2.json" > "${work_dir}/unmatched-instance.json"
+rm -f "${stub_dir}"/writes.log "${stub_dir}"/write-*.json
+: > "${work_dir}/step-summary.md"
+status="$(REPAIRED_UPDATE= run_write "${work_dir}/unmatched-instance.json")"
+expect_equal "an update naming an instance its grep enumerator does not list does not fail the job and edits the ledger comment" "0 PATCH repos/owner/repo/issues/comments/42" "${status} $(cat "${stub_dir}/writes.log" 2> /dev/null)"
+expect_contains "an update naming an instance its grep enumerator does not list is a warning annotation" "::warning::The review ledger update of pull request #7 was refused, so this round is not recorded" "$(cat "${work_dir}/stdout")"
+expect_contains "the write step logs which instance its grep enumerator does not list" '"README.md :: a line that is not there" is not one of the 1 instance(s)' "$(cat "${work_dir}/stdout")"
+jq -r '.body' "${stub_dir}/write-1.json" > "${work_dir}/posted-unmatched.md"
+expect_equal "an update naming an instance its grep enumerator does not list leaves the ledger data at the last recorded round" "1 ${sha_a}" "$(comments_with "${work_dir}/posted-unmatched.md" Bot | ledger extract | jq -r '.ledger | "\(.round) \(.reviewedHead)"')"
+expect_contains "an update naming an instance its grep enumerator does not list is in the step summary" "this round was not recorded" "$(cat "${work_dir}/step-summary.md")"
+rm -f "${stub_dir}"/writes.log "${stub_dir}"/write-*.json
+status="$(REPAIRED_UPDATE="$(cat "${work_dir}/repaired-update.json")" run_write "${work_dir}/unmatched-instance.json")"
+expect_equal "an update naming an instance its grep enumerator does not list is replaced by a repaired update that names one it lists" "0 2 ${sha_c}" "${status} $(jq -r '.body' "${stub_dir}/write-1.json" | jq -R -s -c '[.]' | jq -c '[{id: 1, user: {type: "Bot"}, updated_at: "2026-01-01T00:00:00Z", body: .[0]}]' | ledger extract | jq -r '.ledger | "\(.round) \(.reviewedHead)"')"
 ledger update-schema > "${work_dir}/update-schema.json"
 expect_equal "the update schema is self-contained" "0" "$(grep -c '\$ref' "${work_dir}/update-schema.json" || true)"
 expect_equal "the update schema holds no single quote, so claude_args can quote it" "0" "$(grep -c "'" "${work_dir}/update-schema.json" || true)"
@@ -482,7 +505,7 @@ status="$(run_read)"
 cp "${work_dir}/output" "${work_dir}/read-output"
 status="$(run_write "${fixtures}/success.json")"
 expect_equal "the write step succeeds when the review ended without an update block and the repair turn returned nothing" "0" "$status"
-expect_contains "the write step warns that the round is not recorded" "::warning::The review ledger update of pull request #7 did not match the schema after one repair turn, so this round is not recorded" "$(cat "${work_dir}/stdout")"
+expect_contains "the write step warns that the round is not recorded" "::warning::The review ledger update of pull request #7 was refused, so this round is not recorded" "$(cat "${work_dir}/stdout")"
 expect_contains "the check step says the block is missing and asks for a repair turn" "repair=true" "$(cat "${work_dir}/check-output")"
 expect_contains "the repair turn is told the block is missing" "holds a <review-ledger-update> block" "$(output_value "${work_dir}/check-output" errors)"
 expect_equal "the write step writes nothing when the review ended without an update block and no ledger comment exists" "absent" "$([ -e "${stub_dir}/writes.log" ] && echo present || echo absent)"
@@ -724,6 +747,7 @@ usage: review-ledger.sh scope <head> <reviewed-files-file> <previous-ledger-file
 usage: review-ledger.sh validate <definition> <file>	the validate subcommand refuses too many arguments with its usage
 usage: review-ledger.sh prepare <commit> <facts-file> [<previous-ledger-file>]	the prepare subcommand refuses too many arguments with its usage
 usage: review-ledger.sh enumerate-ledger <commit> <ledger-file>	the enumerate-ledger subcommand refuses too many arguments with its usage
+usage: review-ledger.sh record <update-file> <facts-file> [<previous-ledger-file>]	the record subcommand refuses too many arguments with its usage
 the repository invariants list a class key more than once (	the read step names the class key the invariants file lists twice
 no schema definition named 	validate refuses a definition the schema does not have
 .github/claude/invariants.json on the base branch is not a valid repository invariants file: it must match the repositoryInvariants definition in the action's schemas/review-ledger.schema.json and list each class key once (see the log above).	the read step names the invariants file that does not match the schema
