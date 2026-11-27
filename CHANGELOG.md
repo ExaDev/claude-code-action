@@ -1,3 +1,14 @@
+## [1.25.0](https://github.com/ExaDev/claude-code-action/compare/v1.24.2...v1.25.0) (2026-11-27)
+
+### Bug Fixes
+
+- **review:** record nothing, not a failed job, for an update the ledger refuses ([ff70905](https://github.com/ExaDev/claude-code-action/commit/ff70905c465b9dcee8d3b81efdbee94b6d8c8f12))
+
+### Features
+
+- **review:** send an update the ledger refuses back for its repair turn ([a9afe48](https://github.com/ExaDev/claude-code-action/commit/a9afe48c3cd1b4cbb5979e7fecdbb843d1634bf3))
+- **review:** tell the reviewer a finding is never both reported and given a status ([02ba099](https://github.com/ExaDev/claude-code-action/commit/02ba0995dc55b1786583a7acbe8877ef547d60b2))
+
 ## [1.24.2](https://github.com/ExaDev/claude-code-action/compare/v1.24.1...v1.24.2) (2026-11-13)
 
 ## [1.24.1](https://github.com/ExaDev/claude-code-action/compare/v1.24.0...v1.24.1) (2026-11-12)
